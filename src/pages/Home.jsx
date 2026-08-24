@@ -1,0 +1,122 @@
+import { Link } from 'react-router-dom';
+import Header from '../components/Header';
+import Footer from '../components/Footer';
+import { mockUser } from '../data/mockUser';
+import '../styles/Home.css';
+
+const features = [
+  {
+    title: 'Simulaciones guiadas',
+    description:
+      'Ejecuta experimentos paso a paso en un entorno controlado, sin riesgos ni consumo de materiales reales.',
+  },
+  {
+    title: 'Seguimiento de progreso',
+    description:
+      'Cada práctica queda registrada, para que estudiantes e instructores puedan revisar el avance cuando lo necesiten.',
+  },
+  {
+    title: 'Algo mas',
+    description:
+      'nose nose nose nose nose.',
+  },
+];
+
+function Home() {
+  {/* accesos rapidos del req n°3: 
+    lab siempre visible
+    historial solo para estudiantes
+    dashboard solo para instructor o admin
+    perfil solo si hay sesión. */}
+  const quickAccessItems = [
+    {
+      label: 'Laboratorios',
+      description: 'Explora el catálogo de prácticas disponibles.',
+      path: '/labs',
+      show: true,
+    },
+    {
+      label: 'Historial de Actividad',
+      description: 'Revisa tus prácticas realizadas y su progreso.',
+      path: '/dashboard/historial',
+      show: mockUser.isLoggedIn && mockUser.role === 'student',
+    },
+    {
+      label: 'Dashboard',
+      description: 'Administra laboratorios, grupos y estudiantes.',
+      path: '/dashboard',
+      show: mockUser.isLoggedIn && (mockUser.role === 'instructor' || mockUser.role === 'admin'),
+    },
+    {
+      label: 'Perfil',
+      description: 'Consulta y edita tu información de usuario.',
+      path: '/profile',
+      show: mockUser.isLoggedIn,
+    },
+  ].filter((item) => item.show);
+
+  return (
+    <div className="home">
+      <main className="home__main">
+        <section className="home__welcome">
+          {/* req n°2, mensaje de bienvenida al user */}
+          <h1 className="home__title">
+            {mockUser.isLoggedIn ? `Bienvenido de vuelta, ${mockUser.name}!` : 'Bienvenido a CyruxLabs'}
+          </h1>
+          <p className="home__subtitle">
+            Tu espacio para bla bla bla bla bla bla nosebla bla bla bla bla bla nosebla bla
+            bla bla bla bla nosebla bla bla bla bla bla nosebla bla bla bla bla bla nosebla
+            bla bla bla bla bla nosebla bla bla bla bla bla nosebla bla bla bla bla bla
+            nosebla bla bla bla bla bla nosebla bla bla bla bla bla nosebla bla bla bla bla
+          </p>
+        </section>
+
+        {/* breve explicacion de cyrux y features de éste */}
+        <section className="home__about" aria-labelledby="about-title">
+          <h2 id="about-title" className="home__section-title">
+            ¿Qué es CyruxLabs?
+          </h2>
+          <p className="home__about-text">
+            CyruxLabs es una plataforma de simulación de laboratorios pensada para la formación práctica en pentesting.
+            Permite a los estudiantes desarrollar actividades prácticar de forma segura y a
+            los instructores diseñar, asignar y monitorear el trabajo de sus estudiantes.
+          </p>
+
+          <div className="home__feature-grid">
+            {features.map((feature) => (
+              <article key={feature.title} className="home__feature-card">
+                <span className="home__feature-corner" aria-hidden="true" />
+                <span className="home__feature-title">{feature.title}</span>
+                <p className="home__feature-text">{feature.description}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        {/* req n°3, botones de lab, historial, dashboard y perfil */}
+        <section className="home__quick-access" aria-labelledby="quick-access-title">
+          <h2 id="quick-access-title" className="home__section-title">
+            Accesos rápidos
+          </h2>
+
+          <div className="home__quick-grid">
+            {quickAccessItems.map((item) => (
+              <Link key={item.path} to={item.path} className="home__quick-card">
+                <span className="home__quick-label">{item.label}</span>
+                <span className="home__quick-description">{item.description}</span>
+                <span className="home__quick-arrow" aria-hidden="true">
+                  →
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      </main>
+
+      {/* req n°4, pie de página con politica de privacidad y TyC */}
+      <Footer />
+    </div>
+  );
+}
+
+export default Home;

@@ -1,0 +1,137 @@
+.home {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.home__main {
+  flex: 1;
+  max-width: 1080px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 64px 24px 80px;
+}
+
+.home__welcome {
+  margin-bottom: 64px;
+}
+
+.home__eyebrow {
+  display: inline-block;
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #c664f7;
+  margin-bottom: 12px;
+}
+
+.home__title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 2.9rem;
+  color: #f4f2f8;
+  margin-bottom: 16px;
+}
+
+.home__subtitle {
+  max-width: 560px;
+  color: #9b93ab;
+  line-height: 1.6;
+  font-size: 1rem;
+}
+
+.home__section-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.3rem;
+  color: #f4f2f8;
+  margin-bottom: 20px;
+}
+
+.home__about {
+  margin-bottom: 64px;
+}
+
+.home__about-text {
+  max-width: 1080px;
+  color: #9b93ab;
+  line-height: 1.7;
+  margin-bottom: 32px;
+}
+
+.home__feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+}
+
+.home__feature-card {
+  position: relative;
+  background-color: #14121c;
+  border: 1px solid rgba(198, 100, 247, 0.18);
+  border-radius: 12px;
+  padding: 22px;
+}
+
+.home__feature-corner {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 14px;
+  height: 14px;
+  border-top: 2px solid #c664f7;
+  border-left: 2px solid #c664f7;
+}
+
+.home__feature-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1rem;
+  color: #f4f2f8;
+}
+
+.home__feature-text {
+  font-size: 0.9rem;
+  color: #9b93ab;
+  line-height: 1.5;
+}
+
+.home__quick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+}
+
+.home__quick-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background-color: #14121c;
+  border: 1px solid rgba(198, 100, 247, 0.18);
+  border-radius: 12px;
+  padding: 22px;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.home__quick-card:hover {
+  transform: translateY(-3px);
+  border-color: #c664f7;
+  box-shadow: 0 10px 30px rgba(198, 100, 247, 0.12);
+}
+
+.home__quick-label {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1rem;
+  color: #f4f2f8;
+}
+
+.home__quick-description {
+  font-size: 0.9rem;
+  color: #9b93ab;
+  line-height: 1.5;
+}
+
+.home__quick-arrow {
+  align-self: flex-end;
+  color: #c664f7;
+  font-size: 1.1rem;
+  margin-top: 8px;
+}
