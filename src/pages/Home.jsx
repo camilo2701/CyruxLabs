@@ -38,7 +38,7 @@ function Home() {
     {
       label: 'Historial de Actividad',
       description: 'Revisa tus prácticas realizadas y su progreso.',
-      path: '/dashboard/historial',
+      path: '/dashboard#historial',
       show: mockUser.isLoggedIn && mockUser.role === 'student',
     },
     {

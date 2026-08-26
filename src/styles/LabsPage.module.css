@@ -1,0 +1,180 @@
+.page{
+    height: calc(100vh - 76.8px);
+    display: flex;
+    flex-direction: column;
+    background: #14121c;
+    overflow: hidden;              /* NEW */
+}
+
+.lab-ui{
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    min-height: 0;  /* NEW */
+}
+
+.lab-menu{
+    width: 30%;
+    display: flex;
+    flex-direction: column;
+    padding: .5em 1em;
+}
+
+.lab-menu-title{
+    border-bottom: 1px solid #ee5dfb;
+}
+
+.lab-menu-title h1{
+    color: aliceblue;
+    font-family: "Orbitron", sans-serif;
+    font-size: 1.5rem;
+    font-weight: 200;
+    text-align: center;
+}
+
+.lab-menu-scroll{
+  flex: 1;        /* NEW */
+  min-height: 0;  /* NEW */
+  overflow-y: auto; /* NEW */
+}
+
+.lab-menu-list{
+    list-style: none;
+    display:flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+}
+
+.lab-menu-list li{
+  font-family: "Inter", sans-serif;
+  font-weight: 500;
+  font-size: 1rem;
+  padding: 1em 1em;
+  border-bottom: 1px solid rgba(238, 93, 251, 0.2); /* NEW */
+  cursor: pointer;
+  transition:0.15s;
+}
+
+.lab-menu-list li:hover{
+  background-color: #201d2a;
+}
+
+.lab-selection{
+    width: 70%;
+    border-left: 1px solid #ee5dfb;
+    padding: 1em 2em;
+    overflow-y: auto;
+}
+
+.lab-selection-nav{
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;  
+    margin-right: 16px;
+    padding-top: 1em;
+    padding-bottom: 1em;
+}
+
+.lab-selection-nav h2{
+    margin: 0;                /* NEW: kill the browser's default heading margin */
+}
+
+.lab-selection-nav-btn{
+  justify-content: center;
+}
+
+.lab-selection-nav-btn button{
+  background-color: #ee5dfb;
+  color: aliceblue;
+  font-family: "Inter", sans-serif;
+  font-weight: 600;
+  font-size: 1rem;
+  padding: 0.5rem 1.5rem;
+  border-radius: 5px;
+  border:none;
+  cursor: pointer;
+  transition: 0.4s;
+}
+
+.lab-selection-nav-btn button:hover{
+  background:#ee83f8;
+  box-shadow: 0 0 20px #ee83f8;
+}
+
+.lab-selection-summary ul{
+  margin: 0;
+  padding-left: 1.5em; /* scales with font-size, instead of browser's fixed 40px default */
+}
+
+/* Search Bar HOLY SHIT */
+
+.lab-menu-search-bar{
+  padding-top: .5em;
+  padding-bottom: .5em;
+}
+
+.group {
+  display: flex;
+  line-height: 28px;
+  align-items: center;
+  position: relative;
+  max-width: 500px;
+}
+
+.input {
+  font-family: "Inter", sans-serif;
+  width: 100%;
+  height: 45px;
+  padding-left: 2.5rem;
+  box-shadow: 0 0 0 2px #ee5dfb, 0 0 25px -17px #000;
+  border: 0;
+  border-radius: 12px;
+  background-color: #14121c;
+  outline: none;
+  color: aliceblue;
+  transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1);
+  cursor: text;
+  z-index: 0;
+}
+
+.input::placeholder {
+  color: rgb(106, 109, 111);
+}
+
+.input:hover {
+  box-shadow: 0 0 0 3.5px #ee83f8, 0px 0px 25px -15px #000;
+}
+
+.input:active {
+  transform: scale(0.95);
+}
+
+.input:focus {
+  box-shadow: 0 0 0 2.5px #2f303d;
+}
+
+.search-icon {
+  position: absolute;
+  left: 1rem;
+  fill: aliceblue;
+  width: 1rem;
+  height: 1rem;
+  pointer-events: none;
+  z-index: 1;
+}
+
+:root {
+  font-family: "Inter", sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color: #f4f2f8;
+  background: #14121c;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

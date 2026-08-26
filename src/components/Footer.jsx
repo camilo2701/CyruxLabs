@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from "react-router-dom";
 import '../styles/Footer.css';
 
 function Footer() {
@@ -33,15 +34,15 @@ function Footer() {
           <span className="footer__divider" aria-hidden="true">
             ·
           </span>
-          <a href="/privacy-policy" className="footer__link">
+          <Link to="/privacy-policy" className="footer__link">
             Política de Privacidad
-          </a>
+          </Link>
           <span className="footer__divider" aria-hidden="true">
             ·
           </span>
-          <a href="/terms" className="footer__link">
+          <Link to="/terms" className="footer__link">
             Términos y Condiciones
-          </a>
+          </Link>
           <span className="footer__divider" aria-hidden="true">
             ·
           </span>

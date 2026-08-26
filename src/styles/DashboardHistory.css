@@ -1,0 +1,380 @@
+.dashboard-history-search {
+  margin-bottom: 35px;
+}
+
+.dashboard-history-search form {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 0;
+}
+
+.dashboard-history-search label {
+  display: none;
+}
+
+.dashboard-search-row {
+  display: flex;
+  width: 100%;
+  gap: 12px;
+}
+
+.dashboard-search-row input {
+  flex: 1;
+  min-width: 0;
+
+  padding: 13px 16px;
+
+  border: 1px solid #201d2a;
+  border-radius: 8px;
+
+  outline: none;
+
+  background: #0d0b13;
+  color: #f4f2f8;
+
+  font-family: 'Inter', sans-serif;
+}
+
+.dashboard-search-row input::placeholder {
+  color: #6f687d;
+}
+
+.dashboard-search-row input:focus {
+  border-color: #c664f7;
+}
+
+.dashboard-search-row button {
+  padding: 0 24px;
+
+  border: none;
+  border-radius: 8px;
+
+  background: #c664f7;
+  color: aliceblue;
+
+  font-weight: 600;
+  cursor: pointer;
+
+  transition: 0.2s ease;
+}
+
+.dashboard-search-row button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 0 18px rgba(198, 100, 247, 0.3);
+}
+
+.dashboard-search-row button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.dashboard-student-result button,
+.dashboard-selected-student button {
+  padding: 8px 12px;
+
+  border: 1px solid #c664f7;
+  border-radius: 6px;
+
+  background: transparent;
+  color: #c664f7;
+
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.dashboard-student-result button:hover,
+.dashboard-selected-student button:hover {
+  background: #c664f7;
+  color: #0d0b13;
+}
+
+.dashboard-student-results {
+  margin-top: 20px;
+
+  background: #14121c;
+  border: 1px solid #201d2a;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.dashboard-student-results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  padding: 20px 22px;
+
+  border-bottom: 1px solid #201d2a;
+}
+
+.dashboard-student-results h2 {
+  margin: 0;
+
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #f4f2f8;
+}
+
+.dashboard-student-results-header span {
+  font-size: 0.8rem;
+  color: #9b93ab;
+}
+
+.dashboard-student-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+
+  padding: 16px 22px;
+
+  border-top: 1px solid #201d2a;
+}
+
+
+.dashboard-student-result div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dashboard-student-result strong {
+  color: #f4f2f8;
+}
+
+.dashboard-student-result span {
+  color: #9b93ab;
+  font-size: 0.85rem;
+}
+
+.dashboard-selected-student {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+
+  padding: 18px;
+
+  margin-bottom: 24px;
+
+  background: #201d2a;
+  border: 1px solid rgba(198, 100, 247, 0.25);
+  border-radius: 10px;
+}
+
+.dashboard-selected-student div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.dashboard-selected-student span {
+  font-size: 0.75rem;
+  color: #9b93ab;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.dashboard-selected-student strong {
+  color: #c664f7;
+}
+
+.dashboard-selected-student p {
+  margin: 0;
+  color: #f4f2f8;
+}
+
+.dashboard-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dashboard-history-card {
+  padding: 20px;
+
+  background: #14121c;
+  border: 1px solid rgba(198, 100, 247, 0.15);
+  border-radius: 12px;
+
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.dashboard-history-card:hover {
+  border-color: rgba(198, 100, 247, 0.4);
+  transform: translateY(-2px);
+}
+
+.dashboard-history-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+
+  margin-bottom: 20px;
+}
+
+.dashboard-history-label {
+  display: block;
+
+  margin-bottom: 5px;
+
+  color: #9b93ab;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.dashboard-history-main h3 {
+  margin: 0;
+
+  color: #f4f2f8;
+  font-size: 1.05rem;
+  font-weight: 500;
+}
+
+.dashboard-history-status {
+  white-space: nowrap;
+
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.dashboard-history-status--running {
+  color: #c664f7;
+}
+
+.dashboard-history-status--finished {
+  color: #9b93ab;
+}
+
+.dashboard-history-info {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+
+  padding: 16px 0;
+
+  border-top: 1px solid rgba(198, 100, 247, 0.08);
+  border-bottom: 1px solid rgba(198, 100, 247, 0.08);
+}
+
+.dashboard-history-info div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dashboard-history-info span {
+  color: #6b6478;
+  font-size: 0.72rem;
+}
+
+.dashboard-history-info strong {
+  color: #f4f2f8;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.dashboard-history-report {
+  margin-top: 16px;
+
+  padding: 9px 14px;
+
+  background: transparent;
+  border: 1px solid rgba(198, 100, 247, 0.35);
+  border-radius: 7px;
+
+  color: #c664f7;
+
+  font-size: 0.8rem;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition: 0.2s ease;
+}
+
+.dashboard-history-report:hover {
+  background: rgba(198, 100, 247, 0.08);
+  border-color: #c664f7;
+}
+
+.dashboard-history-empty {
+  margin: 0;
+  padding: 40px 20px;
+
+  text-align: center;
+
+  color: #9b93ab;
+}
+
+.dashboard-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+
+  margin-top: 20px;
+}
+
+.dashboard-pagination button {
+  padding: 8px 14px;
+
+  border: 1px solid #201d2a;
+  border-radius: 6px;
+
+  background: #14121c;
+  color: #f4f2f8;
+
+  cursor: pointer;
+}
+
+.dashboard-pagination button:hover:not(:disabled) {
+  border-color: #c664f7;
+  color: #c664f7;
+}
+
+.dashboard-pagination button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.dashboard-pagination span {
+  color: #9b93ab;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 800px) {
+
+  .dashboard-history-info {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+}
+
+@media (max-width: 600px) {
+
+  .dashboard-search-row {
+    flex-direction: column;
+  }
+
+  .dashboard-student-result,
+  .dashboard-selected-student {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dashboard-history-main {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .dashboard-history-info {
+    grid-template-columns: 1fr;
+  }
+
+}
