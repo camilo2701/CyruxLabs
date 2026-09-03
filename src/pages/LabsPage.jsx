@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import styles from '../styles/LabsPage.module.css'
 
@@ -7,6 +8,18 @@ import Footer from '../components/Footer.jsx'
 function LabsPage(){
 
     const [query, setQuery] = useState("");
+    const [labs, setLabs] = useState([]);
+    const [selectedLab, setSelectedLab] = useState(null);
+
+    useEffect(() => {
+        fetch('http://localhost:3001/api/labs')
+            .then((res) => res.json())
+            .then((data) => {
+                setLabs(data);
+                if (data.length > 0) setSelectedLab(data[0]);
+            })
+            .catch((err) => console.error('Failed to fetch labs:', err));
+    }, []);
 
     return(
         <>
@@ -43,37 +56,35 @@ function LabsPage(){
                         </div>
                         <div className={styles['lab-menu-scroll']}>
                             <ul className={styles['lab-menu-list']}>
-                                <li>SQL Injection #1</li>
-                                <li>Stored Cross-Site Scripting</li>
-                                <li>Server-Side Request Forgery</li>
-                                <li>Command Injection</li>
-                                <li>Path Traversal</li>
-                                <li>Broken Object Level Authorization</li>
-                                <li>Command Injection</li>
-                                <li>Path Traversal</li>
-                                <li>Command Injection</li>
-                                <li>Path Traversal</li>
+                                {labs
+                                    .filter((lab) => lab.title.toLowerCase().includes(query.toLowerCase()))
+                                    .map((lab) => (
+                                        <li
+                                            key={lab.labid}
+                                            onClick={() => setSelectedLab(lab)}
+                                            className={selectedLab?.labid === lab.labid ? styles['lab-selected'] : ''}
+                                        >
+                                            {lab.title}
+                                        </li>
+                                    ))}
                             </ul>
                         </div>
                         
                     </div>
                     <div className={styles['lab-selection']}>
                         <div className={styles['lab-selection-nav']}>
-                            <h2>SQL Injection #1</h2>
+                            <h2>{selectedLab?.title}</h2>
                             <div className={styles['lab-selection-nav-btn']}><button>Comenzar</button></div>
-                            
                         </div>
                         <div className={styles['lab-selection-summary']}>
                             <h3>Introducción</h3>
-                            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec non cursus enim. In sagittis non mi eu tempus. Proin ultricies enim sollicitudin odio consequat vulputate. Proin et nisl ex. Suspendisse tincidunt augue tincidunt porttitor pretium. Nunc quis placerat augue. Fusce in pulvinar ante. Nulla pretium elit risus, eu facilisis elit blandit in. Quisque iaculis, neque ut tincidunt pretium, quam lacus congue purus, in convallis dui enim non ligula. Integer ac mi non dui scelerisque pulvinar. Curabitur nisi dolor, dictum a est a, lacinia suscipit risus. </p>
+                            <p>{selectedLab?.description}</p>
                             <h3>Qué ganarás haciendo este lab?</h3>
-                            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec non cursus enim. In sagittis non mi eu tempus. Proin ultricies enim sollicitudin odio consequat vulputate.</p>
                             <ul>
-                                <li>Mauris lectus mi</li>
-                                <li>elementum tristique mauris ut, auctor dapibus turpis.</li>
-                                <li>Proin lacinia libero erat, eu pharetra lacus ullamcorper quis. </li>
+                                {selectedLab?.benefit.map((b, i) => (
+                                    <li key={i}>{b.description}</li>
+                                ))}
                             </ul>
-
                         </div>
                         
                     </div>

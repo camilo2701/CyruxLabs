@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styles from '../styles/RegisterPage.module.css'
 
-function RegisterPage() {
+import Footer from '../components/Footer'
+
+function RegisterPage({ onLoginClick }) {
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [firstName, setFirstName] = useState('');
@@ -41,7 +43,7 @@ function RegisterPage() {
                     return false;
                 }
                 else{
-                    setNameError('');
+                    setFirstNameError('');
                     return true;
                 }
 
@@ -117,6 +119,7 @@ function RegisterPage() {
                             name="username"
                             autoComplete="off"
                             className={styles.input}
+                            maxLength={20}
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
                             onBlur={(e) => formatCheck(0,e.target.value)}
@@ -131,6 +134,7 @@ function RegisterPage() {
                             name="email"
                             autoComplete="off"
                             className={styles.input}
+                            maxLength={50}
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             onBlur={(e) => formatCheck(2)}
@@ -146,6 +150,7 @@ function RegisterPage() {
                             name="firstName"
                             autoComplete="off"
                             className={styles.input}
+                            maxLength={32}
                             value={firstName}
                             onChange={(e) => setFirstName(e.target.value)}
                             onBlur={(e) => formatCheck(1)}
@@ -161,6 +166,7 @@ function RegisterPage() {
                             name="lastName"
                             autoComplete="off"
                             className={styles.input}
+                            maxLength={32}
                             value={lastName}
                             onChange={(e) => setLastName(e.target.value)}
                             onBlur={(e) => formatCheck(5)}
@@ -176,6 +182,7 @@ function RegisterPage() {
                             name="password"
                             autoComplete="off"
                             className={styles.input}
+                            maxLength={32}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             onBlur={(e) => formatCheck(3)}
@@ -191,6 +198,7 @@ function RegisterPage() {
                             name="confirmPassword"
                             autoComplete="off"
                             className={styles.input}
+                            maxLength={32}
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
                             onBlur={(e) => formatCheck(4)}
@@ -206,9 +214,11 @@ function RegisterPage() {
                 </form>
 
                 <p>
-                    ¿Ya tienes cuenta? <Link className={styles['modal-link']} to="/">Inicia Sesión</Link>
+                    ¿Ya tienes cuenta? <Link className={styles['modal-link']} onClick={onLoginClick}>Inicia Sesión</Link>
                 </p>
             </div>
+
+            <Footer/>
         </div>
     );
 }
