@@ -1,8 +1,14 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import styles from '../styles/RegisterPage.module.css'
+import { useAuth } from '../context/AuthContext';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
 function RegisterPage() {
+    const navigate = useNavigate();
+    const { login } = useAuth();
+
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [firstName, setFirstName] = useState('');
@@ -16,6 +22,8 @@ function RegisterPage() {
     const [lastNameError, setLastNameError] = useState('');
     const [passwordError, setPasswordError] = useState('');
     const [repeatPasswordError, setRepeatPasswordError] = useState('');
+    const [serverError, setServerError] = useState('');
+    const [loading, setLoading] = useState(false);
     
 
     function formatCheck(valueType){
@@ -41,7 +49,7 @@ function RegisterPage() {
                     return false;
                 }
                 else{
-                    setNameError('');
+                    setFirstNameError('');
                     return true;
                 }
 
@@ -86,8 +94,9 @@ function RegisterPage() {
         }
     }
 
-    function handleSubmit(event) {
+    async function handleSubmit(event) {
         event.preventDefault();
+        setServerError('');
 
         const isUsernameValid = formatCheck(0);
         const isNameValid = formatCheck(1) && formatCheck(5);
@@ -101,7 +110,29 @@ function RegisterPage() {
             return; // stop here, don't submit — at least one field failed
         }
 
-        console.log(`Registering ${username} with ${email}`);
+        setLoading(true);
+
+        try {
+            const response = await fetch(`${API_URL}/auth/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, email, firstName, lastName, password }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                setServerError(data.error || 'No se pudo completar el registro');
+                return;
+            }
+
+            login({ token: data.token, user: data.user });
+            navigate('/');
+        } catch (err) {
+            setServerError('No se pudo conectar con el servidor');
+        } finally {
+            setLoading(false);
+        }
     }
 
     return (
@@ -199,8 +230,10 @@ function RegisterPage() {
                         <label className={styles['card-error']}>{repeatPasswordError}</label>
                     </div>
 
-                    <button type="submit" className={styles.submitBtn}>
-                        Registrarse
+                    {serverError && <label className={styles['card-error']}>{serverError}</label>}
+
+                    <button type="submit" className={styles.submitBtn} disabled={loading}>
+                        {loading ? 'Registrando...' : 'Registrarse'}
                     </button>
 
                 </form>

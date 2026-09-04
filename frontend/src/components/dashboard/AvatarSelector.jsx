@@ -7,13 +7,19 @@ import avatar03 from '../../assets/avatars/avatar-03.svg';
 import avatar04 from '../../assets/avatars/avatar-04.svg';
 import avatar05 from '../../assets/avatars/avatar-05.svg';
 
-const avatars = [
-  avatar01,
-  avatar02,
-  avatar03,
-  avatar04,
-  avatar05,
-];
+// El backend guarda solo el nombre del archivo (ej. "avatar-01.svg").
+// Este mapa conecta ese nombre con la imagen ya importada por Vite,
+// para poder mostrarla. Se exporta porque DashboardProfile también
+// lo necesita para mostrar el avatar actual del usuario.
+export const avatarMap = {
+  'avatar-01.svg': avatar01,
+  'avatar-02.svg': avatar02,
+  'avatar-03.svg': avatar03,
+  'avatar-04.svg': avatar04,
+  'avatar-05.svg': avatar05,
+};
+
+const avatarFiles = Object.keys(avatarMap);
 
 function AvatarSelector({ selectedAvatar, onAvatarChange }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -36,22 +42,22 @@ function AvatarSelector({ selectedAvatar, onAvatarChange }) {
           </div>
 
           <div className="avatar-selector__grid">
-            {avatars.map((avatar, index) => (
+            {avatarFiles.map((file, index) => (
               <button
-                key={avatar}
+                key={file}
                 type="button"
                 className={`avatar-selector__option ${
-                  selectedAvatar === avatar
+                  selectedAvatar === file
                     ? 'avatar-selector__option--selected'
                     : ''
                 }`}
                 onClick={() => {
-                  onAvatarChange(avatar);
+                  onAvatarChange(file);
                   setIsOpen(false);
                 }}
               >
                 <img
-                  src={avatar}
+                  src={avatarMap[file]}
                   alt={`Avatar ${index + 1}`}
                 />
               </button>

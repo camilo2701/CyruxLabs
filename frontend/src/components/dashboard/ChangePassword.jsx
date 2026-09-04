@@ -1,7 +1,12 @@
 import { useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import '../../styles/ChangePassword.css';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+
 function ChangePassword({ onBack }) {
+  const { token } = useAuth();
+
   const [formData, setFormData] = useState({
     currentPassword: '',
     newPassword: '',
@@ -9,6 +14,7 @@ function ChangePassword({ onBack }) {
   });
 
   const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const passwordRequirements = {
     length: formData.newPassword.length >= 7,
@@ -30,7 +36,7 @@ function ChangePassword({ onBack }) {
     setMessage('');
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
     if (!formData.currentPassword) {
@@ -52,13 +58,38 @@ function ChangePassword({ onBack }) {
       return;
     }
 
-    setMessage('Contraseña cambiada correctamente.');
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/users/me/password`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          currentPassword: formData.currentPassword,
+          newPassword: formData.newPassword,
+        }),
+      });
 
-    setFormData({
-      currentPassword: '',
-      newPassword: '',
-      repeatPassword: '',
-    });
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage(data.error || 'No se pudo cambiar la contraseña.');
+        return;
+      }
+
+      setMessage('Contraseña cambiada correctamente.');
+      setFormData({
+        currentPassword: '',
+        newPassword: '',
+        repeatPassword: '',
+      });
+    } catch (err) {
+      setMessage('No se pudo conectar con el servidor.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -157,8 +188,9 @@ function ChangePassword({ onBack }) {
         <button
           type="submit"
           className="dashboard-button dashboard-button--primary"
+          disabled={loading}
         >
-          Cambiar Contraseña
+          {loading ? 'Cambiando...' : 'Cambiar Contraseña'}
         </button>
 
       </form>

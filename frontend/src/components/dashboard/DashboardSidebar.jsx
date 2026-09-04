@@ -1,4 +1,4 @@
-import { mockUser } from '../../data/mockUser';
+import { useAuth } from '../../context/AuthContext';
 import '../../styles/DashboardSidebar.css';
 
 const dashboardSections = [
@@ -28,9 +28,20 @@ const dashboardSections = [
   },
 ];
 
+// La tabla guarda role como número; esto lo traduce al string
+// que ya usan allowedRoles más abajo.
+const ROLE_NAMES = {
+  0: 'student',
+  1: 'instructor',
+  2: 'admin',
+};
+
 function DashboardSidebar({ activeSection, onSectionChange }) {
+  const { user } = useAuth();
+  const roleName = ROLE_NAMES[user.role] || 'student';
+
   const availableSections = dashboardSections.filter((section) =>
-    section.allowedRoles.includes(mockUser.role)
+    section.allowedRoles.includes(roleName)
   );
 
   return (
@@ -63,11 +74,11 @@ function DashboardSidebar({ activeSection, onSectionChange }) {
 
       <div className="dashboard-sidebar__user">
         <span className="dashboard-sidebar__user-role">
-          {mockUser.role}
+          {roleName}
         </span>
 
         <span className="dashboard-sidebar__user-name">
-          {mockUser.name}
+          {user.username}
         </span>
       </div>
     </aside>

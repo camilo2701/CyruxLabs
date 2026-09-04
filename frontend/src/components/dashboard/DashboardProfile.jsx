@@ -1,20 +1,22 @@
 import { useState } from 'react';
-import { mockUser } from '../../data/mockUser';
-import AvatarSelector from './AvatarSelector';
+import { useAuth } from '../../context/AuthContext';
+import AvatarSelector, { avatarMap } from './AvatarSelector';
 import '../../styles/DashboardProfile.css';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+
 function DashboardProfile({ onChangePassword }) {
+  const { user, token, login, updateUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
-    username: mockUser.username,
-    name: mockUser.name,
-    lastName: mockUser.lastName,
-    email: mockUser.email,
+    username: user.username,
+    firstName: user.firstname,
+    lastName: user.lastname,
+    email: user.email,
     currentPassword: '',
   });
-
-  const [avatar, setAvatar] = useState(mockUser.avatar);
 
   const [message, setMessage] = useState('');
 
@@ -29,7 +31,7 @@ function DashboardProfile({ onChangePassword }) {
     setMessage('');
   };
 
-  const handleSave = (event) => {
+  const handleSave = async (event) => {
     event.preventDefault();
 
     if (!formData.currentPassword) {
@@ -38,29 +40,76 @@ function DashboardProfile({ onChangePassword }) {
     }
 
     const hasChanges =
-      formData.username !== mockUser.username ||
-      formData.name !== mockUser.name ||
-      formData.lastName !== mockUser.lastName ||
-      formData.email !== mockUser.email;
+      formData.username !== user.username ||
+      formData.firstName !== user.firstname ||
+      formData.lastName !== user.lastname ||
+      formData.email !== user.email;
 
     if (!hasChanges) {
       setMessage('Debes modificar al menos un dato personal.');
       return;
     }
 
-    // mockdata
-    mockUser.username = formData.username;
-    mockUser.name = formData.name;
-    mockUser.lastName = formData.lastName;
-    mockUser.email = formData.email;
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/users/me`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          username: formData.username,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          currentPassword: formData.currentPassword,
+        }),
+      });
 
-    setIsEditing(false);
-    setMessage('Datos personales actualizados correctamente.');
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage(data.error || 'No se pudieron guardar los cambios');
+        return;
+      }
+
+      // El username va dentro del token, por eso login() reemplaza
+      // token + user juntos (a diferencia del avatar, que usa updateUser).
+      login({ token: data.token, user: data.user });
+      setFormData((previous) => ({ ...previous, currentPassword: '' }));
+      setIsEditing(false);
+      setMessage('Datos personales actualizados correctamente.');
+    } catch (err) {
+      setMessage('No se pudo conectar con el servidor.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleAvatarChange = (newAvatar) => {
-    setAvatar(newAvatar);
-    mockUser.avatar = newAvatar;
+  const handleAvatarChange = async (newAvatarFile) => {
+    setMessage('');
+    try {
+      const response = await fetch(`${API_URL}/users/me/avatar`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ avatar: newAvatarFile }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage(data.error || 'No se pudo cambiar el avatar');
+        return;
+      }
+
+      updateUser(data.user);
+    } catch (err) {
+      setMessage('No se pudo conectar con el servidor.');
+    }
   };
 
   return (
@@ -81,13 +130,13 @@ function DashboardProfile({ onChangePassword }) {
 
         <div className="dashboard-profile__avatar-section">
           <img
-            src={avatar}
+            src={avatarMap[user.avatar]}
             alt="Avatar seleccionado"
             className="dashboard-profile__avatar"
           />
 
           <AvatarSelector
-            selectedAvatar={avatar}
+            selectedAvatar={user.avatar}
             onAvatarChange={handleAvatarChange}
           />
         </div>
@@ -125,7 +174,7 @@ function DashboardProfile({ onChangePassword }) {
 
               <div>
                 <span>Nombre</span>
-                <strong>{formData.name}</strong>
+                <strong>{formData.firstName}</strong>
               </div>
 
               <div>
@@ -159,8 +208,8 @@ function DashboardProfile({ onChangePassword }) {
                   Nombre
                   <input
                     type="text"
-                    name="name"
-                    value={formData.name}
+                    name="firstName"
+                    value={formData.firstName}
                     onChange={handleChange}
                   />
                 </label>
@@ -205,6 +254,13 @@ function DashboardProfile({ onChangePassword }) {
                   onClick={() => {
                     setIsEditing(false);
                     setMessage('');
+                    setFormData({
+                      username: user.username,
+                      firstName: user.firstname,
+                      lastName: user.lastname,
+                      email: user.email,
+                      currentPassword: '',
+                    });
                   }}
                 >
                   Cancelar
@@ -213,8 +269,9 @@ function DashboardProfile({ onChangePassword }) {
                 <button
                   type="submit"
                   className="dashboard-button dashboard-button--primary"
+                  disabled={loading}
                 >
-                  Realizar Cambios
+                  {loading ? 'Guardando...' : 'Realizar Cambios'}
                 </button>
               </div>
             </form>

@@ -1,15 +1,43 @@
 import styles from '../styles/LoginModal.module.css'
 import { Link } from 'react-router-dom'
 import { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
 function LoginModal({ onClose }) {
+    const { login } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
 
-    function handleSubmit(event){
+    async function handleSubmit(event){
         event.preventDefault();
+        setError('');
+        setLoading(true);
 
-        console.log(`Logging in with ${email} and ${password}`)
+        try {
+            const response = await fetch(`${API_URL}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                setError(data.error || 'No se pudo iniciar sesión');
+                return;
+            }
+
+            login({ token: data.token, user: data.user });
+            onClose();
+        } catch (err) {
+            setError('No se pudo conectar con el servidor');
+        } finally {
+            setLoading(false);
+        }
     }
 
     return (
@@ -19,10 +47,18 @@ function LoginModal({ onClose }) {
                 
                 <h2>Iniciar Sesión</h2>
 
-                <form>
+                <form onSubmit={handleSubmit}>
                     <div className={styles['modal-input']}>
                         <div className={styles['nebula-input']}>
-                            <input required type="text" name="email" autoComplete="off" className={styles['input']} />
+                            <input
+                                required
+                                type="text"
+                                name="email"
+                                autoComplete="off"
+                                className={styles['input']}
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                            />
                             <label className={styles['user-label']}>Email</label>
                             <div className={styles['nebula-particle']} style={{ "--x": 0.2, "--y": -0.4, "--delay": "0.1s" }} />
                             <div className={styles['nebula-particle']} style={{ "--x": 0.5, "--y": -0.2, "--delay": "0.3s" }} />
@@ -33,7 +69,15 @@ function LoginModal({ onClose }) {
                         </div>
 
                         <div className={styles['nebula-input']}>
-                            <input required type="text" name="password" autoComplete="off" className={styles['input']} />
+                            <input
+                                required
+                                type="password"
+                                name="password"
+                                autoComplete="off"
+                                className={styles['input']}
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                            />
                             <label className={styles['user-label']}>Password</label>
                             <div className={styles['nebula-particle']} style={{ "--x": 0.2, "--y": -0.4, "--delay": "0.1s" }} />
                             <div className={styles['nebula-particle']} style={{ "--x": 0.5, "--y": -0.2, "--delay": "0.3s" }} />
@@ -43,8 +87,10 @@ function LoginModal({ onClose }) {
                             <div className={styles['nebula-particle']} style={{ "--x": 0.6, "--y": 0.4, "--delay": "0.6s" }} />
                         </div>
                         
-                        <button type="submit" className={styles.submitBtn}>
-                            Continuar
+                        {error && <p className={styles['card-error']}>{error}</p>}
+
+                        <button type="submit" className={styles.submitBtn} disabled={loading}>
+                            {loading ? 'Ingresando...' : 'Continuar'}
                         </button>
 
                     </div>

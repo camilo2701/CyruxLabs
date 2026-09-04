@@ -51,6 +51,19 @@
   color: #ee83f8;
 }
 
+.card-error {
+    display: block;
+    min-height: 1.2em;
+    color: #ff6b6b;
+    margin: 0;
+    padding: 0;
+    text-align: center;
+    font-family: "Inter", sans-serif;
+    font-weight: 200;
+    font-size: .8em;
+    line-height: 1.2em;
+}
+
 .modal-input{
     display: flex;
     flex-direction: column;

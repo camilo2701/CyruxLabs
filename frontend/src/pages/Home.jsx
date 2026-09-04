@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
-import Header from '../components/Header';
 import Footer from '../components/Footer';
-import { mockUser } from '../data/mockUser';
+import { useAuth } from '../context/AuthContext';
 import '../styles/Home.css';
 
 const features = [
@@ -22,7 +21,18 @@ const features = [
   },
 ];
 
+// Misma traducción número -> string que ya usa DashboardSidebar,
+// para decidir qué accesos rápidos mostrar según el rol.
+const ROLE_NAMES = {
+  0: 'student',
+  1: 'instructor',
+  2: 'admin',
+};
+
 function Home() {
+  const { user, isAuthenticated } = useAuth();
+  const roleName = user ? ROLE_NAMES[user.role] : null;
+
   {/* accesos rapidos del req n°3: 
     lab siempre visible
     historial solo para estudiantes
@@ -39,19 +49,21 @@ function Home() {
       label: 'Historial de Actividad',
       description: 'Revisa tus prácticas realizadas y su progreso.',
       path: '/dashboard#historial',
-      show: mockUser.isLoggedIn && mockUser.role === 'student',
+      show: isAuthenticated && roleName === 'student',
     },
     {
       label: 'Dashboard',
       description: 'Administra laboratorios, grupos y estudiantes.',
       path: '/dashboard',
-      show: mockUser.isLoggedIn && (mockUser.role === 'instructor' || mockUser.role === 'admin'),
+      show: isAuthenticated && (roleName === 'instructor' || roleName === 'admin'),
     },
     {
       label: 'Perfil',
       description: 'Consulta y edita tu información de usuario.',
-      path: '/profile',
-      show: mockUser.isLoggedIn,
+      // Nota: usaba '/profile', pero esa ruta no existe en App.jsx.
+      // El perfil vive dentro de /dashboard (sección "Mi perfil" por defecto).
+      path: '/dashboard',
+      show: isAuthenticated,
     },
   ].filter((item) => item.show);
 
@@ -61,13 +73,13 @@ function Home() {
         <section className="home__welcome">
           {/* req n°2, mensaje de bienvenida al user */}
           <h1 className="home__title">
-            {mockUser.isLoggedIn ? `Bienvenido de vuelta, ${mockUser.name}!` : 'Bienvenido a CyruxLabs'}
+            {isAuthenticated ? `Bienvenido de vuelta, ${user.username}!` : 'Bienvenido a CyruxLabs'}
           </h1>
           <p className="home__subtitle">
             Tu espacio para bla bla bla bla bla bla nosebla bla bla bla bla bla nosebla bla
             bla bla bla bla nosebla bla bla bla bla bla nosebla bla bla bla bla bla nosebla
-            bla bla bla bla bla nosebla bla bla bla bla bla nosebla bla bla bla bla bla
-            nosebla bla bla bla bla bla nosebla bla bla bla bla bla nosebla bla bla bla bla
+            bla bla bla bla bla nosebla bla bla bla bla bla nosebla bla bla bla bla bla nosebla
+            bla bla bla bla bla nosebla bla bla bla bla
           </p>
         </section>
 
