@@ -1,0 +1,46 @@
+.labmgmt-ui{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.labmgmt-ui h2{
+    font-family: "Orbitron", sans-serif;
+    font-size: 2rem;
+    color: aliceblue;
+    margin-bottom: 1.5rem;
+    margin-top: 0;
+}
+
+.labmgmt-menu{
+    display: flex;
+    flex-direction: row;
+    gap: 2rem;   
+}
+
+.labmgmt-menu-option{
+    background-color: #14121c;
+    display: flex;
+    flex-direction: column;
+    align-items:center;
+    border: 1px solid #c664f7;
+    border-radius: 10px;
+    padding: 5em 4em;
+    gap: .5rem; 
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.labmgmt-menu-option p{
+    font-family: "Inter", sans-serif;
+    font-size: 1.5em;
+    font-weight: 400;
+    color:aliceblue;
+    text-align: center;
+    margin:0;
+}
+
+.labmgmt-menu-option:hover{
+    background-color: #201d2a;
+    box-shadow: 0 0 20px #ee83f8;
+}
