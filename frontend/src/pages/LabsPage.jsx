@@ -12,7 +12,7 @@ function LabsPage(){
     const [selectedLab, setSelectedLab] = useState(null);
 
     useEffect(() => {
-        fetch('http://localhost:3001/api/labs')
+        fetch('http://localhost:4000/api/labs')
             .then((res) => res.json())
             .then((data) => {
                 setLabs(data);

@@ -138,3 +138,21 @@ export async function changePassword(userid, { currentPassword, newPassword }) {
 
     if (updateError) throw updateError;
 }
+
+// Solo devuelve usuarios con role = 0 (estudiante). Se usa desde la
+// sección de Historial para que instructor busque a quién ver
+export async function searchStudents(query) {
+    if (!query || !query.trim()) return [];
+
+    const safeQuery = query.trim().replace(/,/g, '');
+
+    const { data, error } = await supabase
+        .from('users')
+        .select('userid, username, firstname, lastname')
+        .eq('role', 0)
+        .or(`username.ilike.%${safeQuery}%,firstname.ilike.%${safeQuery}%,lastname.ilike.%${safeQuery}%`);
+
+    if (error) throw error;
+
+    return data;
+}

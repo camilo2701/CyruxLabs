@@ -12,6 +12,8 @@ import Dashboard from './pages/Dashboard'
 
 import LabsPage from './pages/LabsPage'
 
+import Session from './pages/Session'
+
 import { AuthProvider } from './context/AuthContext'
 
 function App() {
@@ -26,6 +28,7 @@ function App() {
           <Route path="/register" element={<RegisterPage onLoginClick={() => {setIsLoginOpen(true)}}/>}/>
           <Route path="/labs" element={<LabsPage />} />
           <Route path="/dashboard" element={<Dashboard/>}/>
+          <Route path="/session" element={<Session/>}/>
           
         </Routes>
 

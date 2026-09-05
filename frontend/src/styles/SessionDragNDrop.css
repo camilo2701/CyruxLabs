@@ -1,0 +1,66 @@
+.container-create-lab-files {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 10px;
+
+    background: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='10' ry='10' stroke='%23ee5dfb' stroke-width='2' stroke-dasharray='15' stroke-dashoffset='18' stroke-linecap='square'/%3e%3c/svg%3e") no-repeat;
+    background-size: 100% 100%;
+    background-color: #201d2a;
+    transition: 0.2s;
+}
+
+.container-create-lab-files input{
+  display: none;
+}
+
+.container-create-lab-files:hover{
+  background-color: #2d293b;
+  box-shadow: 0 0 12px #ee83f8;
+}
+
+.container-create-lab-files p{
+    color: #9b93ab;
+    text-align: center;
+    font-family: "Inter", sans-serif;
+    font-weight: 500;
+    font-size: .8rem;
+}
+
+.container-create-lab-files svg{
+    color: #ee5dfb;
+    cursor: pointer;
+}
+
+.file-error-msg {
+  color: #ff4d4d;
+  text-align: center;
+  font-family: "Inter", sans-serif;
+  font-weight: 300;
+  font-size: small;
+  margin: 0;
+}
+
+.files-count-row{
+  display: flex;
+  flex-direction: column;
+}
+.view-files-btn{
+  cursor: pointer;
+  background-color: #ee5dfb;
+  color: aliceblue;
+  font-family: "Inter", sans-serif;
+  padding: 0.5rem;
+  border: 1px;
+  border-radius: 5px;
+  transition: 0.15s;
+}
+
+.view-files-btn:hover{
+  background-color: #2d293b;
+  border-radius: 5px;
+  border: 1px solid #ee5dfb;
+}

@@ -1,0 +1,236 @@
+.page {
+    width: 100%;
+    height: calc(100dvh - 89px);
+
+    display: flex;
+    flex-direction: row;
+
+    background: #14121c;
+
+    overflow: hidden;
+}
+
+
+/* =========================
+   SIDEBAR
+   ========================= */
+
+.sidebar {
+    width: 25%;
+    height: 100%;
+
+    border-right: 1px solid #ee5dfb;
+
+    display: grid;
+    grid-template-rows: 55% 40% 5%;
+
+    min-height: 0;
+
+    overflow: hidden;
+}
+
+
+/* =========================
+   LABELS / INSTRUCTIONS
+   ========================= */
+
+.sidebar-labels {
+    min-height: 0;
+
+    display: flex;
+    flex-direction: column;
+
+    overflow: hidden;
+}
+
+.sidebar-labels h1 {
+    flex-shrink: 0;
+
+    color: aliceblue;
+
+    font-family: "Orbitron", sans-serif;
+    font-size: 2rem;
+    font-weight: 200;
+
+    text-align: center;
+
+    padding: 0.5rem;
+    margin: 0;
+}
+
+
+/* =========================
+   INSTRUCTIONS
+   ========================= */
+
+.sidebar-instructions {
+    min-height: 0;
+
+    display: flex;
+    flex-direction: column;
+
+    overflow: hidden;
+}
+
+.sidebar-instructions h2 {
+    flex-shrink: 0;
+
+    font-family: "Inter", sans-serif;
+    font-weight: 500;
+    font-size: 1.5rem;
+
+    padding: 1em;
+    margin: 0;
+}
+
+.sidebar-instructions ul {
+    flex: 1;
+
+    min-height: 0;
+
+    margin: 0;
+    padding: 0 1.5rem 1rem 1.5rem;
+
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+
+/* =========================
+   CONTROLS
+   ========================= */
+
+.sidebar-controls {
+    min-height: 0;
+
+    display: flex;
+    flex-direction: column;
+
+    overflow: hidden;
+}
+
+
+/* =========================
+   BUTTONS
+   ========================= */
+
+.sidebar-controls-buttons {
+    flex-shrink: 0;
+
+    display: flex;
+    flex-direction: row;
+
+    gap: 2rem;
+
+    justify-content: center;
+    align-items: center;
+
+    padding: 1em;
+}
+
+.sidebar-controls-buttons button {
+    cursor: pointer;
+
+    background-color: #ee5dfb;
+    color: aliceblue;
+
+    font-family: "Inter", sans-serif;
+
+    padding: 0.5rem;
+
+    border: none;
+    border-radius: 5px;
+
+    transition: 0.15s;
+}
+
+.sidebar-controls-buttons button:hover {
+    background: #ee83f8;
+    box-shadow: 0 0 10px #ee83f8;
+}
+
+
+/* =========================
+   DRAG AND DROP
+   ========================= */
+
+.sidebar-controls-ctfpocket {
+    flex: 1;
+
+    min-height: 0;
+    min-width: 0;
+
+    padding: 1rem;
+
+    display: flex;
+
+    justify-content: center;
+    align-items: center;
+
+    overflow: hidden;
+}
+
+/*
+   This makes the actual SessionDragNDrop
+   component respect the available space.
+*/
+.sidebar-controls-ctfpocket > * {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+
+/* =========================
+   TIMER
+   ========================= */
+
+.sidebar-timer {
+    min-height: 0;
+
+    display: flex;
+
+    justify-content: center;
+    align-items: center;
+
+    overflow: hidden;
+}
+
+.sidebar-timer h1 {
+    margin: 0;
+
+    color: aliceblue;
+
+    font-family: "Orbitron", sans-serif;
+    font-weight: 400;
+
+    /*
+       Scales depending on viewport width.
+    */
+    font-size: clamp(1rem, 1.5vw, 1.5rem);
+
+    text-align: center;
+}
+
+
+/* =========================
+   DESKTOP
+   ========================= */
+
+.desktop {
+    width: 75%;
+    height: 100%;
+
+    display: flex;
+
+    min-width: 0;
+    min-height: 0;
+
+    overflow: hidden;
+}
+
+.desktop iframe {
+    width: 100%;
+    height: 100%;
+
+    border: none;
+}

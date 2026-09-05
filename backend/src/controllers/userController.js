@@ -1,4 +1,4 @@
-import { updateProfile, updateAvatar, changePassword } from '../services/userService.js';
+import { updateProfile, updateAvatar, changePassword, searchStudents } from '../services/userService.js';
 import { AuthError } from '../services/authService.js';
 
 export async function putProfile(req, res) {
@@ -40,5 +40,16 @@ export async function putPassword(req, res) {
         if (err instanceof AuthError) return res.status(err.status).json({ error: err.message });
         console.error('Error cambiando contraseña:', err);
         return res.status(500).json({ error: 'Error interno al cambiar la contraseña' });
+    }
+}
+
+export async function getStudents(req, res) {
+    try {
+        const { search = '' } = req.query;
+        const students = await searchStudents(search);
+        return res.status(200).json({ students });
+    } catch (err) {
+        console.error('Error buscando estudiantes:', err);
+        return res.status(500).json({ error: 'Error interno al buscar estudiantes' });
     }
 }

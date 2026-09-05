@@ -18,3 +18,15 @@ export function requireAuth(req, res, next) {
         return res.status(401).json({ error: 'Token inválido o expirado' });
     }
 }
+
+// Se usa DESPUÉS de requireAuth en la ruta, ej:
+// router.get('/algo', requireAuth, requireRole(1, 2), handler)
+// Roles: 0 = student, 1 = instructor, 2 = admin
+export function requireRole(...allowedRoles) {
+    return (req, res, next) => {
+        if (!req.user || !allowedRoles.includes(req.user.role)) {
+            return res.status(403).json({ error: 'No tienes permisos para realizar esta acción' });
+        }
+        next();
+    };
+}

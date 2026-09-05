@@ -1,12 +1,20 @@
-import { useMemo, useState } from 'react';
-import { mockActivityHistory } from '../../data/mockActivityHistory';
-import { mockUser, mockUsers } from '../../data/mockUser';
+import { useEffect, useMemo, useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import '../../styles/DashboardHistory.css';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 const ITEMS_PER_PAGE = 10;
 
+// Misma traducción número -> string que ya usan DashboardSidebar y Home.
+const ROLE_NAMES = {
+  0: 'student',
+  1: 'instructor',
+  2: 'admin',
+};
+
 function DashboardHistory() {
-  const role = mockUser.role;
+  const { user, token } = useAuth();
+  const role = ROLE_NAMES[user.role] || 'student';
 
   const [studentSearch, setStudentSearch] = useState('');
   const [searchedStudents, setSearchedStudents] = useState([]);
@@ -14,6 +22,10 @@ function DashboardHistory() {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchPage, setSearchPage] = useState(1);
+
+  const [history, setHistory] = useState([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState('');
 
   const formatTime = (date) => {
     if (!date) return 'En ejecución';
@@ -25,7 +37,6 @@ function DashboardHistory() {
       hour12: false,
     });
   };
-
 
   const calculateDuration = (start, end) => {
     if (!end) return 'En curso';
@@ -45,33 +56,75 @@ function DashboardHistory() {
     ].join(':');
   };
 
+  // Estudiante: carga su propio historial una sola vez al entrar.
+  useEffect(() => {
+    if (role !== 'student') return;
+
+    setIsLoadingHistory(true);
+    setHistoryError('');
+
+    fetch(`${API_URL}/sessions/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        setHistory(data.sessions || []);
+      })
+      .catch(() => {
+        setHistoryError('No se pudo cargar tu historial.');
+      })
+      .finally(() => setIsLoadingHistory(false));
+  }, [role, token]);
+
+  // Instructor/admin: carga el historial del estudiante seleccionado.
+  useEffect(() => {
+    if (role === 'student' || !selectedStudent) return;
+
+    setIsLoadingHistory(true);
+    setHistoryError('');
+
+    fetch(`${API_URL}/sessions/user/${selectedStudent.userid}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        setHistory(data.sessions || []);
+      })
+      .catch(() => {
+        setHistoryError('No se pudo cargar el historial de este estudiante.');
+      })
+      .finally(() => setIsLoadingHistory(false));
+  }, [role, selectedStudent, token]);
+
   const handleSearchInputChange = (event) => {
     setStudentSearch(event.target.value);
     setHasSearched(false);
   };
 
-  const handleStudentSearch = (event) => {
+  const handleStudentSearch = async (event) => {
     event.preventDefault();
 
-    const search = studentSearch.trim().toLowerCase();
+    const search = studentSearch.trim();
 
     if (!search) return;
 
-    const results = mockUsers.filter((user) => {
-      if (user.role !== 'student') return false;
-
-      return (
-        user.username.toLowerCase().includes(search) ||
-        user.firstName.toLowerCase().includes(search) ||
-        user.lastName.toLowerCase().includes(search)
+    try {
+      const response = await fetch(
+        `${API_URL}/users/students?search=${encodeURIComponent(search)}`,
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-    });
 
-    setSearchedStudents(results);
-    setSelectedStudent(null);
-    setSearchPage(1);
-    setCurrentPage(1);
-    setHasSearched(true);
+      const data = await response.json();
+
+      setSearchedStudents(response.ok ? data.students || [] : []);
+      setSelectedStudent(null);
+      setSearchPage(1);
+      setCurrentPage(1);
+      setHasSearched(true);
+    } catch (err) {
+      setSearchedStudents([]);
+      setHasSearched(true);
+    }
   };
 
   const handleSelectStudent = (student) => {
@@ -79,33 +132,9 @@ function DashboardHistory() {
     setCurrentPage(1);
   };
 
-  const visibleHistory = useMemo(() => {
-
-    if (role === 'student') {
-
-        const currentStudent = mockUsers.find(
-        (user) => user.username === mockUser.username
-        );
-
-        if (!currentStudent) {
-        return [];
-        }
-
-        return mockActivityHistory.filter(
-        (activity) => activity.studentId === currentStudent.id
-        );
-    }
-
-
-    if (!selectedStudent) {
-        return [];
-    }
-
-    return mockActivityHistory.filter(
-        (activity) => activity.studentId === selectedStudent.id
-    );
-
-    }, [role, selectedStudent]);
+  // El historial ya viene filtrado desde el backend (propio, o del
+  // estudiante seleccionado), así que aquí solo se pagina.
+  const visibleHistory = useMemo(() => history, [history]);
 
   const totalPages = Math.ceil(
     visibleHistory.length / ITEMS_PER_PAGE
@@ -128,6 +157,10 @@ function DashboardHistory() {
   const handleDownload = () => {
     alert('La descarga del reporte PDF estará disponible próximamente.');
   };
+
+  // A quién le pertenece el historial que se está mostrando ahora mismo.
+  const historyOwnerUsername =
+    role === 'student' ? user.username : selectedStudent?.username;
 
   return (
     <section className="dashboard-section">
@@ -187,14 +220,14 @@ function DashboardHistory() {
 
                 {paginatedStudents.map((student) => (
                   <div
-                    key={student.id}
+                    key={student.userid}
                     className="dashboard-student-result"
                   >
                     <div>
                       <strong>@{student.username}</strong>
 
                       <span>
-                        {student.firstName} {student.lastName}
+                        {student.firstname} {student.lastname}
                       </span>
                     </div>
 
@@ -276,7 +309,7 @@ function DashboardHistory() {
             </strong>
 
             <p>
-              {selectedStudent.firstName} {selectedStudent.lastName}
+              {selectedStudent.firstname} {selectedStudent.lastname}
             </p>
           </div>
 
@@ -285,6 +318,7 @@ function DashboardHistory() {
             onClick={() => {
               setSelectedStudent(null);
               setCurrentPage(1);
+              setHistory([]);
             }}
           >
             Cambiar estudiante
@@ -294,89 +328,99 @@ function DashboardHistory() {
 
       {(role === 'student' || selectedStudent) && (
         <>
-          <div className="dashboard-history-list">
+          {isLoadingHistory && (
+            <p className="dashboard-history-empty">Cargando historial...</p>
+          )}
 
-            {paginatedHistory.length > 0 ? (
-              paginatedHistory.map((activity) => (
-                <article
-                  key={activity.id}
-                  className="dashboard-history-card"
-                >
+          {!isLoadingHistory && historyError && (
+            <p className="dashboard-history-empty">{historyError}</p>
+          )}
 
-                  <div className="dashboard-history-main">
+          {!isLoadingHistory && !historyError && (
+            <div className="dashboard-history-list">
 
-                    <div>
-                      <span className="dashboard-history-label">
-                        Laboratorio
-                      </span>
-
-                      <h3>{activity.laboratory}</h3>
-                    </div>
-
-
-                    <span
-                      className={`dashboard-history-status ${
-                        activity.status === 'running'
-                          ? 'dashboard-history-status--running'
-                          : 'dashboard-history-status--finished'
-                      }`}
-                    >
-                      {activity.status === 'running'
-                        ? '● En ejecución'
-                        : '● Finalizado'}
-                    </span>
-                  </div>
-
-                  <div className="dashboard-history-info">
-
-                    <div>
-                      <span>Usuario</span>
-                      <strong>@{activity.username}</strong>
-                    </div>
-
-                    <div>
-                      <span>Inicio</span>
-                      <strong>
-                        {formatTime(activity.startTime)}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>Término</span>
-                      <strong>
-                        {formatTime(activity.endTime)}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>Tiempo empleado</span>
-                      <strong>
-                        {calculateDuration(
-                          activity.startTime,
-                          activity.endTime
-                        )}
-                      </strong>
-                    </div>
-
-                  </div>
-
-                  <button
-                    type="button"
-                    className="dashboard-history-report"
-                    onClick={handleDownload}
+              {paginatedHistory.length > 0 ? (
+                paginatedHistory.map((activity) => (
+                  <article
+                    key={activity.id}
+                    className="dashboard-history-card"
                   >
-                    Descargar reporte PDF
-                  </button>
 
-                </article>
-              ))
-            ) : (
-              <p className="dashboard-history-empty">
-                No hay registros de actividad para mostrar.
-              </p>
-            )}
+                    <div className="dashboard-history-main">
 
-          </div>
+                      <div>
+                        <span className="dashboard-history-label">
+                          Laboratorio
+                        </span>
+
+                        <h3>{activity.laboratory}</h3>
+                      </div>
+
+
+                      <span
+                        className={`dashboard-history-status ${
+                          activity.status === 'running'
+                            ? 'dashboard-history-status--running'
+                            : 'dashboard-history-status--finished'
+                        }`}
+                      >
+                        {activity.status === 'running'
+                          ? '● En ejecución'
+                          : '● Finalizado'}
+                      </span>
+                    </div>
+
+                    <div className="dashboard-history-info">
+
+                      <div>
+                        <span>Usuario</span>
+                        <strong>@{historyOwnerUsername}</strong>
+                      </div>
+
+                      <div>
+                        <span>Inicio</span>
+                        <strong>
+                          {formatTime(activity.startTime)}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>Término</span>
+                        <strong>
+                          {formatTime(activity.endTime)}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>Tiempo empleado</span>
+                        <strong>
+                          {calculateDuration(
+                            activity.startTime,
+                            activity.endTime
+                          )}
+                        </strong>
+                      </div>
+
+                    </div>
+
+                    <button
+                      type="button"
+                      className="dashboard-history-report"
+                      onClick={handleDownload}
+                    >
+                      Descargar reporte PDF
+                    </button>
+
+                  </article>
+                ))
+              ) : (
+                <p className="dashboard-history-empty">
+                  No hay registros de actividad para mostrar.
+                </p>
+              )}
+
+            </div>
+          )}
 
           {totalPages > 1 && (
             <div className="dashboard-pagination">
