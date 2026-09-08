@@ -32,13 +32,19 @@ export const getAllLabs = async (req, res) => {
     try {
         const search = (req.query.search || '').trim().slice(0, 100);
         const pageNumber = Math.max(1, parseInt(req.query.page, 10) || 1);
+        const fetchAll = req.query.all === 'true';
 
         if (!search) {
-            const { data, error } = await supabase
+            let query = supabase
                 .from('lab')
                 .select('labid, title, description, userid, benefit(benefitid, description), users(username)')
-                .order('labid', { ascending: false })
-                .limit(PAGE_SIZE);
+                .order('labid', { ascending: false });
+
+            if (!fetchAll) {
+                query = query.limit(PAGE_SIZE);
+            }
+
+            const { data, error } = await query;
 
             if (error) throw error;
 

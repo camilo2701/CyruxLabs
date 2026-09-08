@@ -40,15 +40,17 @@ function LabsPage(){
     };
 
     useEffect(() => {
-        fetch('http://localhost:4000/api/labs')
+        fetch('http://localhost:4000/api/labs?all=true')
             .then((res) => res.json())
             .then((data) => {
-                if (!Array.isArray(data)) {
+                const labsList = data.labs;
+
+                if (!Array.isArray(labsList)) {
                     console.error('Unexpected /api/labs response:', data);
                     return;
                 }
-                setLabs(data);
-                if (data.length > 0) setSelectedLab(data[0]);
+                setLabs(labsList);
+                if (labsList.length > 0) setSelectedLab(labsList[0]);
             })
             .catch((err) => console.error('Failed to fetch labs:', err));
     }, []);
@@ -101,7 +103,7 @@ function LabsPage(){
                                     ))}
                             </ul>
                         </div>
-                        
+
                     </div>
                     <div className={styles['lab-selection']}>
                         <div className={styles['lab-selection-nav']}>
@@ -122,7 +124,7 @@ function LabsPage(){
                                 ))}
                             </ul>
                         </div>
-                        
+
                     </div>
                 </div>
             </div>
