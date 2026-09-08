@@ -15,9 +15,9 @@ const features = [
       'Cada práctica queda registrada, para que estudiantes e instructores puedan revisar el avance cuando lo necesiten.',
   },
   {
-    title: 'Algo mas',
+    title: 'Entornos aislados',
     description:
-      'nose nose nose nose nose.',
+      'Cada práctica corre en su propio contenedor, así que puedes romper todo lo que quieras sin afectar nada más.',
   },
 ];
 
@@ -76,10 +76,7 @@ function Home() {
             {isAuthenticated ? `Bienvenido de vuelta, ${user.username}!` : 'Bienvenido a CyruxLabs'}
           </h1>
           <p className="home__subtitle">
-            Tu espacio para bla bla bla bla bla bla nosebla bla bla bla bla bla nosebla bla
-            bla bla bla bla nosebla bla bla bla bla bla nosebla bla bla bla bla bla nosebla
-            bla bla bla bla bla nosebla bla bla bla bla bla nosebla bla bla bla bla bla nosebla
-            bla bla bla bla bla nosebla bla bla bla bla
+            Aprende ciberseguridad haciendo, no memorizando: Laboratorios reales, sin riesgo real.
           </p>
         </section>
 
