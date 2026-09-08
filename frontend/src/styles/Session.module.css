@@ -1,0 +1,427 @@
+.page {
+    width: 100%;
+    height: calc(100dvh - 89px);
+
+    display: flex;
+    flex-direction: row;
+
+    background: #14121c;
+
+    overflow: hidden;
+}
+
+
+/* =========================
+   SIDEBAR
+   ========================= */
+
+.sidebar {
+    width: 25%;
+    height: 100%;
+
+    border-right: 1px solid #ee5dfb;
+
+    display: grid;
+    grid-template-rows: 60% 30% 10%;
+
+    min-height: 0;
+
+    overflow: hidden;
+}
+
+
+/* =========================
+   LABELS / INSTRUCTIONS
+   ========================= */
+
+.sidebar-labels {
+    min-height: 0;
+
+    display: flex;
+    flex-direction: column;
+
+    overflow: hidden;
+}
+
+.sidebar-labels h1 {
+    flex-shrink: 0;
+
+    color: aliceblue;
+
+    font-family: "Orbitron", sans-serif;
+    font-size: 2rem;
+    font-weight: 200;
+
+    text-align: center;
+
+    padding: 0.5rem;
+    margin: 0;
+}
+
+
+/* =========================
+   INSTRUCTIONS
+   ========================= */
+
+.sidebar-instructions {
+    min-height: 0;
+
+    display: flex;
+    flex-direction: column;
+
+    overflow: hidden;
+}
+
+.sidebar-instructions h2 {
+    flex-shrink: 0;
+
+    font-family: "Inter", sans-serif;
+    font-weight: 500;
+    font-size: 1.5rem;
+
+    padding: 1em;
+    margin: 0;
+}
+
+.sidebar-instructions ul {
+    flex: 1;
+
+    min-height: 0;
+
+    margin: 0;
+    padding: 0 1.5rem 1rem 1.5rem;
+
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+
+/* =========================
+   CONTROLS
+   ========================= */
+
+.sidebar-controls {
+    min-height: 0;
+
+    display: flex;
+    flex-direction: column;
+
+    overflow: hidden;
+}
+
+
+/* =========================
+   BUTTONS
+   ========================= */
+
+.sidebar-controls-buttons {
+    flex-shrink: 0;
+
+    display: flex;
+    flex-direction: row;
+
+    gap: 2rem;
+
+    justify-content: center;
+    align-items: center;
+
+    padding: 1em;
+}
+
+.sidebar-controls-buttons button {
+    cursor: pointer;
+
+    background-color: #ee5dfb;
+    color: aliceblue;
+
+    font-family: "Inter", sans-serif;
+
+    padding: 0.5rem;
+
+    border: none;
+    border-radius: 5px;
+
+    transition: 0.15s;
+}
+
+.sidebar-controls-buttons button:hover {
+    background: #ee83f8;
+    box-shadow: 0 0 10px #ee83f8;
+}
+
+.sidebar-controls-buttons button:disabled {
+    cursor: not-allowed;
+    background: #3a3646;
+    color: #8a8594;
+    box-shadow: none;
+}
+
+
+/* =========================
+   DRAG AND DROP
+   ========================= */
+
+.sidebar-controls-ctfpocket {
+    flex: 1;
+
+    min-height: 0;
+    min-width: 0;
+
+    padding: 1rem;
+
+    display: flex;
+
+    justify-content: center;
+    align-items: center;
+
+    overflow: hidden;
+}
+
+.sidebar-controls-ctfpocket > * {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+
+/* =========================
+   TIMER
+   ========================= */
+
+.sidebar-timer {
+    min-height: 0;
+
+    display: flex;
+
+    justify-content: center;
+    align-items: center;
+
+    overflow: hidden;
+}
+
+.sidebar-timer h1 {
+    margin: 0;
+
+    color: aliceblue;
+
+    font-family: "Orbitron", sans-serif;
+    font-weight: 400;
+
+    font-size: clamp(1rem, 1.5vw, 1.5rem);
+
+    text-align: center;
+
+    /* stops the digits from jittering the layout as they change */
+    font-variant-numeric: tabular-nums;
+}
+
+
+/* =========================
+   DESKTOP
+   ========================= */
+
+.desktop {
+    width: 75%;
+    height: 100%;
+
+    display: flex;
+
+    min-width: 0;
+    min-height: 0;
+
+    overflow: hidden;
+}
+
+.desktop iframe {
+    width: 100%;
+    height: 100%;
+
+    border: none;
+}
+
+
+/* =========================
+   CONGRATS / SESSION ENDED
+   ========================= */
+
+.congrats {
+    width: 100%;
+    height: 100%;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+
+    text-align: center;
+    padding: 2rem;
+
+    background: radial-gradient(circle at center, #201d2a 0%, #14121c 70%);
+    animation: congrats-fade-in 0.4s ease-out;
+}
+
+.congrats h1 {
+    font-family: "Orbitron", sans-serif;
+    font-weight: 500;
+    font-size: clamp(1.75rem, 3vw, 2.75rem);
+    margin: 0;
+}
+
+.congrats p {
+    font-family: "Inter", sans-serif;
+    font-size: 1.1rem;
+    color: #c9c7d1;
+    margin: 0;
+}
+
+.congrats button {
+    cursor: pointer;
+
+    margin-top: 1rem;
+    padding: 0.75rem 2rem;
+
+    border: none;
+    border-radius: 12px;
+
+    font-family: "Orbitron", sans-serif;
+    font-weight: bold;
+    font-size: 1rem;
+
+    background: #ee5dfb;
+    color: aliceblue;
+
+    transition: 0.15s;
+}
+
+.congrats button:hover {
+    background: #ff7ffc;
+    box-shadow: 0 0 20px rgba(238, 93, 251, 0.5);
+}
+
+.congrats--solved h1 {
+    color: #ee5dfb;
+    text-shadow: 0 0 20px rgba(238, 93, 251, 0.6);
+    animation: congrats-glow 2s ease-in-out infinite;
+}
+
+.congrats--ended h1 {
+    color: #c9c7d1;
+}
+
+.congrats--ended button {
+    background: transparent;
+    border: 1.5px solid #ee5dfb;
+    color: #ee5dfb;
+}
+
+.congrats--ended button:hover {
+    background: rgba(238, 93, 251, 0.1);
+    box-shadow: none;
+}
+
+@keyframes congrats-fade-in {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes congrats-glow {
+    0%, 100% { text-shadow: 0 0 20px rgba(238, 93, 251, 0.6); }
+    50% { text-shadow: 0 0 32px rgba(238, 93, 251, 0.9); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .congrats, .congrats--solved h1 {
+        animation: none;
+    }
+}
+
+
+/* =========================
+   FLAG INPUT
+   ========================= */
+.nebula-input {
+  position: relative;
+  width: 280px;
+  margin: 0px auto;
+}
+
+.nebula-input .input {
+  width: 100%;
+  padding: 15px;
+  border: 2px solid #201d2a;
+  background: #14121c;
+  color: white;
+  font-size: 16px;
+  outline: none;
+  border-radius: 8px;
+  transition: all 0.4s ease-out;
+}
+
+.nebula-input .input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.nebula-input .user-label {
+  font-family: "Inter", sans-serif;
+  position: absolute;
+  left: 15px;
+  top: 15px;
+  pointer-events: none;
+  color: aliceblue;
+  transition: all 0.4s ease-out;
+  background: #14121c;
+  padding: 0 5px;
+}
+
+.nebula-input .input:focus {
+  border-color: #ee5dfb;
+  box-shadow:
+    0 5px 8px rgba(181, 106, 255, 0.3),
+    0 10px 20px rgba(181, 106, 255, 0.2),
+    0 15px 40px rgba(181, 106, 255, 0.15),
+    0 20px 60px rgba(181, 106, 255, 0.1);
+}
+
+.nebula-input .input:focus ~ .user-label,
+.nebula-input .input:valid ~ .user-label {
+  transform: translateY(-25px);
+  font-size: 12px;
+  color: #ee5dfb;
+  left: 10px;
+}
+
+.nebula-particle {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  top: 50%;
+  left: 10px;
+  filter: blur(0.8px);
+  mix-blend-mode: screen;
+  transition: opacity 0.3s ease;
+}
+
+.nebula-input .input:focus ~ .nebula-particle {
+  animation: nebula-float 2s forwards ease-out;
+}
+
+@keyframes nebula-float {
+  0% {
+    transform: translate(0, -50%) scale(0.8);
+    opacity: 0;
+    background: #c774ff;
+  }
+  20% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(calc(var(--x) * 140px), calc(var(--y) * 35px))
+      scale(1.1);
+    opacity: 0;
+    background: #6df2ff;
+  }
+}

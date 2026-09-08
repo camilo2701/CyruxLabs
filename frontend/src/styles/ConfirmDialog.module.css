@@ -1,0 +1,97 @@
+@keyframes overlayFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes modalSlideUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: overlayFadeIn 0.2s ease-out;
+}
+
+.modal-box {
+    display: flex;
+    flex-direction: column;
+    background: #0d0b13;
+    padding: 2rem;
+    border-radius: 20px;
+    width: 90%;
+    max-width: 400px;
+    position: relative;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    animation: modalSlideUp 0.3s ease-out;
+}
+
+.modal-close-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 2rem;
+    color: #ee5dfb;
+    margin: 0;
+}
+
+.modal-title {
+    font-family: "Orbitron", sans-serif;
+    font-size: 20px;
+    color: #fff;
+    text-align: center;
+    margin: 0 0 0.5rem;
+}
+
+.modal-message {
+    font-family: "Inter", sans-serif;
+    font-size: 18px;
+    text-align: center;
+    line-height: 1.6;
+    color: #c9c7d1;
+    margin: 0 0 1.5rem;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 1rem;
+    width: 100%;
+}
+
+.modal-btn-cancel, .modal-btn-confirm {
+    flex: 1;
+    padding: 0.75rem;
+    border-radius: 12px;
+    font-family: "Inter", sans-serif;
+    font-weight: 400;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.modal-btn-cancel {
+    border: 1.5px solid #ee5dfb;
+    background: transparent;
+    color: #ee5dfb;
+}
+.modal-btn-cancel:hover {
+    background: rgba(238, 93, 251, 0.1);
+}
+
+.modal-btn-confirm {
+    border: none;
+    background: #ee5dfb;
+    color: aliceblue;
+    font-weight: bold;
+}
+.modal-btn-confirm:hover {
+    background: #ff7ffc;
+}

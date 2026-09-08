@@ -28,7 +28,7 @@ function App() {
           <Route path="/register" element={<RegisterPage onLoginClick={() => {setIsLoginOpen(true)}}/>}/>
           <Route path="/labs" element={<LabsPage />} />
           <Route path="/dashboard" element={<Dashboard/>}/>
-          <Route path="/session" element={<Session/>}/>
+          <Route path="/session/:sessionid" element={<Session/>}/>
           
         </Routes>
 

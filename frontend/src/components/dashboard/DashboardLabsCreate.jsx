@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useRef } from "react";
 import { useNavigate } from 'react-router-dom';
 import '../../styles/DashboardLabsCreate.css'
-import '../../styles/SuccessModal.css'
+import '../../styles/SuccessModal.module.css'
 
 import DashboardLabsFileModal from './DashboardLabsFileModal';
 import SuccessModal from '../SuccessModal.jsx';
@@ -146,7 +146,7 @@ function DashboardLabsCreate(){
         setFileError(false);
 
         const formData = new FormData();
-        const url = `${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}/labs`
+        const url = 'http://localhost:4000/api/labs'
         formData.append('title', labTitle);
         formData.append('description', labDesc);
         formData.append('benefits', JSON.stringify(benefitList));
