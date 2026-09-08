@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import AvatarSelector, { avatarMap } from './AvatarSelector';
+import DeleteAccountModal from './DeleteAccountModal';
 import '../../styles/DashboardProfile.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
 function DashboardProfile({ onChangePassword }) {
-  const { user, token, login, updateUser } = useAuth();
+  const { user, token, login, updateUser, logout } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -19,6 +20,10 @@ function DashboardProfile({ onChangePassword }) {
   });
 
   const [message, setMessage] = useState('');
+
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -109,6 +114,40 @@ function DashboardProfile({ onChangePassword }) {
       updateUser(data.user);
     } catch (err) {
       setMessage('No se pudo conectar con el servidor.');
+    }
+  };
+
+  const handleDeleteAccount = async (password) => {
+    setDeleteLoading(true);
+    setDeleteError('');
+
+    try {
+      const response = await fetch(`${API_URL}/users/me`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ currentPassword: password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setDeleteError(data.error || 'No se pudo eliminar la cuenta');
+        return;
+      }
+
+      // Muestra la confirmación un instante antes de cerrar sesión
+      // y redirigir, como pediste.
+      setIsDeleteModalOpen(false);
+      alert(data.message || 'Cuenta eliminada correctamente');
+      logout();
+      window.location.href = '/';
+    } catch (err) {
+      setDeleteError('No se pudo conectar con el servidor.');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -303,7 +342,39 @@ function DashboardProfile({ onChangePassword }) {
           </button>
         </div>
 
+        <div className="dashboard-profile__divider" />
+
+        <div className="dashboard-profile__password">
+          <div>
+            <h2>Eliminar cuenta</h2>
+            <p>
+              Elimina tu cuenta permanentemente (cambios irreversibles).
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className="dashboard-button dashboard-button--danger"
+            onClick={() => {
+              setDeleteError('');
+              setIsDeleteModalOpen(true);
+            }}
+          >
+            Eliminar cuenta
+          </button>
+        </div>
+
       </div>
+
+      {isDeleteModalOpen && (
+        <DeleteAccountModal
+          loading={deleteLoading}
+          error={deleteError}
+          onCancel={() => setIsDeleteModalOpen(false)}
+          onConfirm={handleDeleteAccount}
+        />
+      )}
+
     </section>
   );
 }

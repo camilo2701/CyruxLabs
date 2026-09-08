@@ -64,3 +64,17 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+.manage-users__table-header--labs,
+.manage-users__row--labs {
+  grid-template-columns: 60px 1.5fr 1fr 1fr 1fr 130px;
+}
+
+.lab-edit-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1em;
+  width: 100%;
+  margin-bottom: 10px;
+}
+

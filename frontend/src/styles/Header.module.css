@@ -64,3 +64,66 @@ nav {
   letter-spacing: 1px;
   margin-right: auto;
 }
+
+.userMenu {
+  position: relative;
+}
+
+.userMenuTrigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.userMenuIcon {
+  font-size: 1.1rem;
+}
+
+.userMenuDropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+  background: #201d2a; /* Tertiary */
+  border: 1px solid #14121c; /* Secondary */
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  z-index: 20;
+
+  transform-origin: top right;
+  opacity: 0;
+  transform: translateY(-8px) scaleY(0.95);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.userMenuDropdownOpen {
+  opacity: 1;
+  transform: translateY(0) scaleY(1);
+}
+
+.userMenuItem {
+  padding: 10px 16px;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  color: #e6e4eb;
+  text-decoration: none;
+}
+
+.userMenuItem:hover {
+  background: #14121c; /* Secondary */
+}
+
+.userMenuLogout {
+  color: #ff8080; /* rojo suave, legible sobre fondo oscuro */
+}
+
+.userMenuLogout:hover {
+  background: #14121c;
+  color: #ff9d9d;
+}

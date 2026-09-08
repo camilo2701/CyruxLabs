@@ -139,6 +139,83 @@ export async function changePassword(userid, { currentPassword, newPassword }) {
     if (updateError) throw updateError;
 }
 
+// Elimina la cuenta y todo lo que depende de ella
+export async function deleteAccount(userid, { currentPassword }) {
+    if (!currentPassword) {
+        throw new AuthError(400, 'Debes ingresar tu contraseña actual');
+    }
+
+    const { data: current, error: fetchError } = await supabase
+        .from('users')
+        .select('password')
+        .eq('userid', userid)
+        .maybeSingle();
+
+    if (fetchError) throw fetchError;
+    if (!current) throw new AuthError(404, 'Usuario no encontrado');
+
+    const passwordMatches = await bcrypt.compare(currentPassword, current.password);
+    if (!passwordMatches) {
+        throw new AuthError(401, 'Contraseña actual incorrecta');
+    }
+
+    // report depende de session
+    const { data: sessions, error: sessionsLookupError } = await supabase
+        .from('session')
+        .select('sessionid')
+        .eq('userid', userid);
+    if (sessionsLookupError) throw sessionsLookupError;
+
+    const sessionIds = (sessions || []).map((s) => s.sessionid);
+    if (sessionIds.length > 0) {
+        const { error: reportError } = await supabase
+            .from('report')
+            .delete()
+            .in('sessionid', sessionIds);
+        if (reportError) throw reportError;
+    }
+
+    const { error: sessionError } = await supabase
+        .from('session')
+        .delete()
+        .eq('userid', userid);
+    if (sessionError) throw sessionError;
+
+    // benefit depende de lab
+    const { data: labs, error: labsLookupError } = await supabase
+        .from('lab')
+        .select('labid')
+        .eq('userid', userid);
+    if (labsLookupError) throw labsLookupError;
+
+    const labIds = (labs || []).map((l) => l.labid);
+    if (labIds.length > 0) {
+        const { error: benefitError } = await supabase
+            .from('benefit')
+            .delete()
+            .in('labid', labIds);
+        if (benefitError) throw benefitError;
+    }
+
+    const { error: labError } = await supabase
+        .from('lab')
+        .delete()
+        .eq('userid', userid);
+    if (labError) throw labError;
+
+    const { error: badgeError } = await supabase
+        .from('userbadge')
+        .delete()
+        .eq('userid', userid);
+    if (badgeError) throw badgeError;
+
+    const { error: userError } = await supabase
+        .from('users')
+        .delete()
+        .eq('userid', userid);
+    if (userError) throw userError;
+}
+
 // Solo devuelve usuarios con role = 0 (estudiante). Se usa desde la
 // sección de Historial para que instructor busque a quién ver
 export async function searchStudents(query) {

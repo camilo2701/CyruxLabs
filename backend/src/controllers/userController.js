@@ -1,4 +1,4 @@
-import { updateProfile, updateAvatar, changePassword, searchStudents } from '../services/userService.js';
+import { updateProfile, updateAvatar, changePassword, deleteAccount, searchStudents } from '../services/userService.js';
 import { AuthError } from '../services/authService.js';
 
 export async function putProfile(req, res) {
@@ -40,6 +40,18 @@ export async function putPassword(req, res) {
         if (err instanceof AuthError) return res.status(err.status).json({ error: err.message });
         console.error('Error cambiando contraseña:', err);
         return res.status(500).json({ error: 'Error interno al cambiar la contraseña' });
+    }
+}
+
+export async function deleteMe(req, res) {
+    try {
+        const { currentPassword } = req.body;
+        await deleteAccount(req.user.userid, { currentPassword });
+        return res.status(200).json({ message: 'Cuenta eliminada correctamente' });
+    } catch (err) {
+        if (err instanceof AuthError) return res.status(err.status).json({ error: err.message });
+        console.error('Error eliminando cuenta:', err);
+        return res.status(500).json({ error: 'Error interno al eliminar la cuenta' });
     }
 }
 

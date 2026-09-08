@@ -146,7 +146,7 @@ function DashboardLabsCreate(){
         setFileError(false);
 
         const formData = new FormData();
-        const url = 'http://localhost:3001/api/labs'
+        const url = `${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}/labs`
         formData.append('title', labTitle);
         formData.append('description', labDesc);
         formData.append('benefits', JSON.stringify(benefitList));

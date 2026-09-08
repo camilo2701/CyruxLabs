@@ -129,3 +129,13 @@
     padding: 28px 18px;
   }
 }
+
+.dashboard-button--danger {
+  background: #b3261e;
+  color: #fff;
+  border: none;
+}
+
+.dashboard-button--danger:hover {
+  background: #96201a;
+}
