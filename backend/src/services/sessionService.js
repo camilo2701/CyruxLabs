@@ -22,9 +22,50 @@ export async function getSessionsForUser(userid) {
     return data.map(mapSession);
 }
 
-// --- Iniciar / detener una sesión de entrenamiento
+export async function getSessionById(sessionid) {
+    const { data, error } = await supabase
+        .from('session')
+        .select('sessionid, userid, labid, iscompleted, issolved, port, protocol, starttime, finishtime, lab(title)')
+        .eq('sessionid', sessionid)
+        .single();
+
+    if (error || !data) {
+        const err = new Error('Sesión no encontrada');
+        err.status = 404;
+        throw err;
+    }
+
+    return data;
+}
 
 const RUNNER_URL = 'http://10.10.0.11:4000';
+
+export async function restartTrainingSession({ labid, sessionid }) {
+    const runnerResponse = await fetch(`${RUNNER_URL}/restart`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ labid, sessionid }),
+    });
+
+    const runnerResult = await runnerResponse.json();
+
+    if (!runnerResponse.ok) {
+        const err = new Error('Runner failed to restart lab');
+        err.details = runnerResult;
+        throw err;
+    }
+
+    const starttime = new Date().toISOString();
+
+    const { error: updateError } = await supabase
+        .from('session')
+        .update({ port: runnerResult.port, protocol: runnerResult.protocol, starttime })
+        .eq('sessionid', sessionid);
+
+    if (updateError) console.error('Session port update error:', updateError);
+
+    return { port: runnerResult.port, protocol: runnerResult.protocol, starttime };
+}
 
 export async function startTrainingSession({ labid, userid }) {
     const { data: labData, error: labError } = await supabase
@@ -82,6 +123,13 @@ export async function startTrainingSession({ labid, userid }) {
         throw err;
     }
 
+    const { error: updateError } = await supabase
+        .from('session')
+        .update({ port: runnerResult.port, protocol: runnerResult.protocol })
+        .eq('sessionid', sessionid);
+
+    if (updateError) console.error('Session port update error:', updateError);
+
     return { sessionid, port: runnerResult.port, protocol: runnerResult.protocol };
 }
 
@@ -104,7 +152,44 @@ export async function stopTrainingSession(sessionid) {
     const { error: updateError } = await supabase
         .from('session')
         .update({ iscompleted: true, finishtime: now.toISOString() })
-        .eq('sessionid', sessionid);
+        .eq('sessionid', sessionid)
+        .eq('iscompleted', false);
 
     if (updateError) console.error('Session update error:', updateError);
+}
+
+export async function submitFlag(sessionid, submittedFlag) {
+    const { data: session, error: sessionError } = await supabase
+        .from('session')
+        .select('sessionid, labid, iscompleted, lab(flag)')
+        .eq('sessionid', sessionid)
+        .single();
+
+    if (sessionError || !session) {
+        const err = new Error('Sesión no encontrada');
+        err.status = 404;
+        throw err;
+    }
+
+    if (session.iscompleted) {
+        return { matched: false, alreadyCompleted: true };
+    }
+
+    const correctFlag = session.lab?.flag;
+    const matched = !!correctFlag && submittedFlag.trim() === correctFlag.trim();
+
+    if (!matched) {
+        return { matched: false };
+    }
+
+    const { error: updateError } = await supabase
+        .from('session')
+        .update({ capturedflag: submittedFlag.trim(), issolved: true })
+        .eq('sessionid', sessionid);
+
+    if (updateError) console.error('Capturedflag update error:', updateError);
+
+    await stopTrainingSession(sessionid); // marca iscompleted=true, finishtime, apaga contenedores
+
+    return { matched: true };
 }

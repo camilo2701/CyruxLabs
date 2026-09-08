@@ -1,15 +1,43 @@
 import { useState } from 'react';
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import styles from '../styles/LabsPage.module.css'
-
 import Footer from '../components/Footer.jsx'
+import { useAuth } from '../context/AuthContext';
 
 function LabsPage(){
-
     const [query, setQuery] = useState("");
     const [labs, setLabs] = useState([]);
     const [selectedLab, setSelectedLab] = useState(null);
+    const navigate = useNavigate();
+    const { token, isAuthenticated } = useAuth();
+
+    const handleComenzar = async () => {
+        if (!selectedLab || !isAuthenticated) return;
+
+        try {
+            const response = await fetch('http://localhost:4000/api/sessions/start', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ labid: selectedLab.labid }),
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                console.error('Failed to start session:', result);
+                return;
+            }
+
+            navigate(`/session/${result.sessionid}`);
+        } catch (err) {
+            console.error('Network error starting session:', err);
+        }
+    };
 
     useEffect(() => {
         fetch('http://localhost:4000/api/labs')
@@ -74,7 +102,11 @@ function LabsPage(){
                     <div className={styles['lab-selection']}>
                         <div className={styles['lab-selection-nav']}>
                             <h2>{selectedLab?.title}</h2>
-                            <div className={styles['lab-selection-nav-btn']}><button>Comenzar</button></div>
+                            <div className={styles['lab-selection-nav-btn']}>
+                                <button onClick={handleComenzar} disabled={!isAuthenticated}>
+                                    {isAuthenticated ? 'Comenzar' : 'Inicia sesión para comenzar'}
+                                </button>
+                            </div>
                         </div>
                         <div className={styles['lab-selection-summary']}>
                             <h3>Introducción</h3>

@@ -1,4 +1,14 @@
-import { getSessionsForUser, startTrainingSession, stopTrainingSession } from '../services/sessionService.js';
+import { getSessionsForUser, getSessionById, startTrainingSession, restartTrainingSession, stopTrainingSession, submitFlag } from '../services/sessionService.js';
+
+function assertOwnsSession(session, reqUser) {
+    const isOwner = session.userid === reqUser.userid;
+    const isStaff = reqUser.role === 1 || reqUser.role === 2;
+    if (!isOwner && !isStaff) {
+        const err = new Error('No tienes permiso sobre esta sesión');
+        err.status = 403;
+        throw err;
+    }
+}
 
 export async function getMySessions(req, res) {
     try {
@@ -21,9 +31,22 @@ export async function getSessionsByUserId(req, res) {
     }
 }
 
+export async function getSessionDetails(req, res) {
+    try {
+        const { sessionid } = req.params;
+        const session = await getSessionById(sessionid);
+        assertOwnsSession(session, req.user);
+        res.json({ session });
+    } catch (err) {
+        console.error('Get session details error:', err);
+        res.status(err.status || 500).json({ message: err.message, error: err.details || err.message });
+    }
+}
+
 export async function postStartSession(req, res) {
     try {
-        const { labid, userid } = req.body;
+        const { labid } = req.body;
+        const userid = req.user.userid;
         const result = await startTrainingSession({ labid, userid });
         res.json(result);
     } catch (err) {
@@ -32,13 +55,41 @@ export async function postStartSession(req, res) {
     }
 }
 
+export async function postRestartSession(req, res) {
+    try {
+        const { labid, sessionid } = req.body;
+        const session = await getSessionById(sessionid);
+        assertOwnsSession(session, req.user);
+        const result = await restartTrainingSession({ labid, sessionid });
+        res.json(result);
+    } catch (err) {
+        console.error('Restart session error:', err);
+        res.status(err.status || 500).json({ message: err.message, error: err.details || err.message });
+    }
+}
+
 export async function postStopSession(req, res) {
     try {
         const { sessionid } = req.body;
+        const session = await getSessionById(sessionid);
+        assertOwnsSession(session, req.user);
         await stopTrainingSession(sessionid);
         res.json({ message: 'Session stopped' });
     } catch (err) {
         console.error('Stop session error:', err);
-        res.status(500).json({ message: err.message, error: err.details || err.message });
+        res.status(err.status || 500).json({ message: err.message, error: err.details || err.message });
+    }
+}
+
+export async function postSubmitFlag(req, res) {
+    try {
+        const { sessionid, flag } = req.body;
+        const session = await getSessionById(sessionid);
+        assertOwnsSession(session, req.user);
+        const result = await submitFlag(sessionid, flag);
+        res.json(result);
+    } catch (err) {
+        console.error('Submit flag error:', err);
+        res.status(err.status || 500).json({ message: err.message, error: err.details || err.message });
     }
 }
