@@ -43,6 +43,10 @@ function LabsPage(){
         fetch('http://localhost:4000/api/labs')
             .then((res) => res.json())
             .then((data) => {
+                if (!Array.isArray(data)) {
+                    console.error('Unexpected /api/labs response:', data);
+                    return;
+                }
                 setLabs(data);
                 if (data.length > 0) setSelectedLab(data[0]);
             })
@@ -113,7 +117,7 @@ function LabsPage(){
                             <p>{selectedLab?.description}</p>
                             <h3>Qué ganarás haciendo este lab?</h3>
                             <ul>
-                                {selectedLab?.benefit.map((b, i) => (
+                                {(selectedLab?.benefit ?? []).map((b, i) => (
                                     <li key={i}>{b.description}</li>
                                 ))}
                             </ul>

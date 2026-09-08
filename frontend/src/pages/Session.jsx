@@ -305,7 +305,7 @@ function Session() {
                         <button onClick={() => navigate('/labs')}>Volver a laboratorios</button>
                     </div>
                 ) : (
-                    iframeUrl && <iframe src={iframeUrl} />
+                    iframeUrl && <iframe src={iframeUrl} allow="autoplay; microphone; camera; clipboard-read; clipboard-write; screen-wake-lock"/>
                 )}
             </section>
 
