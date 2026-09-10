@@ -231,20 +231,16 @@ function Session() {
                 <div className={styles['sidebar-labels']}>
                     <h1>{labTitle ?? 'Lab Title'}</h1>
                     <div className={styles['sidebar-instructions']}>
-                        <h2>Instructions</h2>
+                        <h2>Instrucciones</h2>
                         <ul>
-                            <li>ins 1</li>
-                            <li>ins 1</li>
-                            <li>ins 1</li>
-                            <li>ins 1</li>
-                            <li>ins 1</li>
-                            <li>ins 1</li>
-                            <li>ins 1</li>
-                            <li>ins 1</li>
-                            <li>ins 1</li>
-                            <li>ins 1</li>
-                            <li>ins 1</li>
-                            <li>ins 1</li>
+                            <li><strong>1. Abre una terminal en Webtop:</strong> Ve a <em>Applications → Terminal</em> (o usa el icono de Terminal en la barra de tareas); desde aquí, las siguientes acciones se realizarán escribiendo comandos.</li>
+                            <li><strong>2. Descubre las rutas ocultas:</strong> Ejecuta <code>curl http://fakebank.com/robots.txt</code> para consultar las rutas que el sitio pide a los buscadores que no indexen; busca <code>/portal-x9f2/</code> y <code>/legacy/</code>, que necesitaremos en los siguientes pasos.</li>
+                            <li><strong>3. Encuentra el archivo de respaldo:</strong> Ejecuta <code>curl http://fakebank.com/ | grep -i backup</code> para buscar referencias a archivos de respaldo dentro del HTML de la página y localizar el nombre exacto <code>fakebank_2023_backup.db</code>.</li>
+                            <li><strong>4. Descarga el archivo:</strong> Ejecuta <code>curl -O http://fakebank.com/legacy/fakebank_2023_backup.db</code> para descargar el respaldo conservando su nombre original y después usa <code>ls</code> para comprobar que el archivo está en la carpeta actual.</li>
+                            <li><strong>5. Consulta la base de datos:</strong> Ejecuta <code>sqlite3 fakebank_2023_backup.db</code> y, cuando aparezca <code>sqlite&gt;</code>, escribe <code>SELECT * FROM users;</code> para consultar el usuario y su hash de contraseña; al terminar, escribe <code>.quit</code> para salir.</li>
+                            <li><strong>6. Guarda el hash:</strong> Copia la cadena correspondiente al hash y ejecuta <code>echo "PEGA_EL_HASH_AQUI" &gt; hash.txt</code>, reemplazando <code>PEGA_EL_HASH_AQUI</code> por el valor copiado para guardarlo en un archivo.</li>
+                            <li><strong>7. Recupera la contraseña:</strong> Ejecuta <code>hashcat -m 0 -a 0 hash.txt ~/wordlists/lab-wordlist.txt --force</code> para probar las palabras de la lista del laboratorio contra el hash; si aparece <code>Cracked</code> pero no ves la contraseña, ejecuta <code>hashcat -m 0 hash.txt --show</code>.</li>
+                            <li><strong>8. Inicia sesión y obtiene el flag:</strong> Abre <code>http://fakebank.com/portal-x9f2/login</code> en el navegador, utiliza <code>admin</code> y la contraseña recuperada, y copia el valor con formato <code>FLAG&#123;...&#125;</code> que aparece en el dashboard en el campo <strong>«Ingresa tu flag»</strong>.</li>
                         </ul>
                     </div>
                 </div>
