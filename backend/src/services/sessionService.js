@@ -38,7 +38,7 @@ export async function getSessionById(sessionid) {
     return data;
 }
 
-const RUNNER_URL = 'http://10.10.0.11:4000';
+const RUNNER_URL = 'http://10.10.0.12:4000';
 
 export async function restartTrainingSession({ labid, sessionid }) {
     const runnerResponse = await fetch(`${RUNNER_URL}/restart`, {

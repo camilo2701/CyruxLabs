@@ -10,11 +10,13 @@ function LabsPage(){
     const [query, setQuery] = useState("");
     const [labs, setLabs] = useState([]);
     const [selectedLab, setSelectedLab] = useState(null);
+    const [starting, setStarting] = useState(false);
     const navigate = useNavigate();
     const { token, isAuthenticated } = useAuth();
 
     const handleComenzar = async () => {
-        if (!selectedLab || !isAuthenticated) return;
+        if (!selectedLab || !isAuthenticated || starting) return;
+        setStarting(true);
 
         try {
             const response = await fetch('http://localhost:4000/api/sessions/start', {
@@ -36,6 +38,8 @@ function LabsPage(){
             navigate(`/session/${result.sessionid}`);
         } catch (err) {
             console.error('Network error starting session:', err);
+        } finally {
+            setStarting(false);
         }
     };
 
@@ -109,8 +113,12 @@ function LabsPage(){
                         <div className={styles['lab-selection-nav']}>
                             <h2>{selectedLab?.title}</h2>
                             <div className={styles['lab-selection-nav-btn']}>
-                                <button onClick={handleComenzar} disabled={!isAuthenticated}>
-                                    {isAuthenticated ? 'Comenzar' : 'Inicia sesión para comenzar'}
+                                <button onClick={handleComenzar} disabled={!isAuthenticated || starting}>
+                                    {!isAuthenticated
+                                        ? 'Inicia sesión para comenzar'
+                                        : starting
+                                            ? 'Iniciando...'
+                                            : 'Comenzar'}
                                 </button>
                             </div>
                         </div>

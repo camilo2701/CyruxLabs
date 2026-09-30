@@ -6,6 +6,7 @@ import '../../styles/SuccessModal.module.css'
 
 import DashboardLabsFileModal from './DashboardLabsFileModal';
 import SuccessModal from '../SuccessModal.jsx';
+import { useAuth } from '../../context/AuthContext';
 
 function DashboardLabsCreate(){
     const [labTitle, setLabTitle] = useState('');
@@ -15,7 +16,9 @@ function DashboardLabsCreate(){
     const [benefitFocused, setBenefitFocused] = useState(false);
     const [showFilesModal, setShowFilesModal] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
+    const [submitError, setSubmitError] = useState('');
     const navigate = useNavigate();
+    const { token } = useAuth();
 
     /* Tagging System for handling the benefit List */
     const handleBenefitKeyDown = (e) => {
@@ -144,6 +147,7 @@ function DashboardLabsCreate(){
         }
 
         setFileError(false);
+        setSubmitError('');
 
         const formData = new FormData();
         const url = 'http://localhost:4000/api/labs'
@@ -165,22 +169,30 @@ function DashboardLabsCreate(){
 
             setSuccessMessage(''); // clear any old message before trying again
 
+            // No Content-Type here: the browser sets it (with the boundary) for FormData
             const response = await fetch(url, {
                 method: 'POST',
+                headers: { Authorization: `Bearer ${token}` },
                 body: formData,
             });
 
-            const result = await response.json();
+            const result = await response.json().catch(() => ({}));
 
             if (!response.ok) {
                 console.error('Server error:', result);
-                return; // TODO: show a real error message in the UI
+                setSubmitError(
+                    response.status < 500
+                        ? (result.message || result.error || 'No se pudo crear el laboratorio.')
+                        : 'No se pudo crear el laboratorio. Intenta de nuevo.'
+                );
+                return;
             }
 
             console.log('Lab created:', result);
             setSuccessMessage('Laboratorio creado exitosamente');
         } catch (err) {
             console.error('Network error:', err);
+            setSubmitError('No se pudo conectar con el servidor.');
         }
     };
 
@@ -196,6 +208,7 @@ function DashboardLabsCreate(){
         setTitleError('');
         setDescError('');
         setBenefitError('');
+        setSubmitError('');
     };
 
     /*** PAGE ***/
@@ -313,6 +326,9 @@ function DashboardLabsCreate(){
                 {fileError && (
                     <p className="file-error-msg">{fileErrorMessage}</p>
                 )}  
+                {submitError && (
+                    <p className="file-error-msg">{submitError}</p>
+                )}
                 <div className="container-create-lab-submit">
                     <button>
                         Crear Laboratorio

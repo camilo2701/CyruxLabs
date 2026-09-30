@@ -1,6 +1,6 @@
 import { getSessionsForUser, getSessionById, startTrainingSession, restartTrainingSession, stopTrainingSession, submitFlag } from '../services/sessionService.js';
 
-function assertOwnsSession(session, reqUser) {
+export function assertOwnsSession(session, reqUser) {
     const isOwner = session.userid === reqUser.userid;
     const isStaff = reqUser.role === 1 || reqUser.role === 2;
     if (!isOwner && !isStaff) {

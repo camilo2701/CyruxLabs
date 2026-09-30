@@ -1,0 +1,197 @@
+.markdown {
+    font-family: "Inter", sans-serif;
+    font-size: 1rem;
+    line-height: 1.7;
+    color: #c9c7d1;
+    overflow-wrap: anywhere;
+}
+
+/* ---------- Headings ---------- */
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+    scroll-margin-top: 1.5rem;
+    color: aliceblue;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3 {
+    font-family: "Orbitron", sans-serif;
+    font-weight: 400;
+    line-height: 1.3;
+}
+
+.markdown h1 {
+    font-size: 2rem;
+    margin: 0 0 1.5rem;
+}
+
+.markdown h2 {
+    font-size: 1.5rem;
+    margin: 3rem 0 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #201d2a;
+}
+
+.markdown h3 {
+    font-size: 1.15rem;
+    margin: 2rem 0 0.75rem;
+}
+
+.markdown h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 1.5rem 0 0.5rem;
+}
+
+/* ---------- Text ---------- */
+
+.markdown p {
+    margin: 0 0 1rem;
+}
+
+.markdown a {
+    color: #ee83f8;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.markdown a:hover {
+    color: #ff7ffc;
+}
+
+.markdown strong {
+    color: aliceblue;
+}
+
+.markdown ul,
+.markdown ol {
+    margin: 0 0 1rem;
+    padding-left: 1.5rem;
+}
+
+.markdown li {
+    margin-bottom: 0.35rem;
+}
+
+.markdown hr {
+    border: none;
+    border-top: 1px solid #201d2a;
+    margin: 2rem 0;
+}
+
+.markdown img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+}
+
+/* ---------- Checklists (GFM task lists) ---------- */
+
+.markdown :global(.contains-task-list) {
+    list-style: none;
+    padding-left: 0;
+}
+
+.markdown input[type="checkbox"] {
+    accent-color: #ee5dfb;
+    margin-right: 0.5rem;
+}
+
+/* ---------- Callouts ---------- */
+
+.markdown blockquote {
+    margin: 0 0 1rem;
+    padding: 0.75rem 1rem;
+    border-left: 3px solid #ee5dfb;
+    background: rgba(238, 93, 251, 0.06);
+    border-radius: 0 8px 8px 0;
+}
+
+.markdown blockquote p:last-child {
+    margin-bottom: 0;
+}
+
+/* ---------- Code ---------- */
+
+.markdown :not(pre) > code {
+    padding: 0.15em 0.4em;
+    border-radius: 5px;
+    background: rgba(238, 93, 251, 0.12);
+    color: #ffc9ff;
+    font-size: 0.9em;
+}
+
+.code-block {
+    position: relative;
+    margin: 0 0 1rem;
+}
+
+.code-block pre {
+    margin: 0;
+    padding: 1rem;
+    border: 1px solid #201d2a;
+    border-radius: 10px;
+    background: #0d0b13;
+    overflow-x: auto;
+}
+
+.code-block pre code {
+    padding: 0;
+    background: transparent;
+    font-size: 0.875rem;
+    line-height: 1.6;
+}
+
+.copy-btn {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    cursor: pointer;
+
+    padding: 0.25rem 0.6rem;
+    border: none;
+    border-radius: 5px;
+
+    background: #ee5dfb;
+    color: aliceblue;
+    font-family: "Inter", sans-serif;
+    font-size: 0.75rem;
+
+    opacity: 0.75;
+    transition: 0.15s;
+}
+
+.copy-btn:hover,
+.copy-btn:focus-visible {
+    opacity: 1;
+    background: #ff7ffc;
+}
+
+/* ---------- Tables ---------- */
+
+.table-wrap {
+    overflow-x: auto;
+    margin: 0 0 1rem;
+}
+
+.markdown table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.markdown th,
+.markdown td {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #201d2a;
+    text-align: left;
+}
+
+.markdown th {
+    background: #201d2a;
+    color: aliceblue;
+    font-weight: 600;
+}

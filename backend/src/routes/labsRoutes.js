@@ -11,7 +11,7 @@ import {
 
 const router = Router();
 
-router.post('/', upload.single('zipfile'), createLab);
+router.post('/', requireAuth, requireRole(1, 2), upload.single('zipfile'), createLab);
 router.get('/check-title', checkTitleDuplicate);
 router.get('/', getAllLabs);
 router.put('/:labid', requireAuth, requireRole(1, 2), updateLab);

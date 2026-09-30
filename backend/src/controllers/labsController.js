@@ -1,8 +1,5 @@
 import { supabase } from '../config/supabaseClient.js';
 
-// TODO: reemplazar por el userid real (del token) cuando labs también use auth.
-const TEST_USER_ID = 2;
-
 const PAGE_SIZE = 5;
 
 // Cuenta usuarios DISTINTOS que completaron cada lab (iscompleted = true).
@@ -106,48 +103,68 @@ export const getAllLabs = async (req, res) => {
     }
 };
 
-// CREATE
+// CREATE (protegido: requireAuth + requireRole en la ruta)
 export const createLab = async (req, res) => {
-    const { title, description } = req.body;
-    const benefits = JSON.parse(req.body.benefits || '[]');
+    try {
+        const { title, description } = req.body;
 
-    const { data: labData, error: labError } = await supabase
-        .from('lab')
-        .insert([{ title, description, userid: TEST_USER_ID }])
-        .select();
+        let benefits;
+        try {
+            benefits = JSON.parse(req.body.benefits || '[]');
+            if (!Array.isArray(benefits)) throw new Error('benefits is not an array');
+        } catch {
+            return res.status(400).json({ message: 'Formato de beneficios inválido' });
+        }
 
-    if (labError) {
-        console.error('Lab insert error:', labError);
-        return res.status(500).json({ message: 'Failed to create lab', error: labError.message });
+        if (!title?.trim() || !description?.trim()) {
+            return res.status(400).json({ message: 'Título y descripción son obligatorios' });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({ message: 'Falta el archivo zip del laboratorio' });
+        }
+
+        const { data: labData, error: labError } = await supabase
+            .from('lab')
+            .insert([{ title, description, userid: req.user.userid }])
+            .select();
+
+        if (labError) {
+            console.error('Lab insert error:', labError);
+            return res.status(500).json({ message: 'Failed to create lab', error: labError.message });
+        }
+
+        const labId = labData[0].labid;
+        const filePath = `labs/${labId}/bundle.zip`;
+
+        const { error: uploadError } = await supabase
+            .storage
+            .from('labfiles')
+            .upload(filePath, req.file.buffer, { contentType: 'application/zip' });
+
+        if (uploadError) {
+            console.error('Upload error:', uploadError);
+            return res.status(500).json({ message: 'Lab created but file upload failed', labId, error: uploadError.message });
+        }
+
+        const { error: updateError } = await supabase
+            .from('lab')
+            .update({ zippath: filePath })
+            .eq('labid', labId);
+
+        if (updateError) console.error('Update error:', updateError);
+
+        if (benefits.length > 0) {
+            const benefitRows = benefits.map((b) => ({ description: b, labid: labId }));
+            const { error: benefitError } = await supabase.from('benefit').insert(benefitRows);
+            if (benefitError) console.error('Benefit insert error:', benefitError);
+        }
+
+        res.json({ message: 'Lab created successfully', labId, filePath });
+    } catch (error) {
+        console.error('Create lab error:', error);
+        res.status(500).json({ message: 'Failed to create lab', error: error.message });
     }
-
-    const labId = labData[0].labid;
-    const filePath = `labs/${labId}/bundle.zip`;
-
-    const { error: uploadError } = await supabase
-        .storage
-        .from('labfiles')
-        .upload(filePath, req.file.buffer, { contentType: 'application/zip' });
-
-    if (uploadError) {
-        console.error('Upload error:', uploadError);
-        return res.status(500).json({ message: 'Lab created but file upload failed', labId, error: uploadError.message });
-    }
-
-    const { error: updateError } = await supabase
-        .from('lab')
-        .update({ zippath: filePath })
-        .eq('labid', labId);
-
-    if (updateError) console.error('Update error:', updateError);
-
-    if (benefits.length > 0) {
-        const benefitRows = benefits.map((b) => ({ description: b, labid: labId }));
-        const { error: benefitError } = await supabase.from('benefit').insert(benefitRows);
-        if (benefitError) console.error('Benefit insert error:', benefitError);
-    }
-
-    res.json({ message: 'Lab created successfully', labId, filePath });
 };
 
 // READ + CHECK
@@ -219,6 +236,14 @@ export const deleteLab = async (req, res) => {
     const { labid } = req.params;
 
     try {
+        // bugreport tiene FK a lab: hay que borrarlos antes o el delete del lab falla
+        const { error: bugReportDeleteError } = await supabase
+            .from('bugreport')
+            .delete()
+            .eq('labid', labid);
+
+        if (bugReportDeleteError) throw bugReportDeleteError;
+
         const { error: sessionDeleteError } = await supabase
             .from('session')
             .delete()

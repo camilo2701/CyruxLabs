@@ -14,6 +14,8 @@ import LabsPage from './pages/LabsPage'
 
 import Session from './pages/Session'
 
+import CreationGuide from './pages/CreationGuide'
+
 import { AuthProvider } from './context/AuthContext'
 
 function App() {
@@ -29,6 +31,7 @@ function App() {
           <Route path="/labs" element={<LabsPage />} />
           <Route path="/dashboard" element={<Dashboard/>}/>
           <Route path="/session/:sessionid" element={<Session/>}/>
+          <Route path="/creation-guide" element={<CreationGuide/>}/>
           
         </Routes>
 

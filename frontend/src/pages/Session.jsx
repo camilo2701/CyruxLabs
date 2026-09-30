@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useConfirm } from '../components/ConfirmContext.jsx';
 import SuccessModal from '../components/SuccessModal.jsx';
 import { useAuth } from '../context/AuthContext';
+import BugReportModal from '../components/session/BugReportModal.jsx';
 import styles from '../styles/Session.module.css'
 
 const UNLOAD_WARNING_ENABLED = false; // TODO: re-enable once real hosting removes the self-signed cert workflow
@@ -32,6 +33,7 @@ function Session() {
     const [submittingFlag, setSubmittingFlag] = useState(false);
     const [isEnded, setIsEnded] = useState(false);
     const [isSolved, setIsSolved] = useState(false);
+    const [showReportModal, setShowReportModal] = useState(false);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const stopCleanupCount = useRef(0);
 
@@ -39,7 +41,7 @@ function Session() {
     const [finishTime, setFinishTime] = useState(null);
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
-    const iframeUrl = port ? `${protocol}://10.10.0.11:${port}/` : null;
+    const iframeUrl = port ? `${protocol}://10.10.0.12:${port}/` : null;
 
     useEffect(() => {
         if (!token || !sessionid) return;
@@ -177,6 +179,39 @@ function Session() {
         }
     };
 
+    const handleSubmitReport = async ({ title, description }) => {
+        let response;
+        try {
+            response = await fetch('http://localhost:4000/api/bugreports', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ sessionid, title, description }),
+            });
+        } catch {
+            throw new Error('No se pudo conectar con el servidor.');
+        }
+
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            throw new Error(
+                response.status < 500 && result.message
+                    ? result.message
+                    : 'No se pudo enviar el reporte. Intenta de nuevo.'
+            );
+        }
+
+        // Not awaited on purpose: the report modal closes right away and this stays on top
+        confirm({
+            title: 'Reporte enviado',
+            message: 'Gracias por avisarnos. Revisaremos el problema.',
+            confirmText: 'Entendido',
+        });
+    };
+
     const handleSubmitFlag = async () => {
         if (!flag.trim() || submittingFlag) return;
         setSubmittingFlag(true);
@@ -251,6 +286,18 @@ function Session() {
                         <button onClick={handleRestartLab} disabled={isEnded}>Reiniciar Lab</button>
 
                         <button onClick={handleStopLab} disabled={isEnded}>Terminar Lab</button>
+
+                        <button
+                            type="button"
+                            className={styles['icon-btn']}
+                            onClick={() => setShowReportModal(true)}
+                            title="Reportar un problema"
+                            aria-label="Reportar un problema"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5m.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2"/>
+                            </svg>
+                        </button>
                     </div>
 
                     <div className={styles['nebula-input']}>
@@ -309,6 +356,13 @@ function Session() {
                 <SuccessModal
                     message={`¡Correcto! Completaste ${labTitle ?? 'el laboratorio'} en ${formatElapsed(elapsedSeconds)}.`}
                     onClose={() => setShowSuccessModal(false)}
+                />
+            )}
+
+            {showReportModal && (
+                <BugReportModal
+                    onSubmit={handleSubmitReport}
+                    onClose={() => setShowReportModal(false)}
                 />
             )}
         </div>

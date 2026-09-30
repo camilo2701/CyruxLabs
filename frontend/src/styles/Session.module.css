@@ -120,7 +120,7 @@
     display: flex;
     flex-direction: row;
 
-    gap: 2rem;
+    gap: 1.5rem;
 
     justify-content: center;
     align-items: center;
@@ -154,6 +154,18 @@
     background: #3a3646;
     color: #8a8594;
     box-shadow: none;
+}
+
+.sidebar-controls-buttons--with-report {
+    gap: 1rem;
+}
+
+.sidebar-controls-buttons .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 0.6rem;
+    line-height: 0;
 }
 
 
