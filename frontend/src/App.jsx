@@ -16,6 +16,8 @@ import Session from './pages/Session'
 
 import CreationGuide from './pages/CreationGuide'
 
+import ProfilePage from './pages/ProfilePage'
+
 import { AuthProvider } from './context/AuthContext'
 
 function App() {
@@ -32,6 +34,8 @@ function App() {
           <Route path="/dashboard" element={<Dashboard/>}/>
           <Route path="/session/:sessionid" element={<Session/>}/>
           <Route path="/creation-guide" element={<CreationGuide/>}/>
+          <Route path="/perfil" element={<ProfilePage/>}/>
+          <Route path="/perfil/:username" element={<ProfilePage/>}/>
           
         </Routes>
 

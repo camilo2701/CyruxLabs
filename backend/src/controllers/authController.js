@@ -21,7 +21,7 @@ export async function login(req, res) {
         return res.status(200).json(result);
     } catch (err) {
         if (err instanceof AuthError) {
-            return res.status(err.status).json({ error: err.message });
+            return res.status(err.status).json({ error: err.message, ...err.extra });
         }
         console.error('Error en login:', err);
         return res.status(500).json({ error: 'Error interno al iniciar sesión' });

@@ -5,22 +5,31 @@ import { supabase } from '../config/supabaseClient.js';
 const SALT_ROUNDS = 10;
 const DEFAULT_AVATAR = 'avatar-01.svg';
 
-// Mismas reglas de formato que ya usas en el frontend (RegisterPage.jsx),
-// repetidas aquí porque el backend nunca debe confiar solo en la
-// validación del cliente.
 const usernameRegex = /^[a-zA-Z0-9.-]{1,12}$/;
 const nameRegex = /^\p{L}+$/u;
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,20}$/;
 
-// Errores "esperados" (datos inválidos, duplicados, credenciales
-// incorrectas). El controller los detecta y responde con el status
-// correcto en vez de un 500 genérico.
 export class AuthError extends Error {
-    constructor(status, message) {
+    // extra: datos adicionales para el cliente (ej. lockedUntil en un bloqueo)
+    constructor(status, message, extra = {}) {
         super(message);
         this.status = status;
+        this.extra = extra;
     }
+}
+
+// Bloqueo por intentos fallidos de inicio de sesión
+const MAX_LOGIN_ATTEMPTS = 3;
+const LOCK_MINUTES = 15;
+
+function lockedError(lockedUntil) {
+    const retryAfterSeconds = Math.max(1, Math.ceil((lockedUntil.getTime() - Date.now()) / 1000));
+    return new AuthError(
+        423,
+        `Acceso bloqueado por ${MAX_LOGIN_ATTEMPTS} intentos fallidos. Intenta de nuevo más tarde.`,
+        { lockedUntil: lockedUntil.toISOString(), retryAfterSeconds }
+    );
 }
 
 export function signToken(user) {
@@ -32,8 +41,8 @@ export function signToken(user) {
 }
 
 function toPublicUser(user) {
-    // Nunca devolver el hash de la contraseña al cliente
-    const { password, ...publicUser } = user;
+    // NO devolver el hash de la contraseña al cliente
+    const { password, failedattempts, lockeduntil, ...publicUser } = user;
     return publicUser;
 }
 
@@ -58,8 +67,6 @@ function validateRegisterInput({ username, email, firstName, lastName, password 
 export async function registerUser({ username, email, firstName, lastName, password }) {
     validateRegisterInput({ username, email, firstName, lastName, password });
 
-    // Como la tabla no tiene UNIQUE en username/email, verificamos
-    // duplicados manualmente antes de insertar.
     const { data: existing, error: lookupError } = await supabase
         .from('users')
         .select('userid, username, email')
@@ -88,7 +95,7 @@ export async function registerUser({ username, email, firstName, lastName, passw
             email,
             dateofcreation: new Date().toISOString().slice(0, 10),
             role: 0,
-            level: 0,
+            level: 1,
             score: 0,
         })
         .select()
@@ -113,15 +120,56 @@ export async function loginUser({ email, password }) {
 
     if (error) throw error;
 
-    // Mismo mensaje si el usuario no existe o la contraseña es incorrecta,
-    // para no revelar cuál de los dos fue el problema.
     if (!user) {
         throw new AuthError(401, 'Email o contraseña incorrectos');
     }
 
+    // 1) ¿Está bloqueado? Se rechaza sin revisar la contraseña,
+    //    así ni siquiera la contraseña correcta entra durante el bloqueo.
+    const lockedUntil = user.lockeduntil ? new Date(user.lockeduntil) : null;
+    if (lockedUntil && lockedUntil.getTime() > Date.now()) {
+        throw lockedError(lockedUntil);
+    }
+
     const passwordMatches = await bcrypt.compare(password, user.password);
+
+    // 2) Contraseña incorrecta: suma un intento y bloquea al llegar al máximo.
     if (!passwordMatches) {
-        throw new AuthError(401, 'Email o contraseña incorrectos');
+        const attempts = (user.failedattempts || 0) + 1;
+
+        if (attempts >= MAX_LOGIN_ATTEMPTS) {
+            const newLockedUntil = new Date(Date.now() + LOCK_MINUTES * 60 * 1000);
+            // Se reinicia el contador: al terminar el bloqueo vuelve a tener 3 intentos.
+            const { error: lockError } = await supabase
+                .from('users')
+                .update({ failedattempts: 0, lockeduntil: newLockedUntil.toISOString() })
+                .eq('userid', user.userid);
+            if (lockError) throw lockError;
+
+            throw lockedError(newLockedUntil);
+        }
+
+        const { error: attemptError } = await supabase
+            .from('users')
+            .update({ failedattempts: attempts })
+            .eq('userid', user.userid);
+        if (attemptError) throw attemptError;
+
+        const remaining = MAX_LOGIN_ATTEMPTS - attempts;
+        throw new AuthError(
+            401,
+            `Email o contraseña incorrectos. Te ${remaining === 1 ? 'queda 1 intento' : `quedan ${remaining} intentos`}.`,
+            { remainingAttempts: remaining }
+        );
+    }
+
+    // 3) Login correcto: limpia el contador y cualquier bloqueo vencido.
+    if (user.failedattempts || user.lockeduntil) {
+        const { error: resetError } = await supabase
+            .from('users')
+            .update({ failedattempts: 0, lockeduntil: null })
+            .eq('userid', user.userid);
+        if (resetError) throw resetError;
     }
 
     const token = signToken(user);

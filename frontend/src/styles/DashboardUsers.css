@@ -106,7 +106,7 @@
 .manage-users__table-header,
 .manage-users__row {
   display: grid;
-  grid-template-columns: 80px 1fr 1.5fr 130px;
+  grid-template-columns: 70px 1fr 1.5fr 120px 130px;
   align-items: center;
   gap: 20px;
   padding: 15px 22px;
@@ -286,4 +286,111 @@
     width: fit-content;
   }
 
+}
+
+.manage-users__search .manage-users__clear-button {
+  background: #201d2a;
+  border: 1px solid rgba(198, 100, 247, 0.25);
+  color: #f4f2f8;
+}
+
+.manage-users__role {
+  width: fit-content;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  border: 1px solid rgba(155, 147, 171, 0.3);
+  color: #9b93ab;
+}
+
+.manage-users__role--1 {
+  border-color: rgba(198, 100, 247, 0.4);
+  color: #c664f7;
+}
+
+.manage-users__role--2 {
+  border-color: rgba(255, 196, 87, 0.45);
+  color: #ffc457;
+}
+
+.manage-users__modal-email {
+  font-size: 0.82rem;
+  color: #6f687d;
+}
+
+.manage-users__modal-actions button:disabled,
+.manage-users__edit-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.manage-users__edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.manage-users__edit-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: #9b93ab;
+}
+
+.manage-users__edit-form input,
+.manage-users__edit-form select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(198, 100, 247, 0.15);
+  border-radius: 6px;
+  outline: none;
+  background: #0d0b13;
+  color: #f4f2f8;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  transition: border-color 0.2s ease;
+}
+
+.manage-users__edit-form input:focus,
+.manage-users__edit-form select:focus {
+  border-color: #c664f7;
+}
+
+.manage-users__edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.manage-users__edit-actions button {
+  padding: 10px 16px;
+  border: 1px solid #201d2a;
+  border-radius: 7px;
+  background: #201d2a;
+  color: #f4f2f8;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.manage-users__edit-actions .manage-users__save-button {
+  border-color: #c664f7;
+  background: #c664f7;
+  color: aliceblue;
+}
+
+.manage-users__modal .manage-users__modal-message {
+  margin: 16px 0 0;
+  font-size: 0.8rem;
+}
+
+.manage-users__modal-message--success {
+  color: #6be3a4 !important;
+}
+
+.manage-users__modal-message--error {
+  color: #ff8b99 !important;
 }

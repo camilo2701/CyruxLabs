@@ -1,4 +1,4 @@
-import { updateProfile, updateAvatar, changePassword, deleteAccount, searchStudents } from '../services/userService.js';
+import { updateProfile, updateAvatar, changePassword, deleteAccount, searchStudents, getPublicProfile, searchUsers, listManagedUsers, adminUpdateUser, adminDeleteUser } from '../services/userService.js';
 import { AuthError } from '../services/authService.js';
 
 export async function putProfile(req, res) {
@@ -63,5 +63,71 @@ export async function getStudents(req, res) {
     } catch (err) {
         console.error('Error buscando estudiantes:', err);
         return res.status(500).json({ error: 'Error interno al buscar estudiantes' });
+    }
+}
+
+export async function getProfile(req, res) {
+    try {
+        const result = await getPublicProfile(req.params.username);
+        return res.status(200).json(result);
+    } catch (err) {
+        if (err instanceof AuthError) return res.status(err.status).json({ error: err.message });
+        console.error('Error obteniendo perfil:', err);
+        return res.status(500).json({ error: 'Error interno al obtener el perfil' });
+    }
+}
+
+export async function getUserSearch(req, res) {
+    try {
+        const { search = '' } = req.query;
+        const users = await searchUsers(search);
+        return res.status(200).json({ users });
+    } catch (err) {
+        console.error('Error buscando usuarios:', err);
+        return res.status(500).json({ error: 'Error interno al buscar usuarios' });
+    }
+}
+
+
+// gestion de usuarios (exclusiva admins e instructores)
+
+export async function getManagedUsers(req, res) {
+    try {
+        const { search = '', page = 1 } = req.query;
+        const result = await listManagedUsers(req.user, { search, page });
+        return res.status(200).json(result);
+    } catch (err) {
+        if (err instanceof AuthError) return res.status(err.status).json({ error: err.message });
+        console.error('Error listando usuarios:', err);
+        return res.status(500).json({ error: 'Error interno al obtener los usuarios' });
+    }
+}
+
+export async function putManagedUser(req, res) {
+    try {
+        const { username, firstName, lastName, email, role } = req.body;
+        const result = await adminUpdateUser(req.user, req.params.userid, {
+            username,
+            firstName,
+            lastName,
+            email,
+            role,
+        });
+        return res.status(200).json(result);
+    } catch (err) {
+        if (err instanceof AuthError) return res.status(err.status).json({ error: err.message });
+        console.error('Error modificando usuario:', err);
+        return res.status(500).json({ error: 'Error interno al modificar el usuario' });
+    }
+}
+
+export async function deleteManagedUser(req, res) {
+    try {
+        await adminDeleteUser(req.user, req.params.userid);
+        return res.status(200).json({ message: 'Usuario eliminado correctamente' });
+    } catch (err) {
+        if (err instanceof AuthError) return res.status(err.status).json({ error: err.message });
+        console.error('Error eliminando usuario:', err);
+        return res.status(500).json({ error: 'Error interno al eliminar el usuario' });
     }
 }

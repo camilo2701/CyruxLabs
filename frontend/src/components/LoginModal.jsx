@@ -1,9 +1,15 @@
 import styles from '../styles/LoginModal.module.css'
 import { Link } from 'react-router-dom'
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+
+function formatCountdown(totalSeconds) {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
 
 function LoginModal({ onClose }) {
     const { login } = useAuth();
@@ -11,9 +17,31 @@ function LoginModal({ onClose }) {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [lock, setLock] = useState(null);
+    const [secondsLeft, setSecondsLeft] = useState(0);
+
+    const isLocked = !!lock && lock.email === email.trim().toLowerCase() && secondsLeft > 0;
+
+    useEffect(() => {
+        if (!lock) return;
+
+        const tick = () => {
+            const remaining = Math.max(0, Math.ceil((lock.until - Date.now()) / 1000));
+            setSecondsLeft(remaining);
+            if (remaining === 0) {
+                setLock(null);
+                setError('');
+            }
+        };
+
+        tick();
+        const intervalId = setInterval(tick, 1000);
+        return () => clearInterval(intervalId);
+    }, [lock]);
 
     async function handleSubmit(event){
         event.preventDefault();
+        if (isLocked) return;
         setError('');
         setLoading(true);
 
@@ -25,6 +53,17 @@ function LoginModal({ onClose }) {
             });
 
             const data = await response.json();
+
+            if (response.status === 423) {
+                // cuenta bloqueada, backend envia sgds restantes
+                setLock({
+                    email: email.trim().toLowerCase(),
+                    until: Date.now() + (data.retryAfterSeconds || 0) * 1000,
+                });
+                setPassword('');
+                setError(data.error || 'Acceso bloqueado temporalmente');
+                return;
+            }
 
             if (!response.ok) {
                 setError(data.error || 'No se pudo iniciar sesión');
@@ -87,10 +126,21 @@ function LoginModal({ onClose }) {
                             <div className={styles['nebula-particle']} style={{ "--x": 0.6, "--y": 0.4, "--delay": "0.6s" }} />
                         </div>
                         
-                        {error && <p className={styles['card-error']}>{error}</p>}
+                        {isLocked ? (
+                            <div className={styles['lock-message']} role="alert">
+                                <strong>Acceso bloqueado</strong>
+                                <span>Superaste los 3 intentos fallidos de inicio de sesión.</span>
+                                <span>
+                                    Podrás intentarlo de nuevo en{' '}
+                                    <span className={styles['lock-countdown']}>{formatCountdown(secondsLeft)}</span>
+                                </span>
+                            </div>
+                        ) : (
+                            error && <p className={styles['card-error']}>{error}</p>
+                        )}
 
-                        <button type="submit" className={styles.submitBtn} disabled={loading}>
-                            {loading ? 'Ingresando...' : 'Continuar'}
+                        <button type="submit" className={styles.submitBtn} disabled={loading || isLocked}>
+                            {loading ? 'Ingresando...' : isLocked ? 'Bloqueado' : 'Continuar'}
                         </button>
 
                     </div>
@@ -102,5 +152,6 @@ function LoginModal({ onClose }) {
         </div>
     );
 }
+
 
 export default LoginModal
