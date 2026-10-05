@@ -33,7 +33,7 @@ function App() {
           <Route path="/labs" element={<LabsPage />} />
           <Route path="/dashboard" element={<Dashboard/>}/>
           <Route path="/session/:sessionid" element={<Session/>}/>
-          <Route path="/creation-guide" element={<CreationGuide/>}/>
+          <Route path="/docs" element={<CreationGuide/>}/>
           <Route path="/perfil" element={<ProfilePage/>}/>
           <Route path="/perfil/:username" element={<ProfilePage/>}/>
           

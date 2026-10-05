@@ -6,6 +6,7 @@ import userRoutes from './routes/userRoutes.js';
 import sessionRoutes from './routes/sessionRoutes.js';
 import labsRoutes from './routes/labsRoutes.js';
 import bugReportRoutes from './routes/bugReportRoutes.js';
+import docsRoutes from './routes/docsRoutes.js';
 
 dotenv.config();
 
@@ -19,6 +20,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/labs', labsRoutes);
 app.use('/api/bugreports', bugReportRoutes);
+app.use('/api/docs', docsRoutes);
 
 app.get('/', (req, res) => {
     res.json({ status: 'cyrux backend funcionando' });

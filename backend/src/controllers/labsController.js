@@ -1,4 +1,11 @@
 import { supabase } from '../config/supabaseClient.js';
+import {
+    getTitleError,
+    getDescriptionError,
+    getBenefitError,
+    getBenefitsError,
+    getFlagError,
+} from '../utils/labRules.js';
 
 const PAGE_SIZE = 5;
 
@@ -103,102 +110,186 @@ export const getAllLabs = async (req, res) => {
     }
 };
 
+// Best-effort cleanup when creating a lab fails halfway: undo whatever was already saved.
+// Failures are only logged so the original error is the one the client sees.
+async function rollbackLab(labId, filePath) {
+    const steps = [
+        () => supabase.storage.from('labfiles').remove([filePath]),
+        () => supabase.from('benefit').delete().eq('labid', labId),
+        () => supabase.from('lab').delete().eq('labid', labId),
+    ];
+
+    for (const step of steps) {
+        const { error } = await step();
+        if (error) console.error('Rollback step failed:', error);
+    }
+}
+
 // CREATE (protegido: requireAuth + requireRole en la ruta)
 export const createLab = async (req, res) => {
-    try {
-        const { title, description } = req.body;
+    let labId = null;
+    let filePath = null;
 
+    try {
         let benefits;
         try {
             benefits = JSON.parse(req.body.benefits || '[]');
-            if (!Array.isArray(benefits)) throw new Error('benefits is not an array');
         } catch {
             return res.status(400).json({ message: 'Formato de beneficios inválido' });
         }
 
-        if (!title?.trim() || !description?.trim()) {
-            return res.status(400).json({ message: 'Título y descripción son obligatorios' });
+        const title = typeof req.body.title === 'string' ? req.body.title.trim() : '';
+        const description = typeof req.body.description === 'string' ? req.body.description.trim() : '';
+        const flag = typeof req.body.flag === 'string' ? req.body.flag.trim() : '';
+        if (Array.isArray(benefits)) {
+            benefits = benefits.map((b) => (typeof b === 'string' ? b.trim() : b));
+        }
+
+        // Validate everything BEFORE writing anything
+        const validationError =
+            getTitleError(title) ||
+            getDescriptionError(description) ||
+            getBenefitsError(benefits) ||
+            getFlagError(flag);
+
+        if (validationError) {
+            return res.status(400).json({ message: validationError });
         }
 
         if (!req.file) {
             return res.status(400).json({ message: 'Falta el archivo zip del laboratorio' });
         }
 
+        // The frontend checks for duplicate titles too, but this check can't be skipped
+        const { data: sameTitle, error: titleCheckError } = await supabase
+            .from('lab')
+            .select('labid')
+            .ilike('title', title)
+            .limit(1);
+
+        if (titleCheckError) throw titleCheckError;
+
+        if (sameTitle.length > 0) {
+            return res.status(409).json({ message: 'Ya existe un laboratorio con este título', field: 'title' });
+        }
+
         const { data: labData, error: labError } = await supabase
             .from('lab')
-            .insert([{ title, description, userid: req.user.userid }])
+            .insert([{ title, description, flag, userid: req.user.userid }])
             .select();
 
         if (labError) {
-            console.error('Lab insert error:', labError);
-            return res.status(500).json({ message: 'Failed to create lab', error: labError.message });
+            // 23505 = unique violation (the flag column is UNIQUE)
+            if (labError.code === '23505') {
+                return res.status(409).json({ message: 'Esa flag ya está en uso en otro laboratorio', field: 'flag' });
+            }
+            throw labError;
         }
 
-        const labId = labData[0].labid;
-        const filePath = `labs/${labId}/bundle.zip`;
+        labId = labData[0].labid;
+        filePath = `labs/${labId}/bundle.zip`;
 
         const { error: uploadError } = await supabase
             .storage
             .from('labfiles')
             .upload(filePath, req.file.buffer, { contentType: 'application/zip' });
 
-        if (uploadError) {
-            console.error('Upload error:', uploadError);
-            return res.status(500).json({ message: 'Lab created but file upload failed', labId, error: uploadError.message });
-        }
+        if (uploadError) throw uploadError;
 
         const { error: updateError } = await supabase
             .from('lab')
             .update({ zippath: filePath })
             .eq('labid', labId);
 
-        if (updateError) console.error('Update error:', updateError);
+        if (updateError) throw updateError;
 
-        if (benefits.length > 0) {
-            const benefitRows = benefits.map((b) => ({ description: b, labid: labId }));
-            const { error: benefitError } = await supabase.from('benefit').insert(benefitRows);
-            if (benefitError) console.error('Benefit insert error:', benefitError);
-        }
+        const benefitRows = benefits.map((b) => ({ description: b, labid: labId }));
+        const { error: benefitError } = await supabase.from('benefit').insert(benefitRows);
+
+        if (benefitError) throw benefitError;
 
         res.json({ message: 'Lab created successfully', labId, filePath });
     } catch (error) {
         console.error('Create lab error:', error);
+        if (labId !== null) await rollbackLab(labId, filePath);
         res.status(500).json({ message: 'Failed to create lab', error: error.message });
     }
 };
 
 // READ + CHECK
 export const checkTitleDuplicate = async (req, res) => {
-    const { title } = req.query;
+    const title = typeof req.query.title === 'string' ? req.query.title.trim() : '';
 
     if (!title) {
         return res.status(400).json({ message: 'Title query param is required' });
+    }
+
+    // A title that breaks the rules can't exist. This also keeps % and _ (wildcards
+    // in ilike) out of the query.
+    if (getTitleError(title)) {
+        return res.json({ exists: false });
     }
 
     const { data, error } = await supabase
         .from('lab')
         .select('labid')
         .ilike('title', title)
-        .maybeSingle();
+        .limit(1);
 
     if (error) {
         console.error('Duplicate check error:', error);
         return res.status(500).json({ message: 'Failed to check title', error: error.message });
     }
 
-    res.json({ exists: !!data });
+    res.json({ exists: data.length > 0 });
 };
 
 // UPDATE (protegido: requireAuth + requireRole en la ruta)
 // Guarda todo junto: título/descripción, más beneficios a agregar/quitar.
 export const updateLab = async (req, res) => {
     const { labid } = req.params;
-    const { title, description, addBenefits = [], removeBenefitIds = [] } = req.body;
+    const { addBenefits = [], removeBenefitIds = [] } = req.body;
 
     try {
+        if (!Array.isArray(addBenefits) || !Array.isArray(removeBenefitIds)) {
+            return res.status(400).json({ message: 'Formato de beneficios inválido' });
+        }
+
+        const benefitProblem = addBenefits.map(getBenefitError).find(Boolean);
+        if (benefitProblem) {
+            return res.status(400).json({ message: benefitProblem });
+        }
+
         const updates = {};
-        if (title !== undefined) updates.title = title;
-        if (description !== undefined) updates.description = description;
+
+        if (req.body.title !== undefined) {
+            const title = String(req.body.title).trim();
+            const titleProblem = getTitleError(title);
+            if (titleProblem) return res.status(400).json({ message: titleProblem });
+
+            const { data: sameTitle, error: titleCheckError } = await supabase
+                .from('lab')
+                .select('labid')
+                .ilike('title', title)
+                .neq('labid', labid)
+                .limit(1);
+
+            if (titleCheckError) throw titleCheckError;
+
+            if (sameTitle.length > 0) {
+                return res.status(409).json({ message: 'Ya existe un laboratorio con este título', field: 'title' });
+            }
+
+            updates.title = title;
+        }
+
+        if (req.body.description !== undefined) {
+            const description = String(req.body.description).trim();
+            const descriptionProblem = getDescriptionError(description);
+            if (descriptionProblem) return res.status(400).json({ message: descriptionProblem });
+
+            updates.description = description;
+        }
 
         if (Object.keys(updates).length > 0) {
             const { error: updateError } = await supabase
@@ -219,7 +310,7 @@ export const updateLab = async (req, res) => {
         }
 
         if (addBenefits.length > 0) {
-            const benefitRows = addBenefits.map((description) => ({ description, labid }));
+            const benefitRows = addBenefits.map((description) => ({ description: description.trim(), labid }));
             const { error: addError } = await supabase.from('benefit').insert(benefitRows);
             if (addError) throw addError;
         }

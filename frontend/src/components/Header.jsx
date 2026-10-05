@@ -40,7 +40,6 @@ function Header({ onLoginClick }){
         }
     };
 
-    // Cierra el dropdown (animado) si el usuario hace click fuera de él.
     useEffect(() => {
         function handleClickOutside(event) {
             if (isMenuOpen && menuRef.current && !menuRef.current.contains(event.target)) {
@@ -71,6 +70,7 @@ function Header({ onLoginClick }){
                 <ul className={styles['nav-links']}>
                     <li><Link to="/">Inicio</Link></li>
                     <li><Link to="/labs">Laboratorios</Link></li>
+                    <li><Link to="/docs">Docs</Link></li>
                     <li><Link to="/faq">FAQ</Link></li>
                 </ul>
                 <div className={styles.btns}>

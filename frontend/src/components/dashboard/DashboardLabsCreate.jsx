@@ -1,127 +1,96 @@
 import { useState } from "react";
-import { useRef } from "react";
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import '../../styles/DashboardLabsCreate.css'
-import '../../styles/SuccessModal.module.css'
 
 import DashboardLabsFileModal from './DashboardLabsFileModal';
+import LabInfoFields from './labsCreate/LabInfoFields.jsx';
+import BenefitsInput from './labsCreate/BenefitsInput.jsx';
+import FlagField from './labsCreate/FlagField.jsx';
+import LabFileDrop from './labsCreate/LabFileDrop.jsx';
 import SuccessModal from '../SuccessModal.jsx';
 import { useAuth } from '../../context/AuthContext';
+import {
+    MIN_BENEFITS,
+    MAX_BENEFITS,
+    getTitleError,
+    getDescriptionError,
+    getBenefitError,
+    getFlagError,
+} from '../../utils/labRules.js';
+
+const BENEFITS_COUNT_ERROR = `Debes indicar al menos ${MIN_BENEFITS} beneficios que obtienes por desarrollar este laboratorio`;
+const isZipFile = (file) => file.name.toLowerCase().endsWith('.zip');
 
 function DashboardLabsCreate(){
     const [labTitle, setLabTitle] = useState('');
     const [labDesc, setLabDesc] = useState('');
-    const [benefitInput, setBenefitInput] = useState(''); 
+    const [benefitInput, setBenefitInput] = useState('');
     const [benefitList, setBenefitList] = useState([]);
-    const [benefitFocused, setBenefitFocused] = useState(false);
+    const [flag, setFlag] = useState('');
+    const [files, setFiles] = useState([]);
     const [showFilesModal, setShowFilesModal] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [submitError, setSubmitError] = useState('');
-    const navigate = useNavigate();
     const { token } = useAuth();
 
-    /* Tagging System for handling the benefit List */
-    const handleBenefitKeyDown = (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            const trimmed = benefitInput.trim();
-            if (trimmed === '') return;
+    /*** ERROR MANAGEMENT ***/
+    const [titleError, setTitleError] = useState('');
+    const [descError, setDescError] = useState('');
+    const [benefitError, setBenefitError] = useState('');
+    const [flagError, setFlagError] = useState('');
+    const [fileError, setFileError] = useState(false);
+    const [fileErrorMessage, setFileErrorMessage] = useState('');
 
-            if (!titleRegex.test(trimmed)) {
-                setBenefitError('No se permiten caracteres especiales');
-                return;
-            }
+    const validateTitle = (value) => setTitleError(getTitleError(value));
+    const validateDesc = (value) => setDescError(getDescriptionError(value));
+    const validateFlag = (value) => setFlagError(getFlagError(value));
 
-            setBenefitList((prevList) => [...prevList, trimmed]);
-            setBenefitInput('');
+    const validateBenefitCount = () => {
+        if (benefitList.length < MIN_BENEFITS) {
+            setBenefitError(BENEFITS_COUNT_ERROR);
+        } else {
             setBenefitError('');
         }
+    };
+
+    /*** BENEFITS ***/
+    // Returns true if the benefit was accepted, so BenefitsInput knows to clear its text box
+    const handleAddBenefit = (text) => {
+        if (benefitList.length >= MAX_BENEFITS) {
+            setBenefitError(`Máximo ${MAX_BENEFITS} beneficios`);
+            return false;
+        }
+
+        const error = getBenefitError(text);
+        if (error) {
+            setBenefitError(error);
+            return false;
+        }
+
+        setBenefitList((prevList) => [...prevList, text]);
+        setBenefitError('');
+        return true;
     };
 
     const handleRemoveBenefit = (indexToRemove) => {
         setBenefitList((prevList) => prevList.filter((_, i) => i !== indexToRemove));
     };
 
-    /*** ERROR MANAGEMENT ***/
-    const [fileError, setFileError] = useState(false);
-    const [fileErrorMessage, setFileErrorMessage] = useState('');
-    const [titleError, setTitleError] = useState("");
-    const titleRegex = /^[A-Za-z0-9 ]+$/;
-    const [descError, setDescError] = useState("");
-    const [benefitError, setBenefitError] = useState("");
-
-    const validateTitle = (value) => {
-        if (value.trim() === '') {
-            setTitleError('El título es obligatorio');
-        }
-        else if (!titleRegex.test(value)){
-            setTitleError('No se permiten caracteres especiales');
-        } 
-        else {
-            setTitleError('');
-        }
-    };
-
-    const validateDesc = (value) => {
-        if (value.trim() === ''){
-            setDescError('La descripción es un campo obligatorio');
-        }
-        else {
-            setDescError('');
-        }
-    }
-
-    const validateBenefitCount = () => {
-        if (benefitList.length < 3) {
-            setBenefitError('Debes indicar al menos 3 beneficios que obtienes por desarrollar este laboratorio');
-        } else {
-            setBenefitError('');
-        }
-    };
-
     /*** FILE MANAGEMENT ***/
-    const isZipFile = (file) => file.name.toLowerCase().endsWith('.zip');
-    const [files, setFiles] = useState([]);
-    const fileInputRef = useRef(null);
-
-    const handleDrop = (e) => {
-        e.preventDefault();
-        const droppedFiles = Array.from(e.dataTransfer.files);
-
-        if (droppedFiles.length !== 1) {
+    // Receives the files from both the drop and the file picker
+    const handleFilesPicked = (pickedFiles) => {
+        if (pickedFiles.length !== 1) {
             setFileError(true);
             setFileErrorMessage('Debes subir un archivo');
             return;
         }
-        else if (!isZipFile(droppedFiles[0])) {
+        else if (!isZipFile(pickedFiles[0])) {
             setFileError(true);
             setFileErrorMessage('Formato inválido, debes subir un archivo comprimido .zip');
             return;
         }
 
-        setFiles([droppedFiles[0]]);
-        setFileError(false);
-    };
-
-    const handleDragOver = (e) => {
-        e.preventDefault();
-    };
-
-    const handleFileInputChange = (e) => {
-        const selectedFiles = Array.from(e.target.files);
-
-        if (selectedFiles.length !== 1) {
-            setFileError(true);
-            setFileErrorMessage('Debes subir al menos un archivo');
-            return;
-        }
-        else if (!isZipFile(selectedFiles[0])){
-            setFileError(true);
-            setFileErrorMessage('Formato inválido, debes subir un archivo comprimido .zip');
-            return;
-        }
-
-        setFiles([selectedFiles[0]]);
+        setFiles([pickedFiles[0]]);
         setFileError(false);
     };
 
@@ -135,30 +104,45 @@ function DashboardLabsCreate(){
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        if (files.length === 0) {
+        // Run every check so all the problems show up at once
+        const titleProblem = getTitleError(labTitle);
+        const descProblem = getDescriptionError(labDesc);
+        const flagProblem = getFlagError(flag);
+        setTitleError(titleProblem);
+        setDescError(descProblem);
+        setFlagError(flagProblem);
+
+        const missingFile = files.length === 0;
+        if (missingFile) {
             setFileError(true);
             setFileErrorMessage('Debes subir un archivo');
-            return;
         }
 
-        if (benefitList.length < 3) {
-            setBenefitError('Debes indicar al menos 3 beneficios que obtienes por desarrollar este laboratorio');
+        const missingBenefits = benefitList.length < MIN_BENEFITS;
+        if (missingBenefits) {
+            setBenefitError(BENEFITS_COUNT_ERROR);
+        }
+
+        if (titleProblem || descProblem || flagProblem || missingFile || missingBenefits) {
             return;
         }
 
         setFileError(false);
         setSubmitError('');
 
+        const cleanTitle = labTitle.trim();
+
         const formData = new FormData();
         const url = 'http://localhost:4000/api/labs'
-        formData.append('title', labTitle);
-        formData.append('description', labDesc);
+        formData.append('title', cleanTitle);
+        formData.append('description', labDesc.trim());
         formData.append('benefits', JSON.stringify(benefitList));
+        formData.append('flag', flag.trim());
         formData.append('zipfile', files[0]);
 
         try {
             const duplicateCheck = await fetch(
-                `${url}/check-title?title=${encodeURIComponent(labTitle)}`
+                `${url}/check-title?title=${encodeURIComponent(cleanTitle)}`
             );
             const duplicateResult = await duplicateCheck.json();
 
@@ -180,6 +164,17 @@ function DashboardLabsCreate(){
 
             if (!response.ok) {
                 console.error('Server error:', result);
+
+                // The backend says which field a conflict belongs to
+                if (result.field === 'flag') {
+                    setFlagError(result.message);
+                    return;
+                }
+                if (result.field === 'title') {
+                    setTitleError(result.message);
+                    return;
+                }
+
                 setSubmitError(
                     response.status < 500
                         ? (result.message || result.error || 'No se pudo crear el laboratorio.')
@@ -201,20 +196,20 @@ function DashboardLabsCreate(){
         setLabDesc('');
         setBenefitInput('');
         setBenefitList([]);
-        setBenefitFocused(false);
+        setFlag('');
         setFiles([]);
         setFileError(false);
         setFileErrorMessage('');
         setTitleError('');
         setDescError('');
         setBenefitError('');
+        setFlagError('');
         setSubmitError('');
     };
 
     /*** PAGE ***/
 
     return(
-        <>
         <div className="container">
             <span className="dashboard-section-header">
                 <p>Crea tu propio laboratorio de pentesting y compártelo con la comunidad!</p>
@@ -222,110 +217,42 @@ function DashboardLabsCreate(){
             <form className="container-create-lab" onSubmit={handleSubmit}>
                 <div className="container-wrapper">
                     <div className="container-create-lab-info">
-                        <div className="nebula-input">
-                            <input
-                                required
-                                type="text"
-                                name="username"
-                                autoComplete="off"
-                                className="input"
-                                maxLength={50}
-                                value={labTitle}
-                                onChange={(e) => setLabTitle(e.target.value)}
-                                onBlur={(e) => validateTitle(e.target.value)}
-                            />
-                            <label className='user-label'>Título del laboratorio</label>
-                            <p className="nebula-error">{titleError}</p>
-                        </div>
-                        <div className="nebula-input--desc">
-                            <textarea
-                                required
-                                name="username"
-                                autoComplete="off"
-                                className="input"
-                                value={labDesc}
-                                maxLength={500}
-                                onChange={(e) => setLabDesc(e.target.value)}
-                                onBlur={(e) => validateDesc(e.target.value)}
-                            />
-                            <label className='user-label'>Descripción del laboratorio</label>
-                            <p className="nebula-error">{descError}</p>
-                        </div>
-                        <div className="nebula-input--bnf">
-                            <input
-                                type="text"
-                                name="benefit"
-                                autoComplete="off"
-                                className="input"
-                                value={benefitInput}
-                                onChange={(e) => setBenefitInput(e.target.value)}
-                                onKeyDown={handleBenefitKeyDown}
-                                onFocus={() => setBenefitFocused(true)}
-                                onBlur={(e) => {
-                                    setBenefitFocused(false);
-                                    validateBenefitCount();
-                                }}
-                            />
-                            <label
-                                className={`user-label ${
-                                    benefitFocused || benefitInput.length > 0 ? 'user-label--float' : ''
-                                }`}
-                            >
-                                Beneficios (presiona Enter para agregar)
-                            </label>
-                            <div className="benefit-tags">
-                                {benefitList.map((benefit, index) => (
-                                    <span key={index} className="benefit-tag">
-                                        {benefit}
-                                        <button type="button" onClick={() => handleRemoveBenefit(index)}>×</button>
-                                    </span>
-                                ))}
-                            </div>
-
-                            <p className="nebula-error">{benefitError}</p>
-                        </div>
+                        <LabInfoFields
+                            title={labTitle}
+                            onTitleChange={setLabTitle}
+                            onTitleBlur={validateTitle}
+                            titleError={titleError}
+                            description={labDesc}
+                            onDescriptionChange={setLabDesc}
+                            onDescriptionBlur={validateDesc}
+                            descError={descError}
+                        />
+                        <BenefitsInput
+                            value={benefitInput}
+                            onValueChange={setBenefitInput}
+                            benefits={benefitList}
+                            onAdd={handleAddBenefit}
+                            onRemove={handleRemoveBenefit}
+                            error={benefitError}
+                            onBlur={validateBenefitCount}
+                        />
+                        <FlagField
+                            value={flag}
+                            onChange={setFlag}
+                            onBlur={validateFlag}
+                            error={flagError}
+                        />
                     </div>
 
-                    <div className="container-create-lab-files"
-                        onDrop={handleDrop}
-                        onDragOver={handleDragOver}
-                    >
-                        <span>
-                            <p>Arrastra o has click para subir el archivo comprimido de tu laboratorio (Max. 1 archivo)</p>
-                        </span>
-                        <svg
-                                className="upload-icon"
-                                onClick={() => fileInputRef.current.click()}
-                                aria-hidden="true"
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="36"
-                                height="36"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                            >                       
-                            <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6" d="M12 5v9m-5 0H5a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4a1 1 0 0 0-1-1h-2M8 9l4-5 4 5m1 8h.01"/>
-                        </svg>
-                        <input ref={fileInputRef} 
-                                type="file" accept=".zip,application/zip" 
-                                onChange={handleFileInputChange}/>
-                        
-                        {files.length > 0 && (
-                            <span className="files-count-row">
-                                <p>Archivos subidos: {files.length}</p>
-                                <button
-                                    type="button"
-                                    className="view-files-btn"
-                                    onClick={() => setShowFilesModal(true)}
-                                >
-                                    Ver archivos
-                                </button>
-                            </span>
-                        )}
-                    </div>
-                </div> 
+                    <LabFileDrop
+                        files={files}
+                        onFilesPicked={handleFilesPicked}
+                        onViewFiles={() => setShowFilesModal(true)}
+                    />
+                </div>
                 {fileError && (
                     <p className="file-error-msg">{fileErrorMessage}</p>
-                )}  
+                )}
                 {submitError && (
                     <p className="file-error-msg">{submitError}</p>
                 )}
@@ -333,24 +260,21 @@ function DashboardLabsCreate(){
                     <button>
                         Crear Laboratorio
                     </button>
-                    <p>No sabes cómo crear un laboratorio? Sigue esta guía</p>
-                </div> 
-                
+                    <p>No sabes cómo crear un laboratorio? Sigue esta <Link to="/docs">guía</Link></p>
+                </div>
             </form>
             {showFilesModal && (
-            <DashboardLabsFileModal
-                files={files}
-                onRemove={handleRemoveFile}
-                onClose={() => setShowFilesModal(false)}
-            />
+                <DashboardLabsFileModal
+                    files={files}
+                    onRemove={handleRemoveFile}
+                    onClose={() => setShowFilesModal(false)}
+                />
             )}
             {successMessage && (
                 <SuccessModal message={successMessage} onClose={() => {setSuccessMessage(''); resetForm();}} />
             )}
         </div>
-        </>
     )
 }
-
 
 export default DashboardLabsCreate

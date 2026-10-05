@@ -226,10 +226,10 @@ El estudiante escribe la flag en la página de la sesión. La plataforma la comp
 
 | Campo | Regla |
 | --- | --- |
-| Título | Obligatorio, hasta 50 caracteres, solo letras sin tilde, números y espacios. No puede repetirse. |
+| Título | Obligatorio, de 3 a 50 caracteres: letras (con tildes y ñ), números, espacios y `. , : ( ) ¿ ? ¡ ! -`. No puede repetirse (sin distinguir mayúsculas). |
 | Descripción | Obligatoria, hasta 500 caracteres. |
-| Beneficios | Mínimo 3. Escribe cada uno y presiona Enter. Mismas reglas de caracteres que el título. |
-| Flag | Obligatoria y única entre laboratorios. |
+| Beneficios | Entre 3 y 8, de hasta 100 caracteres cada uno, con los mismos caracteres permitidos que el título. |
+| Flag | Obligatoria, de 4 a 100 caracteres, sin espacios, única entre laboratorios. El botón **Generar** crea una aleatoria. |
 | Archivo zip | Exactamente un archivo `.zip`. |
 
 ### Qué pasa al subirlo
