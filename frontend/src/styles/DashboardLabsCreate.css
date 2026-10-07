@@ -373,3 +373,356 @@
 .flag-generate-btn:hover {
   background-color: #ee83f8;
 }
+
+/*Instrucciones (Markdown)*/
+.instructions-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+.instructions-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1em;
+}
+
+.instructions-title {
+  margin-right: auto;
+  font-family: "Inter", sans-serif;
+  color: aliceblue;
+}
+
+.instructions-tabs {
+  display: flex;
+  gap: 0.25em;
+  padding: 3px;
+  background: #0d0b13;
+  border: 1px solid #201d2a;
+  border-radius: 8px;
+}
+
+.instructions-tab {
+  cursor: pointer;
+  padding: 0.35em 0.9em;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: #9b93ab;
+  font-family: "Inter", sans-serif;
+  transition: 0.15s;
+}
+
+.instructions-tab:hover {
+  color: aliceblue;
+}
+
+.instructions-tab.instructions-tab--active {
+  background: #ee5dfb;
+  color: aliceblue;
+}
+
+.instructions-import-btn {
+  cursor: pointer;
+  padding: 0.5rem 0.9rem;
+  background-color: #ee5dfb;
+  color: aliceblue;
+  font-family: "Inter", sans-serif;
+  border: none;
+  border-radius: 5px;
+  transition: 0.15s;
+}
+
+.instructions-import-btn:hover {
+  background-color: #ee83f8;
+}
+
+/* Fixed size: the text scrolls inside instead of growing the form */
+.instructions-textarea,
+.instructions-preview {
+  box-sizing: border-box;
+  width: 100%;
+  height: 320px;
+  padding: 15px;
+  background: #0d0b13;
+  border: 2px solid #201d2a;
+  border-radius: 8px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #ee5dfb transparent;
+}
+
+.instructions-textarea {
+  resize: none;
+  color: white;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  outline: none;
+  transition: all 0.4s ease-out;
+}
+
+.instructions-textarea:focus {
+  border-color: #ee5dfb;
+  box-shadow:
+    0 5px 8px rgba(181, 106, 255, 0.3),
+    0 10px 20px rgba(181, 106, 255, 0.2);
+}
+
+.instructions-empty {
+  margin: 0;
+  color: #9b93ab;
+  font-family: "Inter", sans-serif;
+}
+
+.instructions-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 1em;
+  font-family: "Inter", sans-serif;
+  font-size: 0.8rem;
+  color: #9b93ab;
+}
+
+.instructions-footer a {
+  color: #ee83f8;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.instructions-counter {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/*Trofeos*/
+.trophy-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75em;
+}
+
+.trophy-editor__header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1em;
+}
+
+.trophy-editor__title {
+  margin-right: auto;
+  font-family: "Inter", sans-serif;
+  color: aliceblue;
+}
+
+.trophy-editor__add {
+  cursor: pointer;
+  padding: 0.5rem 0.9rem;
+  background-color: #ee5dfb;
+  color: aliceblue;
+  font-family: "Inter", sans-serif;
+  border: none;
+  border-radius: 5px;
+  transition: 0.15s;
+}
+
+.trophy-editor__add:hover {
+  background-color: #ee83f8;
+}
+
+.trophy-editor__add:disabled {
+  cursor: not-allowed;
+  background-color: #3a3646;
+  color: #8a8594;
+}
+
+.trophy-editor__summary {
+  margin: 0;
+  font-family: "Inter", sans-serif;
+  font-size: 0.8rem;
+  color: #9b93ab;
+}
+
+.trophy-editor__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1em;
+}
+
+.trophy-editor__card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  padding: 1em;
+  background: #0d0b13;
+  border: 1px solid #201d2a;
+  border-radius: 10px;
+}
+
+.trophy-editor__card--auto {
+  border-style: dashed;
+  border-color: #3a3646;
+}
+
+.trophy-editor__card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5em;
+}
+
+.trophy-editor__card-title {
+  font-family: "Orbitron", sans-serif;
+  font-size: 0.9rem;
+  color: aliceblue;
+}
+
+.trophy-editor__remove {
+  cursor: pointer;
+  padding: 0 0.25em;
+  background: none;
+  border: none;
+  color: #ff8ffc;
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.trophy-editor__remove:hover {
+  color: #ff4d4d;
+}
+
+.trophy-editor__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4em;
+}
+
+.trophy-editor__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  cursor: pointer;
+  padding: 0.3em 0.7em;
+  background: transparent;
+  border: 1.5px solid #201d2a;
+  border-radius: 20px;
+  color: #9b93ab;
+  font-family: "Inter", sans-serif;
+  font-size: 0.8rem;
+  transition: 0.15s;
+}
+
+.trophy-editor__chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.trophy-editor__chip--static {
+  cursor: default;
+}
+
+.trophy-editor__dot {
+  width: 0.7em;
+  height: 0.7em;
+  border-radius: 50%;
+}
+
+.trophy-editor__chip--bronze .trophy-editor__dot { background: #cd7f32; }
+.trophy-editor__chip--silver .trophy-editor__dot { background: #c0c0c0; }
+.trophy-editor__chip--gold .trophy-editor__dot { background: #ffd24d; }
+
+.trophy-editor__chip--bronze.trophy-editor__chip--active {
+  border-color: #cd7f32;
+  background: rgba(205, 127, 50, 0.15);
+  color: aliceblue;
+}
+
+.trophy-editor__chip--silver.trophy-editor__chip--active {
+  border-color: #c0c0c0;
+  background: rgba(192, 192, 192, 0.15);
+  color: aliceblue;
+}
+
+.trophy-editor__chip--gold.trophy-editor__chip--active {
+  border-color: #ffd24d;
+  background: rgba(255, 210, 77, 0.15);
+  color: aliceblue;
+}
+
+.trophy-editor__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+}
+
+.trophy-editor__label {
+  font-family: "Inter", sans-serif;
+  font-size: 0.8rem;
+  color: aliceblue;
+}
+
+.trophy-editor__input,
+.trophy-editor__select {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  background: #14121c;
+  border: 2px solid #201d2a;
+  border-radius: 8px;
+  color: white;
+  color-scheme: dark; /* dark dropdown list in the select */
+  font-family: "Inter", sans-serif;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.trophy-editor__input:focus,
+.trophy-editor__select:focus {
+  border-color: #ee5dfb;
+}
+
+.trophy-editor__counter {
+  align-self: flex-end;
+  font-family: "Inter", sans-serif;
+  font-size: 0.7rem;
+  color: #8a8594;
+  font-variant-numeric: tabular-nums;
+}
+
+.trophy-editor__time {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  font-family: "Inter", sans-serif;
+  font-size: 0.85rem;
+  color: #c9c7d1;
+}
+
+.trophy-editor__input--short {
+  width: 5.5em;
+}
+
+.trophy-editor__hint {
+  margin: 0;
+  font-family: "Inter", sans-serif;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: #9b93ab;
+}
+
+.trophy-editor__auto-badge {
+  font-family: "Inter", sans-serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8a8594;
+}
+
+.trophy-editor__auto-name {
+  margin: 0;
+  font-family: "Inter", sans-serif;
+  font-weight: 500;
+  color: aliceblue;
+}

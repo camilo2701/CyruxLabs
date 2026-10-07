@@ -64,9 +64,9 @@ const baseComponents = {
 };
 const noImageComponents = { ...baseComponents, img: () => null };
 
-function MarkdownView({ markdown, withHeadingIds = false, allowImages = false }) {
+function MarkdownView({ markdown, withHeadingIds = false, allowImages = false, compact = false }) {
     return (
-        <div className={styles.markdown}>
+        <div className={`${styles.markdown} ${compact ? styles.compact : ''}`}>
             <ReactMarkdown
                 remarkPlugins={remarkPlugins}
                 rehypePlugins={withHeadingIds ? rehypePluginsWithIds : rehypePluginsPlain}

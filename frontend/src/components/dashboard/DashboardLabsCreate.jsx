@@ -7,6 +7,8 @@ import LabInfoFields from './labsCreate/LabInfoFields.jsx';
 import BenefitsInput from './labsCreate/BenefitsInput.jsx';
 import FlagField from './labsCreate/FlagField.jsx';
 import LabFileDrop from './labsCreate/LabFileDrop.jsx';
+import InstructionsEditor from './labsCreate/InstructionsEditor.jsx';
+import TrophiesEditor from './labsCreate/TrophiesEditor.jsx';
 import SuccessModal from '../SuccessModal.jsx';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -16,6 +18,8 @@ import {
     getDescriptionError,
     getBenefitError,
     getFlagError,
+    getInstructionsError,
+    getTrophiesError,
 } from '../../utils/labRules.js';
 
 const BENEFITS_COUNT_ERROR = `Debes indicar al menos ${MIN_BENEFITS} beneficios que obtienes por desarrollar este laboratorio`;
@@ -27,6 +31,9 @@ function DashboardLabsCreate(){
     const [benefitInput, setBenefitInput] = useState('');
     const [benefitList, setBenefitList] = useState([]);
     const [flag, setFlag] = useState('');
+    const [instructions, setInstructions] = useState('');
+    const [trophies, setTrophies] = useState([]);
+    const [showTrophyErrors, setShowTrophyErrors] = useState(false);
     const [files, setFiles] = useState([]);
     const [showFilesModal, setShowFilesModal] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
@@ -38,12 +45,16 @@ function DashboardLabsCreate(){
     const [descError, setDescError] = useState('');
     const [benefitError, setBenefitError] = useState('');
     const [flagError, setFlagError] = useState('');
+    const [instructionsError, setInstructionsError] = useState('');
     const [fileError, setFileError] = useState(false);
     const [fileErrorMessage, setFileErrorMessage] = useState('');
+
+    const trophiesError = getTrophiesError(trophies);
 
     const validateTitle = (value) => setTitleError(getTitleError(value));
     const validateDesc = (value) => setDescError(getDescriptionError(value));
     const validateFlag = (value) => setFlagError(getFlagError(value));
+    const validateInstructions = (value) => setInstructionsError(getInstructionsError(value));
 
     const validateBenefitCount = () => {
         if (benefitList.length < MIN_BENEFITS) {
@@ -108,9 +119,12 @@ function DashboardLabsCreate(){
         const titleProblem = getTitleError(labTitle);
         const descProblem = getDescriptionError(labDesc);
         const flagProblem = getFlagError(flag);
+        const instructionsProblem = getInstructionsError(instructions);
         setTitleError(titleProblem);
         setDescError(descProblem);
         setFlagError(flagProblem);
+        setInstructionsError(instructionsProblem);
+        setShowTrophyErrors(true);
 
         const missingFile = files.length === 0;
         if (missingFile) {
@@ -123,7 +137,10 @@ function DashboardLabsCreate(){
             setBenefitError(BENEFITS_COUNT_ERROR);
         }
 
-        if (titleProblem || descProblem || flagProblem || missingFile || missingBenefits) {
+        if (
+            titleProblem || descProblem || flagProblem || instructionsProblem ||
+            trophiesError || missingFile || missingBenefits
+        ) {
             return;
         }
 
@@ -138,6 +155,9 @@ function DashboardLabsCreate(){
         formData.append('description', labDesc.trim());
         formData.append('benefits', JSON.stringify(benefitList));
         formData.append('flag', flag.trim());
+        formData.append('instructions', instructions.trim());
+        // The card id is only for the editor, so it is left out of what we send
+        formData.append('trophies', JSON.stringify(trophies.map(({ id, ...trophy }) => trophy)));
         formData.append('zipfile', files[0]);
 
         try {
@@ -197,6 +217,9 @@ function DashboardLabsCreate(){
         setBenefitInput('');
         setBenefitList([]);
         setFlag('');
+        setInstructions('');
+        setTrophies([]);
+        setShowTrophyErrors(false);
         setFiles([]);
         setFileError(false);
         setFileErrorMessage('');
@@ -204,6 +227,7 @@ function DashboardLabsCreate(){
         setDescError('');
         setBenefitError('');
         setFlagError('');
+        setInstructionsError('');
         setSubmitError('');
     };
 
@@ -250,6 +274,21 @@ function DashboardLabsCreate(){
                         onViewFiles={() => setShowFilesModal(true)}
                     />
                 </div>
+
+                <InstructionsEditor
+                    value={instructions}
+                    onChange={setInstructions}
+                    onBlur={validateInstructions}
+                    error={instructionsError}
+                />
+
+                <TrophiesEditor
+                    trophies={trophies}
+                    onChange={setTrophies}
+                    showAllErrors={showTrophyErrors}
+                    error={showTrophyErrors ? trophiesError : ''}
+                />
+
                 {fileError && (
                     <p className="file-error-msg">{fileErrorMessage}</p>
                 )}
@@ -260,7 +299,10 @@ function DashboardLabsCreate(){
                     <button>
                         Crear Laboratorio
                     </button>
-                    <p>No sabes cómo crear un laboratorio? Sigue esta <Link to="/docs">guía</Link></p>
+                    <p>
+                        No sabes cómo crear un laboratorio? Sigue esta{' '}
+                        <Link to="/docs" target="_blank" rel="noopener noreferrer">guía</Link>
+                    </p>
                 </div>
             </form>
             {showFilesModal && (

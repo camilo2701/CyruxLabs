@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabaseClient.js';
+import { awardTrophies } from './trophyService.js';
 
 function mapSession(row) {
     return {
@@ -25,7 +26,7 @@ export async function getSessionsForUser(userid) {
 export async function getSessionById(sessionid) {
     const { data, error } = await supabase
         .from('session')
-        .select('sessionid, userid, labid, iscompleted, issolved, port, protocol, starttime, finishtime, lab(title)')
+        .select('sessionid, userid, labid, iscompleted, issolved, port, protocol, starttime, finishtime, lab(title, instructions)')
         .eq('sessionid', sessionid)
         .single();
 
@@ -40,6 +41,8 @@ export async function getSessionById(sessionid) {
 
 const RUNNER_URL = 'http://10.10.0.12:4000';
 
+// A restart is a NEW attempt: the clock starts over, from the moment the new lab is ready.
+// Restarts are also counted (restartcount) for the report.
 export async function restartTrainingSession({ labid, sessionid }) {
     const runnerResponse = await fetch(`${RUNNER_URL}/restart`, {
         method: 'POST',
@@ -57,9 +60,22 @@ export async function restartTrainingSession({ labid, sessionid }) {
 
     const starttime = new Date().toISOString();
 
+    const { data: current, error: readError } = await supabase
+        .from('session')
+        .select('restartcount')
+        .eq('sessionid', sessionid)
+        .single();
+
+    if (readError) console.error('Session restartcount read error:', readError);
+
     const { error: updateError } = await supabase
         .from('session')
-        .update({ port: runnerResult.port, protocol: runnerResult.protocol, starttime })
+        .update({
+            port: runnerResult.port,
+            protocol: runnerResult.protocol,
+            starttime,
+            restartcount: (current?.restartcount ?? 0) + 1,
+        })
         .eq('sessionid', sessionid);
 
     if (updateError) console.error('Session port update error:', updateError);
@@ -133,7 +149,9 @@ export async function startTrainingSession({ labid, userid }) {
     return { sessionid, port: runnerResult.port, protocol: runnerResult.protocol };
 }
 
-export async function stopTrainingSession(sessionid) {
+// finishedAt defaults to "now", evaluated when this function is CALLED, so it is
+// taken before the runner starts tearing the containers down.
+export async function stopTrainingSession(sessionid, finishedAt = new Date().toISOString()) {
     const runnerResponse = await fetch(`${RUNNER_URL}/stop`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -148,20 +166,23 @@ export async function stopTrainingSession(sessionid) {
         throw err;
     }
 
-    const now = new Date();
-    const { error: updateError } = await supabase
+    const { data: updated, error: updateError } = await supabase
         .from('session')
-        .update({ iscompleted: true, finishtime: now.toISOString() })
+        .update({ iscompleted: true, finishtime: finishedAt })
         .eq('sessionid', sessionid)
-        .eq('iscompleted', false);
+        .eq('iscompleted', false)
+        .select('finishtime');
 
     if (updateError) console.error('Session update error:', updateError);
+
+    // null when the session was already completed (a second stop does not overwrite the time)
+    return { finishtime: updated?.[0]?.finishtime ?? null };
 }
 
 export async function submitFlag(sessionid, submittedFlag) {
     const { data: session, error: sessionError } = await supabase
         .from('session')
-        .select('sessionid, labid, iscompleted, lab(flag)')
+        .select('sessionid, userid, labid, iscompleted, starttime, failedflags, lab(flag)')
         .eq('sessionid', sessionid)
         .single();
 
@@ -179,8 +200,19 @@ export async function submitFlag(sessionid, submittedFlag) {
     const matched = !!correctFlag && submittedFlag.trim() === correctFlag.trim();
 
     if (!matched) {
+        // Count the wrong flag: the failed-attempts trophies use this number
+        const { error: countError } = await supabase
+            .from('session')
+            .update({ failedflags: (session.failedflags ?? 0) + 1 })
+            .eq('sessionid', sessionid);
+
+        if (countError) console.error('Failed flag count error:', countError);
+
         return { matched: false };
     }
+
+    // Take the finish time NOW, before the database writes and the teardown below
+    const finishedAt = new Date().toISOString();
 
     const { error: updateError } = await supabase
         .from('session')
@@ -189,7 +221,22 @@ export async function submitFlag(sessionid, submittedFlag) {
 
     if (updateError) console.error('Capturedflag update error:', updateError);
 
-    await stopTrainingSession(sessionid); // marca iscompleted=true, finishtime, apaga contenedores
+    // marca iscompleted=true, finishtime, apaga contenedores
+    const { finishtime } = await stopTrainingSession(sessionid, finishedAt);
 
-    return { matched: true };
+    // A trophy problem must never break a correct flag: the player did solve the lab
+    let trophies = [];
+    try {
+        trophies = await awardTrophies({
+            userid: session.userid,
+            labid: session.labid,
+            solved: true,
+            elapsedSeconds: (new Date(finishedAt) - new Date(session.starttime)) / 1000,
+            failedFlags: session.failedflags ?? 0,
+        });
+    } catch (err) {
+        console.error('Award trophies error:', err);
+    }
+
+    return { matched: true, finishtime, trophies };
 }

@@ -231,6 +231,7 @@ El estudiante escribe la flag en la página de la sesión. La plataforma la comp
 | Beneficios | Entre 3 y 8, de hasta 100 caracteres cada uno, con los mismos caracteres permitidos que el título. |
 | Flag | Obligatoria, de 4 a 100 caracteres, sin espacios, única entre laboratorios. El botón **Generar** crea una aleatoria. |
 | Archivo zip | Exactamente un archivo `.zip`. |
+| Instrucciones | Obligatorias, hasta 20 000 caracteres, en Markdown. Escríbelas en el formulario (con vista previa) o importa un archivo `.md`. |
 
 ### Qué pasa al subirlo
 
@@ -244,7 +245,7 @@ La plataforma guarda tu laboratorio y lo muestra en la lista de **Laboratorios**
 
 ## Instrucciones para estudiantes
 
-> **Próximamente:** podrás escribir las instrucciones de tu laboratorio en Markdown al crearlo. Mientras tanto, prepara tus pasos siguiendo estas pautas.
+Las instrucciones se escriben en Markdown directamente en el formulario de creación. La pestaña **Vista previa** muestra exactamente lo que verá el estudiante. También puedes escribirlas en tu editor favorito y usar el botón **Importar .md** o arrastrar el archivo sobre el cuadro de texto.
 
 ### Escribir buenos pasos
 

@@ -195,3 +195,55 @@
     color: aliceblue;
     font-weight: 600;
 }
+
+/* ---------- Compact (narrow panels such as the Session sidebar) ---------- */
+
+.markdown.compact {
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+.markdown.compact h1,
+.markdown.compact h2,
+.markdown.compact h3,
+.markdown.compact h4 {
+    text-align: left;
+    margin: 1.5rem 0 0.5rem;
+    padding: 0;
+    border-bottom: none;
+}
+
+/* #  main sections: biggest, and the only level with a divider */
+.markdown.compact h1 {
+    font-size: 1.45rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid #3a3646;
+}
+
+/* ##  subsections */
+.markdown.compact h2 {
+    font-size: 1.15rem;
+}
+
+/* ###  small headings, in the accent color */
+.markdown.compact h3 {
+    font-size: 0.95rem;
+}
+
+/* ####  bold body-size label */
+.markdown.compact h4 {
+    font-size: 0.9rem;
+}
+
+/* The first element sits flush with the top, whatever it is */
+.markdown.compact > :first-child {
+    margin-top: 0;
+}
+
+.markdown.compact .code-block pre {
+    padding: 0.75rem;
+}
+
+.markdown.compact .code-block pre code {
+    font-size: 0.8rem;
+}

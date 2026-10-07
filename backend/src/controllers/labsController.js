@@ -5,7 +5,11 @@ import {
     getBenefitError,
     getBenefitsError,
     getFlagError,
-} from '../utils/labRules.js';
+    getInstructionsError,
+    getTrophiesError,
+    normalizeCriteria,
+    COMPLETION_TROPHY,
+} from '../utils/labValidation.js';
 
 const PAGE_SIZE = 5;
 
@@ -116,6 +120,7 @@ async function rollbackLab(labId, filePath) {
     const steps = [
         () => supabase.storage.from('labfiles').remove([filePath]),
         () => supabase.from('benefit').delete().eq('labid', labId),
+        () => supabase.from('trophy').delete().eq('labid', labId),
         () => supabase.from('lab').delete().eq('labid', labId),
     ];
 
@@ -138,9 +143,19 @@ export const createLab = async (req, res) => {
             return res.status(400).json({ message: 'Formato de beneficios inválido' });
         }
 
+        let trophies;
+        try {
+            trophies = JSON.parse(req.body.trophies || '[]');
+        } catch {
+            return res.status(400).json({ message: 'Formato de trofeos inválido' });
+        }
+
         const title = typeof req.body.title === 'string' ? req.body.title.trim() : '';
         const description = typeof req.body.description === 'string' ? req.body.description.trim() : '';
         const flag = typeof req.body.flag === 'string' ? req.body.flag.trim() : '';
+        const instructions = typeof req.body.instructions === 'string'
+            ? req.body.instructions.replace(/\r\n/g, '\n').trim()
+            : '';
         if (Array.isArray(benefits)) {
             benefits = benefits.map((b) => (typeof b === 'string' ? b.trim() : b));
         }
@@ -150,6 +165,8 @@ export const createLab = async (req, res) => {
             getTitleError(title) ||
             getDescriptionError(description) ||
             getBenefitsError(benefits) ||
+            getInstructionsError(instructions) ||
+            getTrophiesError(trophies) ||
             getFlagError(flag);
 
         if (validationError) {
@@ -175,7 +192,7 @@ export const createLab = async (req, res) => {
 
         const { data: labData, error: labError } = await supabase
             .from('lab')
-            .insert([{ title, description, flag, userid: req.user.userid }])
+            .insert([{ title, description, flag, instructions, userid: req.user.userid }])
             .select();
 
         if (labError) {
@@ -207,6 +224,20 @@ export const createLab = async (req, res) => {
         const { error: benefitError } = await supabase.from('benefit').insert(benefitRows);
 
         if (benefitError) throw benefitError;
+
+        // Every lab gets the automatic completion trophy, plus the ones the instructor defined
+        const trophyRows = [COMPLETION_TROPHY, ...trophies].map((trophy) => ({
+            type: trophy.type,
+            name: trophy.name.trim(),
+            description: trophy.description.trim(),
+            criteriatype: trophy.criteriatype,
+            criteria: normalizeCriteria(trophy.criteriatype, trophy.criteria),
+            labid: labId,
+        }));
+
+        const { error: trophyError } = await supabase.from('trophy').insert(trophyRows);
+
+        if (trophyError) throw trophyError;
 
         res.json({ message: 'Lab created successfully', labId, filePath });
     } catch (error) {
@@ -327,6 +358,32 @@ export const deleteLab = async (req, res) => {
     const { labid } = req.params;
 
     try {
+        // trophyuser -> trophy -> lab: each table has a foreign key to the next, so delete in this order
+        const { data: labTrophies, error: trophyReadError } = await supabase
+            .from('trophy')
+            .select('trophyid')
+            .eq('labid', labid);
+
+        if (trophyReadError) throw trophyReadError;
+
+        const trophyIds = labTrophies.map((t) => t.trophyid);
+
+        if (trophyIds.length > 0) {
+            const { error: unlockDeleteError } = await supabase
+                .from('trophyuser')
+                .delete()
+                .in('trophyid', trophyIds);
+
+            if (unlockDeleteError) throw unlockDeleteError;
+
+            const { error: trophyDeleteError } = await supabase
+                .from('trophy')
+                .delete()
+                .eq('labid', labid);
+
+            if (trophyDeleteError) throw trophyDeleteError;
+        }
+
         // bugreport tiene FK a lab: hay que borrarlos antes o el delete del lab falla
         const { error: bugReportDeleteError } = await supabase
             .from('bugreport')

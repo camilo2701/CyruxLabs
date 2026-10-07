@@ -43,7 +43,7 @@
     overflow: hidden;
 }
 
-.sidebar-labels h1 {
+.sidebar-labels > h1 {
     flex-shrink: 0;
 
     color: aliceblue;
@@ -72,29 +72,80 @@
     overflow: hidden;
 }
 
-.sidebar-instructions h2 {
+.sidebar-instructions > h2 {
     flex-shrink: 0;
 
     font-family: "Inter", sans-serif;
     font-weight: 500;
     font-size: 1.5rem;
 
-    padding: 1em;
+    padding: 0.5rem 1.5rem 0.75rem;
     margin: 0;
+
+    border-bottom: 1px solid #201d2a;
 }
 
-.sidebar-instructions ul {
+.sidebar-instructions-body {
     flex: 1;
 
     min-height: 0;
 
-    margin: 0;
-    padding: 0 1.5rem 1rem 1.5rem;
+    padding: 1rem 1.5rem;
 
     overflow-y: auto;
     overflow-x: hidden;
+
+    /* Thin scrollbar that brightens on hover */
+    scrollbar-width: thin;
+    scrollbar-color: #3a3646 transparent;
+    scrollbar-gutter: stable;
+
+    /* Edge glow: the "local" layers cover the "scroll" glows while you are at an edge,
+       so a glow only shows on a side that still has hidden content */
+    background-color: #14121c;
+    background-repeat: no-repeat;
+    background-image:
+        linear-gradient(#14121c 30%, rgba(20, 18, 28, 0)),
+        linear-gradient(rgba(20, 18, 28, 0), #14121c 70%),
+        radial-gradient(farthest-side at 50% 0, rgba(238, 93, 251, 0.15), rgba(238, 93, 251, 0)),
+        radial-gradient(farthest-side at 50% 100%, rgba(238, 93, 251, 0.15), rgba(238, 93, 251, 0));
+    background-position: center top, center bottom, center top, center bottom;
+    background-size: 100% 40px, 100% 40px, 100% 14px, 100% 14px;
+    background-attachment: local, local, scroll, scroll;
 }
 
+.sidebar-instructions-body:hover {
+    scrollbar-color: #ee5dfb transparent;
+}
+
+.sidebar-instructions-empty {
+    margin: 0;
+
+    font-family: "Inter", sans-serif;
+    color: #9b93ab;
+}
+
+.sidebar-instructions-end {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+
+    margin: 2rem 0 0.5rem;
+
+    font-family: "Inter", sans-serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #8a8594;
+}
+
+.sidebar-instructions-end::before,
+.sidebar-instructions-end::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: #201d2a;
+}
 
 /* =========================
    CONTROLS
@@ -436,4 +487,66 @@
     opacity: 0;
     background: #6df2ff;
   }
+}
+
+/* =========================
+   UNLOCKED TROPHIES (congrats screen)
+   ========================= */
+
+.congrats {
+    overflow-y: auto;
+}
+
+.congrats-trophies {
+    width: min(90%, 420px);
+    margin-top: 1rem;
+    padding: 1rem 1.25rem;
+
+    background: rgba(13, 11, 19, 0.7);
+    border: 1px solid #201d2a;
+    border-radius: 12px;
+
+    text-align: left;
+}
+
+.congrats-trophies h2 {
+    margin: 0 0 0.75rem;
+
+    font-family: "Orbitron", sans-serif;
+    font-size: 1rem;
+    font-weight: 400;
+    color: aliceblue;
+
+    text-align: center;
+}
+
+.congrats-trophies ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.congrats-trophy {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.congrats-trophy strong {
+    font-family: "Inter", sans-serif;
+    color: aliceblue;
+}
+
+.congrats-trophy p {
+    margin: 0.1rem 0 0;
+    font-size: 0.85rem;
+}
+
+.congrats-trophy-icon {
+    flex-shrink: 0;
+    margin-top: 0.1rem;
 }
