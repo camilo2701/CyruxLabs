@@ -17,6 +17,7 @@ function DashboardLabsViewMgmt() {
   const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [listError, setListError] = useState('');
+  const [bugCounts, setBugCounts] = useState({});
 
   const [selectedLab, setSelectedLab] = useState(null);
   const [editTitle, setEditTitle] = useState('');
@@ -28,6 +29,23 @@ function DashboardLabsViewMgmt() {
   const [modalMessage, setModalMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const fetchBugCounts = async (labIds) => {
+    if (labIds.length === 0) {
+      setBugCounts({});
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/bugreports/counts?labids=${labIds.join(',')}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      setBugCounts(response.ok ? data.counts || {} : {});
+    } catch (err) {
+      setBugCounts({});
+    }
+  };
 
   const fetchLabs = async (search, page) => {
     setIsLoading(true);
@@ -47,8 +65,10 @@ function DashboardLabsViewMgmt() {
         return;
       }
 
-      setLabs(data.labs || []);
+      const fetchedLabs = data.labs || [];
+      setLabs(fetchedLabs);
       setTotalPages(data.totalPages || 1);
+      fetchBugCounts(fetchedLabs.map((lab) => lab.labid));
     } catch (err) {
       setListError('No se pudo conectar con el servidor.');
       setLabs([]);
@@ -265,7 +285,18 @@ function DashboardLabsViewMgmt() {
                     #{lab.labid}
                   </span>
 
-                  <span>{lab.title}</span>
+                  <span className="lab-title-cell">
+                    {lab.title}
+                    {bugCounts[lab.labid] > 0 && (
+                      <span
+                        className="lab-bug-badge"
+                        title={`${bugCounts[lab.labid]} bug(s) pendiente(s)`}
+                        aria-label={`${bugCounts[lab.labid]} bug(s) pendiente(s)`}
+                      >
+                        {bugCounts[lab.labid] > 99 ? '99+' : bugCounts[lab.labid]}
+                      </span>
+                    )}
+                  </span>
 
                   <span>{lab.users?.username ?? 'Desconocido'}</span>
 

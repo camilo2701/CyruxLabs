@@ -78,3 +78,34 @@
   margin-bottom: 10px;
 }
 
+
+.lab-title-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.lab-bug-badge {
+  flex-shrink: 0;
+
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  font-family: 'Inter', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+
+  background: #e5484d;
+  border-radius: 999px;
+  box-shadow: 0 0 10px rgba(229, 72, 77, 0.45);
+
+  cursor: default;
+}

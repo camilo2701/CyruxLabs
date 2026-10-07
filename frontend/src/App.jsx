@@ -18,6 +18,10 @@ import CreationGuide from './pages/CreationGuide'
 
 import ProfilePage from './pages/ProfilePage'
 
+import PrivacyPolicy from './pages/PrivacyPolicy'
+
+import TermsPage from './pages/TermsPage'
+
 import { AuthProvider } from './context/AuthContext'
 
 function App() {
@@ -36,6 +40,8 @@ function App() {
           <Route path="/docs" element={<CreationGuide/>}/>
           <Route path="/perfil" element={<ProfilePage/>}/>
           <Route path="/perfil/:username" element={<ProfilePage/>}/>
+          <Route path="/privacy-policy" element={<PrivacyPolicy/>}/>
+          <Route path="/terms" element={<TermsPage/>}/>
           
         </Routes>
 

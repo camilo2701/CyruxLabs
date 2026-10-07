@@ -29,3 +29,22 @@ export async function createBugReport({ title, description, userid, labid }) {
 
     return { bugreportid: data.bugreportid };
 }
+
+// bugs pendientes (status 0) de cada lab
+export async function getPendingBugCounts(labIds) {
+    if (labIds.length === 0) return {};
+
+    const { data, error } = await supabase
+        .from('bugreport')
+        .select('labid')
+        .in('labid', labIds)
+        .eq('status', 0);
+
+    if (error) throw error;
+
+    const counts = {};
+    data.forEach((row) => {
+        counts[row.labid] = (counts[row.labid] || 0) + 1;
+    });
+    return counts;
+}

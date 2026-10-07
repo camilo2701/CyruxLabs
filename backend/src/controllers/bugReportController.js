@@ -1,5 +1,5 @@
 import { getSessionById } from '../services/sessionService.js';
-import { createBugReport } from '../services/bugReportService.js';
+import { createBugReport, getPendingBugCounts } from '../services/bugReportService.js';
 import { assertOwnsSession } from './sessionController.js';
 
 const TITLE_MAX = 100;
@@ -34,5 +34,21 @@ export async function postBugReport(req, res) {
     } catch (err) {
         console.error('Bug report error:', err);
         res.status(err.status || 500).json({ message: err.message, error: err.details || err.message });
+    }
+}
+
+export async function getBugCounts(req, res) {
+    try {
+        const labIds = String(req.query.labids || '')
+            .split(',')
+            .map((id) => Number(id))
+            .filter((id) => Number.isInteger(id) && id > 0)
+            .slice(0, 50);
+
+        const counts = await getPendingBugCounts(labIds);
+        res.json({ counts });
+    } catch (err) {
+        console.error('Bug counts error:', err);
+        res.status(500).json({ message: 'No se pudieron obtener los reportes de bugs' });
     }
 }
