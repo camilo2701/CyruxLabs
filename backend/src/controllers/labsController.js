@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabaseClient.js';
+import { getZipError } from '../utils/zipValidation.js';
 import {
     getTitleError,
     getDescriptionError,
@@ -175,6 +176,11 @@ export const createLab = async (req, res) => {
 
         if (!req.file) {
             return res.status(400).json({ message: 'Falta el archivo zip del laboratorio' });
+        }
+
+        const zipProblem = await getZipError(req.file.buffer);
+        if (zipProblem) {
+            return res.status(400).json({ message: zipProblem, field: 'zipfile' });
         }
 
         // The frontend checks for duplicate titles too, but this check can't be skipped

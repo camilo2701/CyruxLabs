@@ -18,7 +18,7 @@ const SECTIONS = [
   { id: 'contacto', title: 'Contacto' },
 ];
 
-function PrivacyPolicy() {
+function LegalPolicy() {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -178,4 +178,4 @@ function PrivacyPolicy() {
   );
 }
 
-export default PrivacyPolicy;
+export default LegalPolicy;
