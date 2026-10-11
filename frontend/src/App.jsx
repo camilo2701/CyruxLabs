@@ -18,7 +18,7 @@ import CreationGuide from './pages/CreationGuide'
 
 import ProfilePage from './pages/ProfilePage'
 
-import PrivacyPolicy from './pages/PrivacyPolicy'
+import LegalPolicy from './pages/LegalPolicy'
 
 import TermsPage from './pages/TermsPage'
 
@@ -40,7 +40,7 @@ function App() {
           <Route path="/docs" element={<CreationGuide/>}/>
           <Route path="/perfil" element={<ProfilePage/>}/>
           <Route path="/perfil/:username" element={<ProfilePage/>}/>
-          <Route path="/privacy-policy" element={<PrivacyPolicy/>}/>
+          <Route path="/privacy-policy" element={<LegalPolicy/>}/>
           <Route path="/terms" element={<TermsPage/>}/>
           
         </Routes>

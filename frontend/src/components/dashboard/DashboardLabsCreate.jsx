@@ -23,6 +23,7 @@ import {
 } from '../../utils/labRules.js';
 
 const BENEFITS_COUNT_ERROR = `Debes indicar al menos ${MIN_BENEFITS} beneficios que obtienes por desarrollar este laboratorio`;
+const MAX_ZIP_BYTES = 50 * 1024 * 1024;
 const isZipFile = (file) => file.name.toLowerCase().endsWith('.zip');
 
 function DashboardLabsCreate(){
@@ -98,6 +99,11 @@ function DashboardLabsCreate(){
         else if (!isZipFile(pickedFiles[0])) {
             setFileError(true);
             setFileErrorMessage('Formato inválido, debes subir un archivo comprimido .zip');
+            return;
+        }
+        else if (pickedFiles[0].size > MAX_ZIP_BYTES) {
+            setFileError(true);
+            setFileErrorMessage('El archivo supera el límite de 50 MB');
             return;
         }
 

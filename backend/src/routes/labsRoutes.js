@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import upload from '../middleware/upload.js';
+import { uploadLabZip } from '../middleware/upload.js';
 import { requireAuth, requireRole } from '../middleware/authMiddleware.js';
 import {
     createLab,
@@ -12,7 +12,7 @@ import {
 
 const router = Router();
 
-router.post('/', requireAuth, requireRole(1, 2), upload.single('zipfile'), createLab);
+router.post('/', requireAuth, requireRole(1, 2), uploadLabZip, createLab);
 router.get('/check-title', checkTitleDuplicate);
 router.get('/', getAllLabs);
 // Gestionar laboratorios: admin ve todos, instructor solo los suyos
