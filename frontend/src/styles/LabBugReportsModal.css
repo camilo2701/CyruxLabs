@@ -1,0 +1,359 @@
+/* Modal de reportes de bugs (Gestionar laboratorios → Administrar → Reportes) */
+
+.bug-reports__modal {
+  position: relative;
+  width: 100%;
+  max-width: 920px;
+  max-height: calc(100vh - 40px);
+
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+
+  padding: 28px 32px;
+
+  background: #14121c;
+  border: 1px solid #201d2a;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+
+  font-family: 'Inter', sans-serif;
+  color: #f4f2f8;
+}
+
+.bug-reports__header h2 {
+  margin: 4px 0 0;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.3rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+/* Pestañas */
+
+.bug-reports__tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid #201d2a;
+}
+
+.bug-reports__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 10px 14px;
+  margin-bottom: -1px;
+
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #9b93ab;
+
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.bug-reports__tab:hover {
+  color: #f4f2f8;
+}
+
+.bug-reports__tab--active {
+  color: #f4f2f8;
+  border-bottom-color: #c664f7;
+}
+
+.bug-reports__tab-count {
+  min-width: 22px;
+  padding: 2px 7px;
+
+  font-size: 0.72rem;
+  color: #c664f7;
+
+  background: rgba(198, 100, 247, 0.12);
+  border-radius: 999px;
+}
+
+/* Cuerpo: lista + detalle */
+
+.bug-reports__body {
+  flex: 1;
+  min-height: 0;
+
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 18px;
+}
+
+.bug-reports__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  max-height: 420px;
+  overflow-y: auto;
+
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  scrollbar-width: thin;
+  scrollbar-color: #3a3646 transparent;
+}
+
+.bug-reports__list-empty {
+  padding: 20px 12px;
+  font-size: 0.85rem;
+  color: #6f687d;
+  text-align: center;
+}
+
+.bug-reports__item {
+  width: 100%;
+
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  padding: 12px 14px;
+
+  text-align: left;
+  font-family: 'Inter', sans-serif;
+  color: #f4f2f8;
+
+  background: #0d0b13;
+  border: 1px solid #201d2a;
+  border-radius: 8px;
+  cursor: pointer;
+
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.bug-reports__item:hover {
+  border-color: rgba(198, 100, 247, 0.4);
+}
+
+.bug-reports__item--selected {
+  border-color: #c664f7;
+  background: rgba(198, 100, 247, 0.08);
+}
+
+.bug-reports__item-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.bug-reports__item-meta {
+  font-size: 0.75rem;
+  color: #6f687d;
+}
+
+/* Detalle */
+
+.bug-reports__detail {
+  min-width: 0;
+  max-height: 420px;
+  overflow-y: auto;
+
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  padding: 20px;
+
+  background: #0d0b13;
+  border: 1px solid #201d2a;
+  border-radius: 10px;
+}
+
+.bug-reports__detail-empty,
+.bug-reports__empty {
+  margin: auto;
+  padding: 40px 20px;
+
+  font-size: 0.88rem;
+  color: #6f687d;
+  text-align: center;
+}
+
+.bug-reports__detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.bug-reports__detail-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.bug-reports__status {
+  flex-shrink: 0;
+  padding: 4px 10px;
+
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+
+  border-radius: 999px;
+}
+
+.bug-reports__status--pending {
+  color: #ff8b8f;
+  background: rgba(229, 72, 77, 0.12);
+  border: 1px solid rgba(229, 72, 77, 0.4);
+}
+
+.bug-reports__status--resolved {
+  color: #6be3a4;
+  background: rgba(107, 227, 164, 0.1);
+  border: 1px solid rgba(107, 227, 164, 0.35);
+}
+
+.bug-reports__meta {
+  margin: 0;
+
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.bug-reports__meta div {
+  padding: 10px 12px;
+  background: #14121c;
+  border: 1px solid rgba(198, 100, 247, 0.08);
+  border-radius: 7px;
+}
+
+.bug-reports__meta dt {
+  margin-bottom: 4px;
+  font-size: 0.68rem;
+  color: #6f687d;
+}
+
+.bug-reports__meta dd {
+  margin: 0;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.bug-reports__description span {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.68rem;
+  color: #6f687d;
+}
+
+.bug-reports__description p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: #c9c7d1;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.bug-reports__status-button {
+  align-self: flex-start;
+
+  padding: 10px 16px;
+
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #f4f2f8;
+
+  background: #201d2a;
+  border: 1px solid rgba(198, 100, 247, 0.25);
+  border-radius: 7px;
+  cursor: pointer;
+
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.bug-reports__status-button:hover:not(:disabled) {
+  border-color: #c664f7;
+}
+
+.bug-reports__status-button--resolve {
+  color: #0d0b13;
+  background: #6be3a4;
+  border-color: #6be3a4;
+}
+
+.bug-reports__status-button--resolve:hover:not(:disabled) {
+  background: #86ecb7;
+  border-color: #86ecb7;
+}
+
+.bug-reports__status-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.bug-reports__message {
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+.bug-reports__message--success {
+  color: #6be3a4;
+}
+
+.bug-reports__message--error {
+  color: #ff8b99;
+}
+
+/* Pie */
+
+.bug-reports__footer {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.bug-reports__back-button {
+  padding: 9px 14px;
+
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  color: #f4f2f8;
+
+  background: #201d2a;
+  border: 1px solid #201d2a;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.bug-reports__back-button:hover {
+  border-color: #c664f7;
+}
+
+/* Responsive */
+
+@media (max-width: 760px) {
+  .bug-reports__modal {
+    padding: 22px 18px;
+    overflow-y: auto;
+  }
+
+  .bug-reports__body {
+    grid-template-columns: 1fr;
+  }
+
+  .bug-reports__list,
+  .bug-reports__detail {
+    max-height: none;
+  }
+
+  .bug-reports__meta {
+    grid-template-columns: 1fr;
+  }
+}

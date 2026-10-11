@@ -109,3 +109,9 @@
 
   cursor: default;
 }
+
+/* Globo dentro del botón "Reportes de bugs" del modal */
+.lab-bug-badge--inline {
+  margin-left: 8px;
+  vertical-align: middle;
+}

@@ -1,5 +1,10 @@
 import { getSessionById } from '../services/sessionService.js';
-import { createBugReport, getPendingBugCounts } from '../services/bugReportService.js';
+import {
+    createBugReport,
+    getPendingBugCounts,
+    getReportsForLab,
+    updateReportStatus,
+} from '../services/bugReportService.js';
 import { assertOwnsSession } from './sessionController.js';
 
 const TITLE_MAX = 100;
@@ -45,10 +50,33 @@ export async function getBugCounts(req, res) {
             .filter((id) => Number.isInteger(id) && id > 0)
             .slice(0, 50);
 
-        const counts = await getPendingBugCounts(labIds);
+        const ownerId = req.user.role === 2 ? null : req.user.userid;
+        const counts = await getPendingBugCounts(labIds, ownerId);
         res.json({ counts });
     } catch (err) {
         console.error('Bug counts error:', err);
         res.status(500).json({ message: 'No se pudieron obtener los reportes de bugs' });
+    }
+}
+
+// GET /api/bugreports/lab/:labid  (instructor: solo sus labs / admin: todos)
+export async function getLabBugReports(req, res) {
+    try {
+        const reports = await getReportsForLab(Number(req.params.labid), req.user);
+        res.json({ reports });
+    } catch (err) {
+        if (!err.status) console.error('Get lab bug reports error:', err);
+        res.status(err.status || 500).json({ message: err.status ? err.message : 'No se pudieron obtener los reportes' });
+    }
+}
+
+// PATCH /api/bugreports/:bugreportid/status  body: { status: 0 | 1 }
+export async function patchBugReportStatus(req, res) {
+    try {
+        const result = await updateReportStatus(Number(req.params.bugreportid), req.body?.status, req.user);
+        res.json(result);
+    } catch (err) {
+        if (!err.status) console.error('Update bug report status error:', err);
+        res.status(err.status || 500).json({ message: err.status ? err.message : 'No se pudo actualizar el reporte' });
     }
 }

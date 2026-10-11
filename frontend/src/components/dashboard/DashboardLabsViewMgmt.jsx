@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import LabBugReportsModal from './LabBugReportsModal';
 import '../../styles/DashboardLabsViewMgmt.css';
 import '../../styles/DashboardUsers.css';
 import '../../styles/DashboardLabsCreate.css';
@@ -8,7 +9,8 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 const titleRegex = /^[A-Za-z0-9 ]+$/;
 
 function DashboardLabsViewMgmt() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const isAdmin = user?.role === 2;
 
   const [labSearch, setLabSearch] = useState('');
   const [isSearchMode, setIsSearchMode] = useState(false);
@@ -29,6 +31,7 @@ function DashboardLabsViewMgmt() {
   const [modalMessage, setModalMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [reportsLab, setReportsLab] = useState(null);
 
   const fetchBugCounts = async (labIds) => {
     if (labIds.length === 0) {
@@ -56,7 +59,10 @@ function DashboardLabsViewMgmt() {
       if (search) params.set('search', search);
       params.set('page', String(page));
 
-      const response = await fetch(`${API_URL}/labs?${params.toString()}`);
+      // /labs/manage: el admin recibe todos los labs; el instructor solo los suyos.
+      const response = await fetch(`${API_URL}/labs/manage?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const data = await response.json();
 
       if (!response.ok) {
@@ -224,7 +230,9 @@ function DashboardLabsViewMgmt() {
 
       <div className="manage-users__header">
         <p>
-          Consulta la lista de laboratorios actuales, sus autores y su información relacionada.
+          {isAdmin
+            ? 'Consulta la lista de laboratorios actuales, sus autores y su información relacionada.'
+            : 'Consulta y administra los laboratorios que has creado.'}
         </p>
       </div>
 
@@ -355,7 +363,7 @@ function DashboardLabsViewMgmt() {
         </div>
       )}
 
-      {selectedLab && (
+      {selectedLab && !reportsLab && (
         <div
           className="manage-users__modal-overlay"
           onClick={closeLabModal}
@@ -450,6 +458,19 @@ function DashboardLabsViewMgmt() {
 
               <button
                 type="button"
+                onClick={() => setReportsLab(selectedLab)}
+                disabled={isSaving || isDeleting}
+              >
+                Reportes de bugs
+                {bugCounts[selectedLab.labid] > 0 && (
+                  <span className="lab-bug-badge lab-bug-badge--inline">
+                    {bugCounts[selectedLab.labid]}
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
                 onClick={handleSaveChanges}
                 disabled={isSaving || isDeleting}
               >
@@ -469,6 +490,22 @@ function DashboardLabsViewMgmt() {
 
           </div>
         </div>
+      )}
+
+      {/* "Volver" hace reaparecer el modal de administrar, con los cambios que no se habían guardado */}
+      {reportsLab && (
+        <LabBugReportsModal
+          lab={reportsLab}
+          token={token}
+          onBack={() => setReportsLab(null)}
+          onClose={() => {
+            setReportsLab(null);
+            closeLabModal();
+          }}
+          onPendingCountChange={(labid, pending) =>
+            setBugCounts((prev) => ({ ...prev, [labid]: pending }))
+          }
+        />
       )}
 
     </section>

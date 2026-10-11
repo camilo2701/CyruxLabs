@@ -34,69 +34,23 @@ async function getCompletedUserCounts(labIds) {
     return counts;
 }
 
-// LIST (sin búsqueda: top 5 más recientes) / SEARCH (paginado, 5 por página)
-// Busca coincidencias en título, descripción o autor (username).
-export const getAllLabs = async (req, res) => {
-    try {
-        const search = (req.query.search || '').trim().slice(0, 100);
-        const pageNumber = Math.max(1, parseInt(req.query.page, 10) || 1);
-        const fetchAll = req.query.all === 'true';
+// Lógica compartida de listado. ownerId = null → todos los labs;
+// ownerId = número → solo los labs creados por ese usuario.
+// Sin búsqueda: top 5 más recientes (o todos con fetchAll).
+// Con búsqueda: paginado, 5 por página, por título, descripción o autor (username).
+async function queryLabs({ search, pageNumber, fetchAll, ownerId = null }) {
+    const LAB_FIELDS = 'labid, title, description, userid, benefit(benefitid, description), users(username)';
 
-        if (!search) {
-            let query = supabase
-                .from('lab')
-                .select('labid, title, description, userid, benefit(benefitid, description), users(username)')
-                .order('labid', { ascending: false });
-
-            if (!fetchAll) {
-                query = query.limit(PAGE_SIZE);
-            }
-
-            const { data, error } = await query;
-
-            if (error) throw error;
-
-            const labIds = data.map((lab) => lab.labid);
-            const completedCounts = await getCompletedUserCounts(labIds);
-            const labs = data.map((lab) => ({
-                ...lab,
-                completedUserCount: completedCounts[lab.labid] ?? 0,
-            }));
-
-            return res.json({ labs, total: labs.length, page: 1, totalPages: 1 });
-        }
-
-        // Autores cuyo username coincide, para poder buscar "por autor" también.
-        const { data: matchingUsers, error: userError } = await supabase
-            .from('users')
-            .select('userid')
-            .ilike('username', `%${search}%`);
-
-        if (userError) throw userError;
-
-        const matchingUserIds = matchingUsers.map((u) => u.userid);
-
-        const filters = [
-            `title.ilike.%${search}%`,
-            `description.ilike.%${search}%`,
-        ];
-        if (matchingUserIds.length > 0) {
-            filters.push(`userid.in.(${matchingUserIds.join(',')})`);
-        }
-
-        const from = (pageNumber - 1) * PAGE_SIZE;
-        const to = from + PAGE_SIZE - 1;
-
-        const { data, error, count } = await supabase
+    if (!search) {
+        let query = supabase
             .from('lab')
-            .select(
-                'labid, title, description, userid, benefit(benefitid, description), users(username)',
-                { count: 'exact' }
-            )
-            .or(filters.join(','))
-            .order('labid', { ascending: false })
-            .range(from, to);
+            .select(LAB_FIELDS)
+            .order('labid', { ascending: false });
 
+        if (ownerId !== null) query = query.eq('userid', ownerId);
+        if (!fetchAll) query = query.limit(PAGE_SIZE);
+
+        const { data, error } = await query;
         if (error) throw error;
 
         const labIds = data.map((lab) => lab.labid);
@@ -106,13 +60,117 @@ export const getAllLabs = async (req, res) => {
             completedUserCount: completedCounts[lab.labid] ?? 0,
         }));
 
-        const total = count ?? labs.length;
-        res.json({ labs, total, page: pageNumber, totalPages: Math.ceil(total / PAGE_SIZE) });
+        return { labs, total: labs.length, page: 1, totalPages: 1 };
+    }
+
+    // Autores cuyo username coincide, para poder buscar "por autor" también.
+    const { data: matchingUsers, error: userError } = await supabase
+        .from('users')
+        .select('userid')
+        .ilike('username', `%${search}%`);
+
+    if (userError) throw userError;
+
+    const matchingUserIds = matchingUsers.map((u) => u.userid);
+
+    const filters = [
+        `title.ilike.%${search}%`,
+        `description.ilike.%${search}%`,
+    ];
+    if (matchingUserIds.length > 0) {
+        filters.push(`userid.in.(${matchingUserIds.join(',')})`);
+    }
+
+    const from = (pageNumber - 1) * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
+    let query = supabase
+        .from('lab')
+        .select(LAB_FIELDS, { count: 'exact' })
+        .or(filters.join(','));
+
+    // .eq() se combina con AND con el .or() de arriba
+    if (ownerId !== null) query = query.eq('userid', ownerId);
+
+    const { data, error, count } = await query
+        .order('labid', { ascending: false })
+        .range(from, to);
+
+    if (error) throw error;
+
+    const labIds = data.map((lab) => lab.labid);
+    const completedCounts = await getCompletedUserCounts(labIds);
+    const labs = data.map((lab) => ({
+        ...lab,
+        completedUserCount: completedCounts[lab.labid] ?? 0,
+    }));
+
+    const total = count ?? labs.length;
+    return { labs, total, page: pageNumber, totalPages: Math.ceil(total / PAGE_SIZE) };
+}
+
+function readListParams(req) {
+    return {
+        search: (req.query.search || '').trim().slice(0, 100),
+        pageNumber: Math.max(1, parseInt(req.query.page, 10) || 1),
+        fetchAll: req.query.all === 'true',
+    };
+}
+
+// LIST PÚBLICO (LabsPage): todos los labs, sin login.
+export const getAllLabs = async (req, res) => {
+    try {
+        const result = await queryLabs(readListParams(req));
+        res.json(result);
     } catch (error) {
         console.error('Get labs error:', error);
         res.status(500).json({ message: 'Failed to fetch labs', error: error.message });
     }
 };
+
+// LIST DE GESTIÓN (Dashboard → Gestionar laboratorios). Protegido en la ruta.
+// Admin (2): todos los labs. Instructor (1): solo los labs que él creó.
+export const getManagedLabs = async (req, res) => {
+    try {
+        const { search, pageNumber } = readListParams(req);
+        const ownerId = req.user.role === 2 ? null : req.user.userid;
+        const result = await queryLabs({ search, pageNumber, fetchAll: false, ownerId });
+        res.json(result);
+    } catch (error) {
+        console.error('Get managed labs error:', error);
+        res.status(500).json({ message: 'Failed to fetch labs', error: error.message });
+    }
+};
+
+// Verifica que el lab exista y que el usuario pueda gestionarlo:
+// el admin puede gestionar cualquiera; el instructor solo los suyos.
+// Si no puede, responde 400/403/404 y devuelve false.
+async function checkLabAccess(req, res, labid) {
+    if (!Number.isInteger(labid) || labid <= 0) {
+        res.status(400).json({ message: 'ID de laboratorio inválido' });
+        return false;
+    }
+
+    const { data: lab, error } = await supabase
+        .from('lab')
+        .select('labid, userid')
+        .eq('labid', labid)
+        .maybeSingle();
+
+    if (error) throw error;
+
+    if (!lab) {
+        res.status(404).json({ message: 'Laboratorio no encontrado' });
+        return false;
+    }
+
+    if (req.user.role !== 2 && lab.userid !== req.user.userid) {
+        res.status(403).json({ message: 'Solo puedes gestionar los laboratorios que creaste' });
+        return false;
+    }
+
+    return true;
+}
 
 // Best-effort cleanup when creating a lab fails halfway: undo whatever was already saved.
 // Failures are only logged so the original error is the one the client sees.
@@ -278,10 +336,12 @@ export const checkTitleDuplicate = async (req, res) => {
 // UPDATE (protegido: requireAuth + requireRole en la ruta)
 // Guarda todo junto: título/descripción, más beneficios a agregar/quitar.
 export const updateLab = async (req, res) => {
-    const { labid } = req.params;
+    const labid = Number(req.params.labid);
     const { addBenefits = [], removeBenefitIds = [] } = req.body;
 
     try {
+        if (!(await checkLabAccess(req, res, labid))) return;
+
         if (!Array.isArray(addBenefits) || !Array.isArray(removeBenefitIds)) {
             return res.status(400).json({ message: 'Formato de beneficios inválido' });
         }
@@ -335,7 +395,8 @@ export const updateLab = async (req, res) => {
             const { error: removeError } = await supabase
                 .from('benefit')
                 .delete()
-                .in('benefitid', removeBenefitIds);
+                .in('benefitid', removeBenefitIds)
+                .eq('labid', labid); // solo beneficios de ESTE lab
 
             if (removeError) throw removeError;
         }
@@ -355,9 +416,11 @@ export const updateLab = async (req, res) => {
 
 // DELETE (protegido: requireAuth + requireRole en la ruta)
 export const deleteLab = async (req, res) => {
-    const { labid } = req.params;
+    const labid = Number(req.params.labid);
 
     try {
+        if (!(await checkLabAccess(req, res, labid))) return;
+
         // trophyuser -> trophy -> lab: each table has a foreign key to the next, so delete in this order
         const { data: labTrophies, error: trophyReadError } = await supabase
             .from('trophy')

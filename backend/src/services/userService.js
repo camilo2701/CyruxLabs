@@ -205,6 +205,28 @@ async function deleteUserCascade(userid) {
             .in('labid', labIds);
         if (bugByLabError) throw bugByLabError;
 
+        // trophyuser
+        const { data: labTrophies, error: trophyLookupError } = await supabase
+            .from('trophy')
+            .select('trophyid')
+            .in('labid', labIds);
+        if (trophyLookupError) throw trophyLookupError;
+        const trophyIds = (labTrophies || []).map((t) => t.trophyid);
+
+        if (trophyIds.length > 0) {
+            const { error: unlockByTrophyError } = await supabase
+                .from('trophyuser')
+                .delete()
+                .in('trophyid', trophyIds);
+            if (unlockByTrophyError) throw unlockByTrophyError;
+
+            const { error: trophyError } = await supabase
+                .from('trophy')
+                .delete()
+                .in('trophyid', trophyIds);
+            if (trophyError) throw trophyError;
+        }
+
         // 5) benefit depende de lab
         const { error: benefitError } = await supabase
             .from('benefit')
@@ -218,6 +240,13 @@ async function deleteUserCascade(userid) {
             .in('labid', labIds);
         if (labError) throw labError;
     }
+
+    // trofeos que el usuario desbloqueó (en labs de cualquier autor)
+    const { error: trophyUserError } = await supabase
+        .from('trophyuser')
+        .delete()
+        .eq('userid', userid);
+    if (trophyUserError) throw trophyUserError;
 
     // badges
     const { error: badgeError } = await supabase
