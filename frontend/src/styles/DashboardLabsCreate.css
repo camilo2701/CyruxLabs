@@ -726,3 +726,52 @@
   font-weight: 500;
   color: aliceblue;
 }
+
+/*Trofeos: fragmentos (comando / proceso)*/
+.trophy-editor__fragments {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+.trophy-editor__fragment {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2em;
+}
+
+.trophy-editor__fragment-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.trophy-editor__fragment-row .trophy-editor__input {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+
+.trophy-editor__fragment-add {
+  align-self: flex-start;
+  cursor: pointer;
+  padding: 0.35em 0.8em;
+  background: transparent;
+  border: 1.5px dashed #3a3646;
+  border-radius: 20px;
+  color: #9b93ab;
+  font-family: "Inter", sans-serif;
+  font-size: 0.8rem;
+  transition: 0.15s;
+}
+
+.trophy-editor__fragment-add:hover:not(:disabled) {
+  border-color: #ee5dfb;
+  color: aliceblue;
+}
+
+.trophy-editor__fragment-add:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

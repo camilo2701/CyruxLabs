@@ -1,4 +1,6 @@
 // Rules for lab data. Keep in sync with the frontend copy (src/utils/labRules.js).
+import { getFragmentsError, normalizeFragments } from './trophyCriteria.js';
+
 export const TITLE_MIN = 3;
 export const TITLE_MAX = 50;
 export const DESC_MAX = 500;
@@ -74,16 +76,16 @@ export const TIME_MIN_SECONDS = 30;
 export const TIME_MAX_SECONDS = 3 * 60 * 60;
 export const FAILED_ATTEMPTS_MAX = 20;
 
-// Criteria an instructor can pick. available: false means it is shown but not selectable yet,
-// because the platform cannot evaluate it until evidence collection exists.
+// Criteria an instructor can pick. available: false would show an option but keep it unselectable.
 export const CRITERIA_TYPES = {
     time: { label: 'Tiempo', available: true },
     failed_attempts: { label: 'Intentos fallidos', available: true },
-    command: { label: 'Comando', available: false },
-    process: { label: 'Proceso', available: false },
+    command: { label: 'Comando', available: true },
+    process: { label: 'Proceso', available: true },
 };
 
 const NUMERIC_CRITERIA = ['time', 'failed_attempts'];
+export const FRAGMENT_CRITERIA = ['command', 'process']; // stored as a list of text fragments
 export const COMPLETION_CRITERIA = 'completion';
 
 // Created by the platform for every lab. Instructors never send or edit this one.
@@ -95,8 +97,11 @@ export const COMPLETION_TROPHY = {
     criteria: '',
 };
 
-// Canonical form that gets stored: numbers as plain digit strings ("060" becomes "60")
+// Canonical form that gets stored: numbers as plain digit strings ("060" becomes "60"),
+// fragments as a cleaned, sorted JSON list
 export function normalizeCriteria(criteriatype, criteria) {
+    if (FRAGMENT_CRITERIA.includes(criteriatype)) return normalizeFragments(criteria);
+
     const value = String(criteria ?? '').trim();
     return NUMERIC_CRITERIA.includes(criteriatype) ? String(Number(value)) : value;
 }
@@ -107,7 +112,8 @@ function getCriteriaError(criteriatype, criteria) {
     const rule = CRITERIA_TYPES[criteriatype];
     if (!rule) return 'Elige un tipo de criterio';
     if (!rule.available) return 'Este criterio todavía no está disponible';
-
+    if (FRAGMENT_CRITERIA.includes(criteriatype)) return getFragmentsError(criteria);
+    
     const value = String(criteria ?? '').trim();
 
     if (criteriatype === 'time') {

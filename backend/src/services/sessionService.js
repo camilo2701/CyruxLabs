@@ -1,6 +1,7 @@
 import { supabase } from '../config/supabaseClient.js';
 import { awardTrophies } from './trophyService.js';
 import { checkBadgesSafely } from './badgeService.js';
+import { saveEvidenceReport } from './reportService.js';
 
 function mapSession(row) {
     return {
@@ -57,6 +58,13 @@ export async function restartTrainingSession({ labid, sessionid }) {
         const err = new Error('Runner failed to restart lab');
         err.details = runnerResult;
         throw err;
+    }
+
+    // Keep what the student did in the attempt that was just closed
+    try {
+        await saveEvidenceReport({ sessionid, evidence: runnerResult.evidence });
+    } catch (err) {
+        console.error('Save report error (restart):', err);
     }
 
     const starttime = new Date().toISOString();
@@ -152,7 +160,17 @@ export async function startTrainingSession({ labid, userid }) {
 
 // finishedAt defaults to "now", evaluated when this function is CALLED, so it is
 // taken before the runner starts tearing the containers down.
+// This is also where the trophies are judged, so it covers every way a session can end.
 export async function stopTrainingSession(sessionid, finishedAt = new Date().toISOString()) {
+    // What the trophies need. A failure here must not stop the lab from closing.
+    const { data: row, error: rowError } = await supabase
+        .from('session')
+        .select('userid, labid, starttime, failedflags, issolved')
+        .eq('sessionid', sessionid)
+        .single();
+
+    if (rowError) console.error('Session read error before stop:', rowError);
+
     const runnerResponse = await fetch(`${RUNNER_URL}/stop`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -176,14 +194,40 @@ export async function stopTrainingSession(sessionid, finishedAt = new Date().toI
 
     if (updateError) console.error('Session update error:', updateError);
 
-    // null when the session was already completed (a second stop does not overwrite the time)
-    return { finishtime: updated?.[0]?.finishtime ?? null };
+    // false when the session was already completed (a second stop call)
+    const firstCompletion = !!updated?.[0];
+
+    // What the student did in the terminal (the runner only sends it the first time)
+    try {
+        await saveEvidenceReport({ sessionid, evidence: runnerResult.evidence });
+    } catch (err) {
+        console.error('Save report error (stop):', err);
+    }
+
+    // A trophy problem must never break closing the session
+    let trophies = [];
+    if (firstCompletion && row) {
+        try {
+            trophies = await awardTrophies({
+                userid: row.userid,
+                labid: row.labid,
+                solved: row.issolved,
+                elapsedSeconds: (new Date(finishedAt) - new Date(row.starttime)) / 1000,
+                failedFlags: row.failedflags ?? 0,
+                evidence: runnerResult.evidence,
+            });
+        } catch (err) {
+            console.error('Award trophies error:', err);
+        }
+    }
+
+    return { finishtime: updated?.[0]?.finishtime ?? null, trophies };
 }
 
 export async function submitFlag(sessionid, submittedFlag) {
     const { data: session, error: sessionError } = await supabase
         .from('session')
-        .select('sessionid, userid, labid, iscompleted, starttime, failedflags, lab(flag)')
+        .select('sessionid, userid, labid, iscompleted, failedflags, lab(flag)')
         .eq('sessionid', sessionid)
         .single();
 
@@ -215,6 +259,7 @@ export async function submitFlag(sessionid, submittedFlag) {
     // Take the finish time NOW, before the database writes and the teardown below
     const finishedAt = new Date().toISOString();
 
+    // Marked as solved BEFORE stopping: the stop flow reads this to judge the trophies
     const { error: updateError } = await supabase
         .from('session')
         .update({ capturedflag: submittedFlag.trim(), issolved: true })
@@ -222,22 +267,8 @@ export async function submitFlag(sessionid, submittedFlag) {
 
     if (updateError) console.error('Capturedflag update error:', updateError);
 
-    // marca iscompleted=true, finishtime, apaga contenedores
-    const { finishtime } = await stopTrainingSession(sessionid, finishedAt);
-
-    // A trophy problem must never break a correct flag: the player did solve the lab
-    let trophies = [];
-    try {
-        trophies = await awardTrophies({
-            userid: session.userid,
-            labid: session.labid,
-            solved: true,
-            elapsedSeconds: (new Date(finishedAt) - new Date(session.starttime)) / 1000,
-            failedFlags: session.failedflags ?? 0,
-        });
-    } catch (err) {
-        console.error('Award trophies error:', err);
-    }
+    // Closes the session, saves the evidence and awards the trophies
+    const { finishtime, trophies } = await stopTrainingSession(sessionid, finishedAt);
 
     // badges
     const badges = await checkBadgesSafely(session.userid);

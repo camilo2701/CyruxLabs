@@ -73,8 +73,8 @@ export async function postStopSession(req, res) {
         const { sessionid } = req.body;
         const session = await getSessionById(sessionid);
         assertOwnsSession(session, req.user);
-        await stopTrainingSession(sessionid);
-        res.json({ message: 'Session stopped' });
+        const { finishtime, trophies } = await stopTrainingSession(sessionid);
+        res.json({ message: 'Session stopped', finishtime, trophies });
     } catch (err) {
         console.error('Stop session error:', err);
         res.status(err.status || 500).json({ message: err.message, error: err.details || err.message });

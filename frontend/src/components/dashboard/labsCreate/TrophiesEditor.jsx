@@ -6,15 +6,22 @@ import {
     TROPHY_NAME_MAX,
     TROPHY_DESC_MAX,
     CRITERIA_TYPES,
+    FRAGMENT_CRITERIA,
     COMPLETION_TROPHY,
     TIME_MAX_SECONDS,
     FAILED_ATTEMPTS_MAX,
     getTrophyErrorList,
 } from '../../../utils/labRules.js';
+import { MAX_FRAGMENTS, FRAGMENT_MAX_LENGTH } from '../../../utils/trophyCriteria.js';
 
 const TYPE_CLASS = { 0: 'bronze', 1: 'silver', 2: 'gold' };
-const DEFAULT_CRITERIA = { time: '300', failed_attempts: '0', command: '', process: '' };
 const MAX_MINUTES = TIME_MAX_SECONDS / 60;
+
+// A fresh value each time, so cards never share the same array
+function getDefaultCriteria(criteriatype) {
+    if (FRAGMENT_CRITERIA.includes(criteriatype)) return [''];
+    return criteriatype === 'failed_attempts' ? '0' : '300';
+}
 
 let nextTrophyId = 1;
 
@@ -26,7 +33,7 @@ function createTrophy() {
         name: '',
         description: '',
         criteriatype: 'time',
-        criteria: DEFAULT_CRITERIA.time,
+        criteria: getDefaultCriteria('time'),
     };
 }
 
@@ -117,6 +124,81 @@ function AttemptsCriteria({ value, onChange, onBlur }) {
     );
 }
 
+const FRAGMENT_COPY = {
+    command: {
+        placeholders: ['p. ej. nmap', 'p. ej. -sV'],
+        hint: 'Se otorga si algún comando escrito en la terminal contiene todos los fragmentos, en cualquier orden (distingue mayúsculas). Basta con escribirlo, aunque no funcione.',
+    },
+    process: {
+        placeholders: ['p. ej. hydra', 'p. ej. ssh'],
+        hint: 'Se otorga si algún proceso en ejecución contiene todos los fragmentos, en cualquier orden (distingue mayúsculas). Se revisa cada ~10 segundos: sirve para herramientas que corren un rato (hydra, hashcat); para comandos rápidos usa «Comando».',
+    },
+};
+
+/* Command / process criteria: 1 to 4 text fragments. The value is the list of fragments. */
+function FragmentsCriteria({ kind, value, onChange, onBlur }) {
+    const fragments = Array.isArray(value) && value.length > 0 ? value : [''];
+    const copy = FRAGMENT_COPY[kind];
+
+    const updateFragment = (index, text) => {
+        onChange(fragments.map((fragment, i) => (i === index ? text : fragment)));
+    };
+    const addFragment = () => {
+        if (fragments.length < MAX_FRAGMENTS) onChange([...fragments, '']);
+    };
+    const removeFragment = (index) => onChange(fragments.filter((_, i) => i !== index));
+
+    return (
+        <>
+            <div className="trophy-editor__fragments">
+                {fragments.map((fragment, index) => (
+                    <div key={index} className="trophy-editor__fragment">
+                        <div className="trophy-editor__fragment-row">
+                            <input
+                                type="text"
+                                className="trophy-editor__input"
+                                maxLength={FRAGMENT_MAX_LENGTH}
+                                autoComplete="off"
+                                spellCheck={false}
+                                placeholder={copy.placeholders[Math.min(index, 1)]}
+                                value={fragment}
+                                onChange={(e) => updateFragment(index, e.target.value)}
+                                onBlur={onBlur}
+                                aria-label={`Fragmento ${index + 1}`}
+                            />
+                            {fragments.length > 1 && (
+                                <button
+                                    type="button"
+                                    className="trophy-editor__remove"
+                                    onClick={() => removeFragment(index)}
+                                    aria-label={`Eliminar fragmento ${index + 1}`}
+                                >
+                                    ×
+                                </button>
+                            )}
+                        </div>
+                        <span className="trophy-editor__counter">
+                            {fragment.length}/{FRAGMENT_MAX_LENGTH}
+                        </span>
+                    </div>
+                ))}
+
+                <button
+                    type="button"
+                    className="trophy-editor__fragment-add"
+                    onClick={addFragment}
+                    disabled={fragments.length >= MAX_FRAGMENTS}
+                >
+                    Añadir fragmento ({fragments.length}/{MAX_FRAGMENTS})
+                </button>
+            </div>
+            <p className="trophy-editor__hint">
+                {copy.hint} El trofeo cuenta aunque el estudiante no resuelva el laboratorio.
+            </p>
+        </>
+    );
+}
+
 function TrophiesEditor({ trophies, onChange, showAllErrors, error }) {
     const [touched, setTouched] = useState({});
 
@@ -139,7 +221,7 @@ function TrophiesEditor({ trophies, onChange, showAllErrors, error }) {
         trophies.filter((t) => t.type === type && t.id !== exceptId).length;
 
     const handleCriteriaTypeChange = (trophy, criteriatype) => {
-        updateTrophy(trophy.id, { criteriatype, criteria: DEFAULT_CRITERIA[criteriatype] ?? '' });
+        updateTrophy(trophy.id, { criteriatype, criteria: getDefaultCriteria(criteriatype) });
     };
 
     return (
@@ -281,6 +363,14 @@ function TrophiesEditor({ trophies, onChange, showAllErrors, error }) {
                             )}
                             {trophy.criteriatype === 'failed_attempts' && (
                                 <AttemptsCriteria
+                                    value={trophy.criteria}
+                                    onChange={(criteria) => updateTrophy(trophy.id, { criteria })}
+                                    onBlur={() => touch(trophy.id, 'criteria')}
+                                />
+                            )}
+                            {FRAGMENT_CRITERIA.includes(trophy.criteriatype) && (
+                                <FragmentsCriteria
+                                    kind={trophy.criteriatype}
                                     value={trophy.criteria}
                                     onChange={(criteria) => updateTrophy(trophy.id, { criteria })}
                                     onBlur={() => touch(trophy.id, 'criteria')}

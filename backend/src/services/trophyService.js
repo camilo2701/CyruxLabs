@@ -1,25 +1,27 @@
 import { supabase } from '../config/supabaseClient.js';
+import { evidenceMatches } from '../utils/trophyCriteria.js';
 
-function isEarned(trophy, { solved, elapsedSeconds, failedFlags }) {
-    // Every criterion available today needs the lab to be solved
-    if (!solved) return false;
-
+function isEarned(trophy, { solved, elapsedSeconds, failedFlags, evidence }) {
     switch (trophy.criteriatype) {
         case 'completion':
-            return true;
+            return solved;
         case 'time':
-            return elapsedSeconds < Number(trophy.criteria);
+            return solved && elapsedSeconds < Number(trophy.criteria);
         case 'failed_attempts':
-            return failedFlags <= Number(trophy.criteria);
+            return solved && failedFlags <= Number(trophy.criteria);
+        // These two look at what the student did, so they count even if the lab was not solved
+        case 'command':
+            return evidenceMatches(evidence?.bash, trophy.criteria);
+        case 'process':
+            return evidenceMatches(evidence?.processes, trophy.criteria);
         default:
-            // command / process: the platform has no evidence to check them yet
             return false;
     }
 }
 
 // Works out which trophies a finished session earned, saves the new unlocks and returns them.
 // Only NEW unlocks come back, so a trophy the player already owns never shows up twice.
-export async function awardTrophies({ userid, labid, solved, elapsedSeconds, failedFlags }) {
+export async function awardTrophies({ userid, labid, solved, elapsedSeconds, failedFlags, evidence }) {
     const { data: trophies, error: trophyError } = await supabase
         .from('trophy')
         .select('trophyid, type, name, description, criteriatype, criteria')
@@ -28,7 +30,7 @@ export async function awardTrophies({ userid, labid, solved, elapsedSeconds, fai
     if (trophyError) throw trophyError;
 
     const earned = trophies.filter((trophy) =>
-        isEarned(trophy, { solved, elapsedSeconds, failedFlags })
+        isEarned(trophy, { solved, elapsedSeconds, failedFlags, evidence })
     );
 
     if (earned.length === 0) return [];
