@@ -387,6 +387,196 @@
   color: #c664f7;
 }
 
+
+.showMore {
+  display: flex;
+  justify-content: center;
+  margin-top: 18px;
+}
+
+.showMore button {
+  padding: 9px 16px;
+
+  font-family: 'Inter', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #f4f2f8;
+
+  background: #201d2a;
+  border: 1px solid rgba(198, 100, 247, 0.2);
+  border-radius: 7px;
+  cursor: pointer;
+
+  transition: border-color 0.2s ease;
+}
+
+.showMore button:hover {
+  border-color: #c664f7;
+}
+
+
+.trophyGroups {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.trophyGroupHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(198, 100, 247, 0.1);
+}
+
+.trophyGroupHeader h3 {
+  margin: 0;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #f4f2f8;
+  overflow-wrap: anywhere;
+}
+
+.trophyGroupHeader span {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: #6f687d;
+}
+
+.trophy strong {
+  min-height: 2.6em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.trophyIcon {
+  filter: drop-shadow(0 0 10px var(--trophy-glow, transparent));
+}
+
+.trophyType {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--trophy-color, #9b93ab);
+}
+
+.trophyDate {
+  margin-top: auto;
+  padding-top: 6px;
+
+  font-size: 0.68rem;
+  color: #6f687d;
+}
+
+.trophyGold {
+  --trophy-color: #ffd24d;
+  --trophy-glow: rgba(255, 210, 77, 0.35);
+  border-color: rgba(255, 210, 77, 0.25);
+}
+
+.trophySilver {
+  --trophy-color: #c0c0c0;
+  --trophy-glow: rgba(192, 192, 192, 0.3);
+  border-color: rgba(192, 192, 192, 0.2);
+}
+
+.trophyBronze {
+  --trophy-color: #cd7f32;
+  --trophy-glow: rgba(205, 127, 50, 0.3);
+  border-color: rgba(205, 127, 50, 0.2);
+}
+
+.trophyGold:hover,
+.trophySilver:hover,
+.trophyBronze:hover {
+  border-color: var(--trophy-color);
+}
+
+.badgeType0 {
+  --trophy-color: #3ee6c4;
+  border-color: rgba(62, 230, 196, 0.2);
+}
+
+.badgeType1 {
+  --trophy-color: #5b9dff;
+  border-color: rgba(91, 157, 255, 0.22);
+}
+
+.badgeType2 {
+  --trophy-color: #e070ff;
+  border-color: rgba(224, 112, 255, 0.25);
+}
+
+.badgeType3 {
+  --trophy-color: #8fd3ff;
+  border-color: rgba(143, 211, 255, 0.22);
+}
+
+.badgeType0:hover,
+.badgeType1:hover,
+.badgeType2:hover,
+.badgeType3:hover {
+  border-color: var(--trophy-color);
+}
+
+.badgeLocked {
+  position: relative;
+  --trophy-color: #6f687d;
+  border-style: dashed;
+  border-color: rgba(111, 104, 125, 0.35);
+}
+
+.badgeLocked:hover {
+  border-color: #8a8396;
+}
+
+.badgeLocked strong {
+  color: #9b93ab;
+}
+
+.lockIcon {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  color: #6f687d;
+}
+
+.badgeProgress {
+  width: 100%;
+  margin-top: auto;
+  padding-top: 8px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  font-size: 0.68rem;
+  color: #8a8396;
+}
+
+.badgeProgressTrack {
+  width: 100%;
+  height: 6px;
+  overflow: hidden;
+
+  background: #201d2a;
+  border-radius: 999px;
+}
+
+.badgeProgressFill {
+  height: 100%;
+  background: linear-gradient(90deg, #5a5468, #9b93ab);
+  border-radius: 999px;
+  transition: width 0.6s ease;
+}
+
 @media (max-width: 700px) {
   .page {
     padding: 28px 16px;

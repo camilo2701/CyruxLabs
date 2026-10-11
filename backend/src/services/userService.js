@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { supabase } from '../config/supabaseClient.js';
 import { AuthError } from './authService.js';
 import { getLevelInfo } from './levelService.js';
+import { checkBadgesSafely, getLockedBadgesSafely } from './badgeService.js';
 
 const usernameRegex = /^[a-zA-Z0-9.-]{1,12}$/;
 const nameRegex = /^\p{L}+$/u;
@@ -292,17 +293,28 @@ export async function getPublicProfile(username) {
     if (error) throw error;
     if (!user) throw new AuthError(404, 'Usuario no encontrado');
 
+    // revisa si hay que asignas badges
+    await checkBadgesSafely(user.userid);
+
     const { data: badgeRows, error: badgeError } = await supabase
         .from('userbadge')
-        .select('badges(*)')
+        .select('dateofunlock, badges(badgeid, name, description, category, type)')
         .eq('userid', user.userid);
 
     if (badgeError) throw badgeError;
 
     const badges = (badgeRows || [])
-        .map((row) => row.badges)
-        .filter(Boolean)
-        .sort((a, b) => a.badgeid - b.badgeid);
+        .filter((row) => row.badges)
+        .map((row) => ({ ...row.badges, dateofunlock: row.dateofunlock }))
+        .sort(
+            (a, b) =>
+                String(b.dateofunlock).localeCompare(String(a.dateofunlock)) || b.badgeid - a.badgeid
+        );
+
+    // locked badges con su progreso
+    const lockedBadges = await getLockedBadgesSafely(user.userid);
+
+    const { trophyGroups, trophyCount } = await getTrophyGroups(user.userid);
 
     const levelInfo = getLevelInfo(user.score);
 
@@ -315,14 +327,63 @@ export async function getPublicProfile(username) {
             dateofcreation: user.dateofcreation,
             ...levelInfo,
             badges,
+            lockedBadges,
+            trophyGroups,
+            trophyCount,
         },
     };
+}
+
+// trophies del usuario agrupados por lab
+async function getTrophyGroups(userid) {
+    const { data, error } = await supabase
+        .from('trophyuser')
+        .select('dateofunlock, trophy(trophyid, type, name, description, labid, lab(title))')
+        .eq('userid', userid);
+
+    if (error) throw error;
+
+    const groupsByLab = new Map();
+
+    (data || []).forEach(({ dateofunlock, trophy }) => {
+        if (!trophy) return;
+
+        if (!groupsByLab.has(trophy.labid)) {
+            groupsByLab.set(trophy.labid, {
+                labid: trophy.labid,
+                title: trophy.lab?.title ?? 'Laboratorio',
+                lastUnlock: dateofunlock,
+                trophies: [],
+            });
+        }
+
+        const group = groupsByLab.get(trophy.labid);
+        if (dateofunlock > group.lastUnlock) group.lastUnlock = dateofunlock;
+
+        group.trophies.push({
+            trophyid: trophy.trophyid,
+            type: trophy.type,
+            name: trophy.name,
+            description: trophy.description,
+            dateofunlock,
+        });
+    });
+
+    const trophyGroups = [...groupsByLab.values()]
+        .map((group) => ({
+            ...group,
+            trophies: group.trophies.sort((a, b) => b.type - a.type || a.trophyid - b.trophyid),
+        }))
+        .sort((a, b) => b.lastUnlock.localeCompare(a.lastUnlock) || b.labid - a.labid);
+
+    const trophyCount = trophyGroups.reduce((total, group) => total + group.trophies.length, 0);
+
+    return { trophyGroups, trophyCount };
 }
 
 export async function searchUsers(query) {
     if (!query || !query.trim()) return [];
 
-    // Quitamos caracteres que rompen el filtro .or() de PostgREST.
     const safeQuery = query.trim().slice(0, 50).replace(/[,()*%]/g, '');
     if (!safeQuery) return [];
 

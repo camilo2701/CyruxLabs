@@ -1,5 +1,6 @@
 import { supabase } from '../config/supabaseClient.js';
 import { awardTrophies } from './trophyService.js';
+import { checkBadgesSafely } from './badgeService.js';
 
 function mapSession(row) {
     return {
@@ -238,5 +239,8 @@ export async function submitFlag(sessionid, submittedFlag) {
         console.error('Award trophies error:', err);
     }
 
-    return { matched: true, finishtime, trophies };
+    // badges
+    const badges = await checkBadgesSafely(session.userid);
+
+    return { matched: true, finishtime, trophies, badges };
 }

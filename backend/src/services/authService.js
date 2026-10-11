@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { supabase } from '../config/supabaseClient.js';
+import { checkBadgesSafely } from './badgeService.js';
 
 const SALT_ROUNDS = 10;
 const DEFAULT_AVATAR = 'avatar-01.svg';
@@ -11,7 +12,6 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,20}$/;
 
 export class AuthError extends Error {
-    // extra: datos adicionales para el cliente (ej. lockedUntil en un bloqueo)
     constructor(status, message, extra = {}) {
         super(message);
         this.status = status;
@@ -19,7 +19,7 @@ export class AuthError extends Error {
     }
 }
 
-// Bloqueo por intentos fallidos de inicio de sesión
+// bloqueo por intentos fallidos de inicio de sesión
 const MAX_LOGIN_ATTEMPTS = 3;
 const LOCK_MINUTES = 15;
 
@@ -103,6 +103,9 @@ export async function registerUser({ username, email, firstName, lastName, passw
 
     if (insertError) throw insertError;
 
+    // insignia "bienvenido"
+    await checkBadgesSafely(created.userid);
+
     const token = signToken(created);
     return { token, user: toPublicUser(created) };
 }
@@ -124,8 +127,7 @@ export async function loginUser({ email, password }) {
         throw new AuthError(401, 'Email o contraseña incorrectos');
     }
 
-    // 1) ¿Está bloqueado? Se rechaza sin revisar la contraseña,
-    //    así ni siquiera la contraseña correcta entra durante el bloqueo.
+    // ni siquiera la contraseña correcta entra durante el bloqueo
     const lockedUntil = user.lockeduntil ? new Date(user.lockeduntil) : null;
     if (lockedUntil && lockedUntil.getTime() > Date.now()) {
         throw lockedError(lockedUntil);
@@ -133,13 +135,13 @@ export async function loginUser({ email, password }) {
 
     const passwordMatches = await bcrypt.compare(password, user.password);
 
-    // 2) Contraseña incorrecta: suma un intento y bloquea al llegar al máximo.
+    // contraseña incorrecta suma un intento y bloquea al llegar al máximo
     if (!passwordMatches) {
         const attempts = (user.failedattempts || 0) + 1;
 
         if (attempts >= MAX_LOGIN_ATTEMPTS) {
             const newLockedUntil = new Date(Date.now() + LOCK_MINUTES * 60 * 1000);
-            // Se reinicia el contador: al terminar el bloqueo vuelve a tener 3 intentos.
+            // al terminar el bloqueo vuelve a tener 3 intentos
             const { error: lockError } = await supabase
                 .from('users')
                 .update({ failedattempts: 0, lockeduntil: newLockedUntil.toISOString() })
@@ -163,7 +165,7 @@ export async function loginUser({ email, password }) {
         );
     }
 
-    // 3) Login correcto: limpia el contador y cualquier bloqueo vencido.
+    // login correcto limpia el contador y cualquier bloqueo vencido
     if (user.failedattempts || user.lockeduntil) {
         const { error: resetError } = await supabase
             .from('users')
