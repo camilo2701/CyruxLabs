@@ -7,6 +7,7 @@ import DashboardProfile from '../components/dashboard/DashboardProfile';
 import DashboardHistory from '../components/dashboard/DashboardHistory';
 import DashboardUsers from '../components/dashboard/DashboardUsers';
 import DashboardLabs from '../components/dashboard/DashboardLabs';
+import DashboardLogs from '../components/dashboard/DashboardLogs';
 import ChangePassword from '../components/dashboard/ChangePassword';
 import Footer from '../components/Footer';
 
@@ -68,6 +69,9 @@ function Dashboard() {
 
       case 'labs':
         return <DashboardLabs />;
+
+      case 'logs':
+        return <DashboardLogs />;
 
       default:
         return (

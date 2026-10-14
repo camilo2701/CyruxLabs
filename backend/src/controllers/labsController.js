@@ -1,5 +1,6 @@
 import { supabase } from '../config/supabaseClient.js';
 import { getZipError } from '../utils/zipValidation.js';
+import { logEvent, fromReq } from '../services/logService.js';
 import {
     getTitleError,
     getDescriptionError,
@@ -110,9 +111,16 @@ async function queryLabs({ search, pageNumber, fetchAll, ownerId = null }) {
     return { labs, total, page: pageNumber, totalPages: Math.ceil(total / PAGE_SIZE) };
 }
 
+// The search text ends up inside a PostgREST filter string, where "," and "()" start new
+// conditions. Keep only letters, numbers, spaces and . : - so the text can never add conditions.
+function cleanSearch(value) {
+    if (typeof value !== 'string') return '';
+    return value.replace(/[^\p{L}\p{N} .:-]/gu, '').trim().slice(0, 100);
+}
+
 function readListParams(req) {
     return {
-        search: (req.query.search || '').trim().slice(0, 100),
+        search: cleanSearch(req.query.search),
         pageNumber: Math.max(1, parseInt(req.query.page, 10) || 1),
         fetchAll: req.query.all === 'true',
     };
@@ -145,16 +153,17 @@ export const getManagedLabs = async (req, res) => {
 
 // Verifica que el lab exista y que el usuario pueda gestionarlo:
 // el admin puede gestionar cualquiera; el instructor solo los suyos.
-// Si no puede, responde 400/403/404 y devuelve false.
-async function checkLabAccess(req, res, labid) {
+// Si no puede, responde 400/403/404 y devuelve null; si puede, devuelve el lab.
+// action ('UPDATE' | 'DELETE') solo se usa para el registro de actividad.
+async function checkLabAccess(req, res, labid, action) {
     if (!Number.isInteger(labid) || labid <= 0) {
         res.status(400).json({ message: 'ID de laboratorio inválido' });
-        return false;
+        return null;
     }
 
     const { data: lab, error } = await supabase
         .from('lab')
-        .select('labid, userid')
+        .select('labid, userid, title')
         .eq('labid', labid)
         .maybeSingle();
 
@@ -162,15 +171,24 @@ async function checkLabAccess(req, res, labid) {
 
     if (!lab) {
         res.status(404).json({ message: 'Laboratorio no encontrado' });
-        return false;
+        return null;
     }
 
     if (req.user.role !== 2 && lab.userid !== req.user.userid) {
+        logEvent({
+            ...fromReq(req),
+            action,
+            facility: 'lab',
+            event: 'LAB_ACCESS_DENIED',
+            severity: 'warning',
+            targetid: labid,
+            description: `Intentó ${action === 'DELETE' ? 'eliminar' : 'editar'} el laboratorio #${labid} de otro usuario`,
+        });
         res.status(403).json({ message: 'Solo puedes gestionar los laboratorios que creaste' });
-        return false;
+        return null;
     }
 
-    return true;
+    return lab;
 }
 
 // Best-effort cleanup when creating a lab fails halfway: undo whatever was already saved.
@@ -238,6 +256,14 @@ export const createLab = async (req, res) => {
 
         const zipProblem = await getZipError(req.file.buffer);
         if (zipProblem) {
+            logEvent({
+                ...fromReq(req),
+                action: 'CREATE',
+                facility: 'lab',
+                event: 'LAB_UPLOAD_REJECTED',
+                severity: 'warning',
+                description: `Subida rechazada de «${title}»: ${zipProblem}`,
+            });
             return res.status(400).json({ message: zipProblem, field: 'zipfile' });
         }
 
@@ -302,7 +328,15 @@ export const createLab = async (req, res) => {
         const { error: trophyError } = await supabase.from('trophy').insert(trophyRows);
 
         if (trophyError) throw trophyError;
-
+        
+        logEvent({
+            ...fromReq(req),
+            action: 'CREATE',
+            facility: 'lab',
+            event: 'LAB_CREATED',
+            targetid: labId,
+            description: `Creó el laboratorio «${title}» (#${labId})`,
+        });
         res.json({ message: 'Lab created successfully', labId, filePath });
     } catch (error) {
         console.error('Create lab error:', error);
@@ -346,7 +380,7 @@ export const updateLab = async (req, res) => {
     const { addBenefits = [], removeBenefitIds = [] } = req.body;
 
     try {
-        if (!(await checkLabAccess(req, res, labid))) return;
+        if (!(await checkLabAccess(req, res, labid, 'UPDATE'))) return;
 
         if (!Array.isArray(addBenefits) || !Array.isArray(removeBenefitIds)) {
             return res.status(400).json({ message: 'Formato de beneficios inválido' });
@@ -413,6 +447,21 @@ export const updateLab = async (req, res) => {
             if (addError) throw addError;
         }
 
+        const changes = [
+            ...Object.keys(updates).map((field) => (field === 'title' ? 'título' : 'descripción')),
+            addBenefits.length > 0 && `+${addBenefits.length} beneficio(s)`,
+            removeBenefitIds.length > 0 && `-${removeBenefitIds.length} beneficio(s)`,
+        ].filter(Boolean);
+
+        logEvent({
+            ...fromReq(req),
+            action: 'UPDATE',
+            facility: 'lab',
+            event: 'LAB_UPDATED',
+            targetid: labid,
+            description: `Editó el laboratorio #${labid}: ${changes.join(', ') || 'sin cambios'}`,
+        });
+
         res.json({ message: 'Lab updated successfully' });
     } catch (error) {
         console.error('Update lab error:', error);
@@ -425,7 +474,8 @@ export const deleteLab = async (req, res) => {
     const labid = Number(req.params.labid);
 
     try {
-        if (!(await checkLabAccess(req, res, labid))) return;
+        const lab = await checkLabAccess(req, res, labid, 'DELETE');
+        if (!lab) return;
 
         // trophyuser -> trophy -> lab: each table has a foreign key to the next, so delete in this order
         const { data: labTrophies, error: trophyReadError } = await supabase
@@ -481,6 +531,23 @@ export const deleteLab = async (req, res) => {
             .eq('labid', labid);
 
         if (labDeleteError) throw labDeleteError;
+
+        // The zip is no longer needed (best effort: a leftover file must not fail the delete)
+        const { error: storageError } = await supabase.storage
+            .from('labfiles')
+            .remove([`labs/${labid}/bundle.zip`]);
+        if (storageError) console.error('Delete zip error:', storageError);
+
+        logEvent({
+            ...fromReq(req),
+            action: 'DELETE',
+            facility: 'lab',
+            event: 'LAB_DELETED',
+            targetid: labid,
+            description: `Eliminó el laboratorio «${lab.title}» (#${labid})${
+                lab.userid !== req.user.userid ? ` creado por el usuario #${lab.userid}` : ''
+            }`,
+        });
 
         res.json({ message: 'Lab deleted successfully' });
     } catch (error) {

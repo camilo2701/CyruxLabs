@@ -2,6 +2,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { supabase } from '../config/supabaseClient.js';
 import { checkBadgesSafely } from './badgeService.js';
+import { logEvent } from './logService.js';
 
 const SALT_ROUNDS = 10;
 const DEFAULT_AVATAR = 'avatar-01.svg';
@@ -64,22 +65,34 @@ function validateRegisterInput({ username, email, firstName, lastName, password 
     }
 }
 
-export async function registerUser({ username, email, firstName, lastName, password }) {
+// ip: para el registro de actividad (la pasa el controller)
+export async function registerUser({ username, email, firstName, lastName, password, ip }) {
     validateRegisterInput({ username, email, firstName, lastName, password });
 
-    const { data: existing, error: lookupError } = await supabase
+    // Dos consultas separadas: armar un solo ".or(...)" con el correo permitiría que un correo
+    // manipulado agregue condiciones propias (el formato de correo acepta "," y "()")
+    const { data: usernameMatch, error: usernameError } = await supabase
         .from('users')
-        .select('userid, username, email')
-        .or(`username.eq.${username},email.eq.${email}`);
+        .select('userid')
+        .eq('username', username)
+        .limit(1);
 
-    if (lookupError) throw lookupError;
+    if (usernameError) throw usernameError;
 
-    if (existing && existing.length > 0) {
-        const usernameTaken = existing.some((u) => u.username === username);
-        throw new AuthError(
-            409,
-            usernameTaken ? 'Ese nombre de usuario ya está en uso' : 'Ese correo ya está registrado'
-        );
+    if (usernameMatch.length > 0) {
+        throw new AuthError(409, 'Ese nombre de usuario ya está en uso');
+    }
+
+    const { data: emailMatch, error: emailError } = await supabase
+        .from('users')
+        .select('userid')
+        .eq('email', email)
+        .limit(1);
+
+    if (emailError) throw emailError;
+
+    if (emailMatch.length > 0) {
+        throw new AuthError(409, 'Ese correo ya está registrado');
     }
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
@@ -103,6 +116,16 @@ export async function registerUser({ username, email, firstName, lastName, passw
 
     if (insertError) throw insertError;
 
+    logEvent({
+        actor: { userid: created.userid, username: created.username },
+        ip,
+        action: 'CREATE',
+        facility: 'user',
+        event: 'USER_REGISTERED',
+        targetid: created.userid,
+        description: `Registró la cuenta «${created.username}»`,
+    });
+
     // insignia "bienvenido"
     await checkBadgesSafely(created.userid);
 
@@ -110,9 +133,13 @@ export async function registerUser({ username, email, firstName, lastName, passw
     return { token, user: toPublicUser(created) };
 }
 
-export async function loginUser({ email, password }) {
+// ip: para el registro de actividad (la pasa el controller)
+export async function loginUser({ email, password, ip }) {
     if (!email || !password) {
         throw new AuthError(400, 'Email y contraseña son obligatorios');
+    }
+    if (typeof email !== 'string' || typeof password !== 'string') {
+        throw new AuthError(400, 'Email o contraseña no válidos');
     }
 
     const { data: user, error } = await supabase
@@ -124,16 +151,27 @@ export async function loginUser({ email, password }) {
     if (error) throw error;
 
     if (!user) {
+        // No se guarda el correo escrito: puede ser de otra persona o una contraseña pegada por error
+        logEvent({
+            ip,
+            action: 'READ',
+            facility: 'auth',
+            event: 'LOGIN_FAILED',
+            severity: 'warning',
+            description: 'Intento de inicio de sesión con un correo no registrado',
+        });
         throw new AuthError(401, 'Email o contraseña incorrectos');
     }
 
     // ni siquiera la contraseña correcta entra durante el bloqueo
+    // (estos intentos no se registran: el bloqueo ya quedó registrado y evita llenar el log)
     const lockedUntil = user.lockeduntil ? new Date(user.lockeduntil) : null;
     if (lockedUntil && lockedUntil.getTime() > Date.now()) {
         throw lockedError(lockedUntil);
     }
 
     const passwordMatches = await bcrypt.compare(password, user.password);
+    const actor = { userid: user.userid, username: user.username };
 
     // contraseña incorrecta suma un intento y bloquea al llegar al máximo
     if (!passwordMatches) {
@@ -148,6 +186,17 @@ export async function loginUser({ email, password }) {
                 .eq('userid', user.userid);
             if (lockError) throw lockError;
 
+            logEvent({
+                actor,
+                ip,
+                action: 'UPDATE',
+                facility: 'auth',
+                event: 'ACCOUNT_LOCKED',
+                severity: 'warning',
+                targetid: user.userid,
+                description: `Cuenta bloqueada ${LOCK_MINUTES} minutos tras ${MAX_LOGIN_ATTEMPTS} intentos fallidos`,
+            });
+
             throw lockedError(newLockedUntil);
         }
 
@@ -156,6 +205,17 @@ export async function loginUser({ email, password }) {
             .update({ failedattempts: attempts })
             .eq('userid', user.userid);
         if (attemptError) throw attemptError;
+
+        logEvent({
+            actor,
+            ip,
+            action: 'READ',
+            facility: 'auth',
+            event: 'LOGIN_FAILED',
+            severity: 'warning',
+            targetid: user.userid,
+            description: `Contraseña incorrecta (intento ${attempts} de ${MAX_LOGIN_ATTEMPTS})`,
+        });
 
         const remaining = MAX_LOGIN_ATTEMPTS - attempts;
         throw new AuthError(
@@ -175,5 +235,16 @@ export async function loginUser({ email, password }) {
     }
 
     const token = signToken(user);
+
+    logEvent({
+        actor,
+        ip,
+        action: 'CREATE',
+        facility: 'auth',
+        event: 'LOGIN_OK',
+        targetid: user.userid,
+        description: 'Inició sesión',
+    });
+
     return { token, user: toPublicUser(user) };
 }

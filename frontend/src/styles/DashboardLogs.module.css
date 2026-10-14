@@ -1,0 +1,332 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+
+/* Section header: small purple label over a big title, like the other dashboard sections */
+.header {
+  margin-bottom: 1.5rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.5rem;
+  font-family: "Inter", sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #c664f7;
+}
+
+.title {
+  margin: 0;
+  font-family: "Orbitron", sans-serif;
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  font-weight: 500;
+  line-height: 1.1;
+  color: #f4f2f8;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 1em;
+  background-color: #14121c;
+  border: 1px solid #201d2a;
+  border-radius: 10px;
+  padding: 1.5em;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1em;
+}
+
+.filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+}
+
+.filterLabel {
+  font-family: "Inter", sans-serif;
+  font-size: 0.75rem;
+  color: #9b93ab;
+}
+
+.select {
+  box-sizing: border-box;
+  min-width: 160px;
+  padding: 10px 12px;
+  background: #0d0b13;
+  border: 2px solid #201d2a;
+  border-radius: 8px;
+  color: white;
+  color-scheme: dark;
+  font-family: "Inter", sans-serif;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.select:focus {
+  border-color: #ee5dfb;
+}
+
+.refresh {
+  margin-left: auto;
+  cursor: pointer;
+  padding: 0.6rem 1.1rem;
+  background-color: #ee5dfb;
+  color: aliceblue;
+  font-family: "Inter", sans-serif;
+  border: none;
+  border-radius: 5px;
+  transition: 0.15s;
+}
+
+.refresh:hover:not(:disabled) {
+  background-color: #ee83f8;
+}
+
+.refresh:disabled {
+  cursor: not-allowed;
+  background-color: #3a3646;
+  color: #8a8594;
+}
+
+.error {
+  margin: 0;
+  color: #ff4d4d;
+  font-family: "Inter", sans-serif;
+  font-size: 0.85rem;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid #201d2a;
+  border-radius: 8px;
+}
+
+/* Fixed layout: every row stays one line tall and long descriptions end in "..." */
+.table {
+  width: 100%;
+  min-width: 880px;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-family: "Inter", sans-serif;
+  font-size: 0.82rem;
+  color: #c9c7d1;
+  transition: opacity 0.2s ease;
+}
+
+.table.loading {
+  opacity: 0.5;
+}
+
+.colToggle { width: 44px; }
+.colId { width: 70px; }
+.colDate { width: 170px; }
+.colUser { width: 130px; }
+.colAction { width: 110px; }
+.colFacility { width: 140px; }
+
+.table th {
+  padding: 10px 14px;
+  background: #0d0b13;
+  color: #9b93ab;
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 8px 14px;
+  border-top: 1px solid #201d2a;
+  vertical-align: middle;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.row {
+  cursor: pointer;
+}
+
+.row:hover,
+.rowOpen {
+  background: #1a1724;
+}
+
+.toggle {
+  display: block;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: #6f687d;
+  cursor: pointer;
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.toggle:focus-visible {
+  outline: 2px solid #ee5dfb;
+}
+
+.rowOpen .toggle {
+  color: #c664f7;
+}
+
+.mono {
+  color: #9b93ab;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Left edge marks warnings and errors without shouting */
+.rowWarning td:first-child {
+  box-shadow: inset 3px 0 0 #ffd24d;
+}
+
+.rowError td:first-child {
+  box-shadow: inset 3px 0 0 #ff4d4d;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.1em 0.6em;
+  border: 1.5px solid #201d2a;
+  border-radius: 20px;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 0.72rem;
+  color: #9b93ab;
+}
+
+.actionCreate {
+  border-color: #6df2ff;
+  background: rgba(109, 242, 255, 0.1);
+  color: #6df2ff;
+}
+
+.actionRead {
+  border-color: #9b93ab;
+  background: rgba(155, 147, 171, 0.1);
+  color: #c9c7d1;
+}
+
+.actionUpdate {
+  border-color: #ffd24d;
+  background: rgba(255, 210, 77, 0.1);
+  color: #ffd24d;
+}
+
+.actionDelete {
+  border-color: #ff4d4d;
+  background: rgba(255, 77, 77, 0.1);
+  color: #ff8f8f;
+}
+
+/* Expanded detail */
+.table .detailRow td {
+  padding: 0;
+  background: #0d0b13;
+  white-space: normal;
+  overflow: visible;
+  box-shadow: inset 3px 0 0 #ee5dfb;
+}
+
+.detail {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px 24px;
+  margin: 0;
+  padding: 16px 20px 18px 58px;
+}
+
+.detail dt {
+  margin-bottom: 4px;
+  color: #9b93ab;
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.detail dd {
+  margin: 0;
+  color: #f4f2f8;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.detail dd.mono {
+  color: #c9c7d1;
+  font-size: 0.8rem;
+}
+
+.detailWide {
+  grid-column: 1 / -1;
+}
+
+.sevInfo {
+  color: #6df2ff;
+}
+
+.sevWarning {
+  color: #ffd24d;
+}
+
+.sevError {
+  color: #ff8f8f;
+}
+
+.state {
+  margin: 0;
+  padding: 2em;
+  color: #9b93ab;
+  font-family: "Inter", sans-serif;
+  text-align: center;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
+}
+
+.pageInfo {
+  color: #9b93ab;
+  font-family: "Inter", sans-serif;
+  font-size: 0.85rem;
+}
+
+.pageButton {
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: 1px solid #ee5dfb;
+  border-radius: 5px;
+  color: aliceblue;
+  font-family: "Inter", sans-serif;
+  transition: 0.15s;
+}
+
+.pageButton:hover:not(:disabled) {
+  background-color: #2d293b;
+}
+
+.pageButton:disabled {
+  cursor: not-allowed;
+  border-color: #3a3646;
+  color: #8a8594;
+}

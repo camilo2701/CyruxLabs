@@ -1,9 +1,12 @@
 import { registerUser, loginUser, AuthError } from '../services/authService.js';
+import { clientIp } from '../services/logService.js';
 
 export async function register(req, res) {
     try {
         const { username, email, firstName, lastName, password } = req.body;
-        const result = await registerUser({ username, email, firstName, lastName, password });
+        const result = await registerUser({
+            username, email, firstName, lastName, password, ip: clientIp(req),
+        });
         return res.status(201).json(result);
     } catch (err) {
         if (err instanceof AuthError) {
@@ -17,7 +20,7 @@ export async function register(req, res) {
 export async function login(req, res) {
     try {
         const { email, password } = req.body;
-        const result = await loginUser({ email, password });
+        const result = await loginUser({ email, password, ip: clientIp(req) });
         return res.status(200).json(result);
     } catch (err) {
         if (err instanceof AuthError) {

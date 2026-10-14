@@ -26,6 +26,12 @@ const dashboardSections = [
     icon: '⌘',
     allowedRoles: ['instructor', 'admin'],
   },
+    {
+    id: 'logs',
+    label: 'Registro del sistema',
+    icon: <LogsIcon />,
+    allowedRoles: ['admin'],
+  },
 ];
 
 // La tabla guarda role como número; esto lo traduce al string
@@ -35,6 +41,27 @@ const ROLE_NAMES = {
   1: 'instructor',
   2: 'admin',
 };
+
+function LogsIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      style={{ display: 'block', margin: '0 auto' }}
+    >
+      <polyline points="14 9 17 12 14 15" />
+      <line x1="17" y1="12" x2="3" y2="12" />
+      <path d="M10,8V5a1,1,0,0,1,1-1h9a1,1,0,0,1,1,1V19a1,1,0,0,1-1,1H11a1,1,0,0,1-1-1V16" />
+    </svg>
+  );
+}
 
 function DashboardSidebar({ activeSection, onSectionChange }) {
   const { user } = useAuth();
