@@ -47,6 +47,7 @@ async function queryLabs({ search, pageNumber, fetchAll, ownerId = null }) {
         let query = supabase
             .from('lab')
             .select(LAB_FIELDS)
+            .eq('isdeleted', false)
             .order('labid', { ascending: false });
 
         if (ownerId !== null) query = query.eq('userid', ownerId);
@@ -89,6 +90,7 @@ async function queryLabs({ search, pageNumber, fetchAll, ownerId = null }) {
     let query = supabase
         .from('lab')
         .select(LAB_FIELDS, { count: 'exact' })
+        .eq('isdeleted', false)
         .or(filters.join(','));
 
     // .eq() se combina con AND con el .or() de arriba
@@ -151,20 +153,18 @@ export const getManagedLabs = async (req, res) => {
     }
 };
 
-// Verifica que el lab exista y que el usuario pueda gestionarlo:
-// el admin puede gestionar cualquiera; el instructor solo los suyos.
-// Si no puede, responde 400/403/404 y devuelve null; si puede, devuelve el lab.
-// action ('UPDATE' | 'DELETE') solo se usa para el registro de actividad.
 async function checkLabAccess(req, res, labid, action) {
     if (!Number.isInteger(labid) || labid <= 0) {
         res.status(400).json({ message: 'ID de laboratorio inválido' });
         return null;
     }
 
+    // un lab eliminado no se puede editar ni volver a eliminar
     const { data: lab, error } = await supabase
         .from('lab')
         .select('labid, userid, title')
         .eq('labid', labid)
+        .eq('isdeleted', false)
         .maybeSingle();
 
     if (error) throw error;
@@ -268,10 +268,12 @@ export const createLab = async (req, res) => {
         }
 
         // The frontend checks for duplicate titles too, but this check can't be skipped
+        // Los labs eliminados no cuentan: su título queda libre
         const { data: sameTitle, error: titleCheckError } = await supabase
             .from('lab')
             .select('labid')
             .ilike('title', title)
+            .eq('isdeleted', false)
             .limit(1);
 
         if (titleCheckError) throw titleCheckError;
@@ -363,6 +365,7 @@ export const checkTitleDuplicate = async (req, res) => {
         .from('lab')
         .select('labid')
         .ilike('title', title)
+        .eq('isdeleted', false)
         .limit(1);
 
     if (error) {
@@ -403,6 +406,7 @@ export const updateLab = async (req, res) => {
                 .select('labid')
                 .ilike('title', title)
                 .neq('labid', labid)
+                .eq('isdeleted', false)
                 .limit(1);
 
             if (titleCheckError) throw titleCheckError;
@@ -477,66 +481,13 @@ export const deleteLab = async (req, res) => {
         const lab = await checkLabAccess(req, res, labid, 'DELETE');
         if (!lab) return;
 
-        // trophyuser -> trophy -> lab: each table has a foreign key to the next, so delete in this order
-        const { data: labTrophies, error: trophyReadError } = await supabase
-            .from('trophy')
-            .select('trophyid')
-            .eq('labid', labid);
-
-        if (trophyReadError) throw trophyReadError;
-
-        const trophyIds = labTrophies.map((t) => t.trophyid);
-
-        if (trophyIds.length > 0) {
-            const { error: unlockDeleteError } = await supabase
-                .from('trophyuser')
-                .delete()
-                .in('trophyid', trophyIds);
-
-            if (unlockDeleteError) throw unlockDeleteError;
-
-            const { error: trophyDeleteError } = await supabase
-                .from('trophy')
-                .delete()
-                .eq('labid', labid);
-
-            if (trophyDeleteError) throw trophyDeleteError;
-        }
-
-        // bugreport tiene FK a lab: hay que borrarlos antes o el delete del lab falla
-        const { error: bugReportDeleteError } = await supabase
-            .from('bugreport')
-            .delete()
-            .eq('labid', labid);
-
-        if (bugReportDeleteError) throw bugReportDeleteError;
-
-        const { error: sessionDeleteError } = await supabase
-            .from('session')
-            .delete()
-            .eq('labid', labid);
-
-        if (sessionDeleteError) throw sessionDeleteError;
-
-        const { error: benefitDeleteError } = await supabase
-            .from('benefit')
-            .delete()
-            .eq('labid', labid);
-
-        if (benefitDeleteError) throw benefitDeleteError;
-
+        // el lab se marca como eliminado pero se conserva todo lo asociado
         const { error: labDeleteError } = await supabase
             .from('lab')
-            .delete()
+            .update({ isdeleted: true })
             .eq('labid', labid);
 
         if (labDeleteError) throw labDeleteError;
-
-        // The zip is no longer needed (best effort: a leftover file must not fail the delete)
-        const { error: storageError } = await supabase.storage
-            .from('labfiles')
-            .remove([`labs/${labid}/bundle.zip`]);
-        if (storageError) console.error('Delete zip error:', storageError);
 
         logEvent({
             ...fromReq(req),

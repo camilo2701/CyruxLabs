@@ -54,10 +54,30 @@ export async function getSessionById(sessionid) {
 
 const RUNNER_URL = 'http://10.10.0.12:4000';
 
+// un lab eliminadono se puede iniciar ni reiniciar, pero las sesiones que ya
+// estaban en curso pueden terminarse
+async function assertLabAvailable(labid) {
+    const { data: lab, error } = await supabase
+        .from('lab')
+        .select('isdeleted')
+        .eq('labid', labid)
+        .maybeSingle();
+
+    if (error) throw error;
+
+    if (!lab || lab.isdeleted) {
+        const err = new Error('Este laboratorio ya no está disponible');
+        err.status = 404;
+        throw err;
+    }
+}
+
 // A restart is a NEW attempt: the clock starts over, from the moment the new lab is ready.
 // Restarts are also counted (restartcount) for the report.
 // actor / ip: quién lo hace y desde dónde, solo para el registro de actividad
 export async function restartTrainingSession({ labid, sessionid, actor, ip }) {
+    await assertLabAvailable(labid);
+
     let runnerResult;
 
     try {
@@ -138,6 +158,7 @@ export async function startTrainingSession({ labid, userid, actor, ip }) {
         .from('lab')
         .select('zippath, title')
         .eq('labid', labid)
+        .eq('isdeleted', false)
         .single();
 
     if (labError || !labData?.zippath) {
