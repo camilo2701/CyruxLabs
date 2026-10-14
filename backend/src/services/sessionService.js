@@ -2,6 +2,17 @@ import { supabase } from '../config/supabaseClient.js';
 import { awardTrophies } from './trophyService.js';
 import { checkBadgesSafely } from './badgeService.js';
 import { saveEvidenceReport } from './reportService.js';
+import { logEvent } from './logService.js';
+
+// Las flags incorrectas no se registran una por una (la sesión ya las cuenta en failedflags):
+// solo se deja una advertencia cuando la cuenta llega a este número
+const FLAG_WARNING_THRESHOLD = 10;
+
+const formatDuration = (totalSeconds) => {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = Math.round(totalSeconds % 60);
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+};
 
 function mapSession(row) {
     return {
@@ -45,18 +56,35 @@ const RUNNER_URL = 'http://10.10.0.12:4000';
 
 // A restart is a NEW attempt: the clock starts over, from the moment the new lab is ready.
 // Restarts are also counted (restartcount) for the report.
-export async function restartTrainingSession({ labid, sessionid }) {
-    const runnerResponse = await fetch(`${RUNNER_URL}/restart`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ labid, sessionid }),
-    });
+// actor / ip: quién lo hace y desde dónde, solo para el registro de actividad
+export async function restartTrainingSession({ labid, sessionid, actor, ip }) {
+    let runnerResult;
 
-    const runnerResult = await runnerResponse.json();
+    try {
+        const runnerResponse = await fetch(`${RUNNER_URL}/restart`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ labid, sessionid }),
+        });
 
-    if (!runnerResponse.ok) {
-        const err = new Error('Runner failed to restart lab');
-        err.details = runnerResult;
+        runnerResult = await runnerResponse.json();
+
+        if (!runnerResponse.ok) {
+            const err = new Error('Runner failed to restart lab');
+            err.details = runnerResult;
+            throw err;
+        }
+    } catch (err) {
+        logEvent({
+            actor,
+            ip,
+            action: 'UPDATE',
+            facility: 'session',
+            event: 'SESSION_RESTART_FAILED',
+            severity: 'error',
+            targetid: Number(sessionid),
+            description: `No se pudo reiniciar la sesión #${sessionid}: ${err.message}`,
+        });
         throw err;
     }
 
@@ -77,25 +105,38 @@ export async function restartTrainingSession({ labid, sessionid }) {
 
     if (readError) console.error('Session restartcount read error:', readError);
 
+    const restartCount = (current?.restartcount ?? 0) + 1;
+
     const { error: updateError } = await supabase
         .from('session')
         .update({
             port: runnerResult.port,
             protocol: runnerResult.protocol,
             starttime,
-            restartcount: (current?.restartcount ?? 0) + 1,
+            restartcount: restartCount,
         })
         .eq('sessionid', sessionid);
 
     if (updateError) console.error('Session port update error:', updateError);
 
+    logEvent({
+        actor,
+        ip,
+        action: 'UPDATE',
+        facility: 'session',
+        event: 'SESSION_RESTARTED',
+        targetid: Number(sessionid),
+        description: `Reinició la sesión #${sessionid} (reinicio n.º ${restartCount})`,
+    });
+
     return { port: runnerResult.port, protocol: runnerResult.protocol, starttime };
 }
 
-export async function startTrainingSession({ labid, userid }) {
+// actor / ip: quién lo hace y desde dónde, solo para el registro de actividad
+export async function startTrainingSession({ labid, userid, actor, ip }) {
     const { data: labData, error: labError } = await supabase
         .from('lab')
-        .select('zippath')
+        .select('zippath, title')
         .eq('labid', labid)
         .single();
 
@@ -121,30 +162,46 @@ export async function startTrainingSession({ labid, userid }) {
 
     const sessionid = sessionData[0].sessionid;
 
-    const { data: zipBlob, error: downloadError } = await supabase
-        .storage
-        .from('labfiles')
-        .download(labData.zippath);
+    let runnerResult;
 
-    if (downloadError) throw downloadError;
+    try {
+        const { data: zipBlob, error: downloadError } = await supabase
+            .storage
+            .from('labfiles')
+            .download(labData.zippath);
 
-    const zipBuffer = Buffer.from(await zipBlob.arrayBuffer());
+        if (downloadError) throw downloadError;
 
-    const formData = new FormData();
-    formData.append('labid', String(labid));
-    formData.append('sessionid', String(sessionid));
-    formData.append('zipfile', new Blob([zipBuffer]), 'bundle.zip');
+        const zipBuffer = Buffer.from(await zipBlob.arrayBuffer());
 
-    const runnerResponse = await fetch(`${RUNNER_URL}/start`, {
-        method: 'POST',
-        body: formData,
-    });
+        const formData = new FormData();
+        formData.append('labid', String(labid));
+        formData.append('sessionid', String(sessionid));
+        formData.append('zipfile', new Blob([zipBuffer]), 'bundle.zip');
 
-    const runnerResult = await runnerResponse.json();
+        const runnerResponse = await fetch(`${RUNNER_URL}/start`, {
+            method: 'POST',
+            body: formData,
+        });
 
-    if (!runnerResponse.ok) {
-        const err = new Error('Runner failed to start lab');
-        err.details = runnerResult;
+        runnerResult = await runnerResponse.json();
+
+        if (!runnerResponse.ok) {
+            const err = new Error('Runner failed to start lab');
+            err.details = runnerResult;
+            throw err;
+        }
+    } catch (err) {
+        logEvent({
+            actor,
+            ip,
+            action: 'CREATE',
+            facility: 'session',
+            event: 'SESSION_START_FAILED',
+            severity: 'error',
+            targetid: sessionid,
+            description: `No se pudo iniciar el laboratorio «${labData.title}» (sesión #${sessionid}): ${err.message}`,
+        });
         throw err;
     }
 
@@ -155,13 +212,26 @@ export async function startTrainingSession({ labid, userid }) {
 
     if (updateError) console.error('Session port update error:', updateError);
 
+    logEvent({
+        actor,
+        ip,
+        action: 'CREATE',
+        facility: 'session',
+        event: 'SESSION_STARTED',
+        targetid: sessionid,
+        description: `Inició el laboratorio «${labData.title}» (sesión #${sessionid})`,
+    });
+
     return { sessionid, port: runnerResult.port, protocol: runnerResult.protocol };
 }
 
 // finishedAt defaults to "now", evaluated when this function is CALLED, so it is
 // taken before the runner starts tearing the containers down.
 // This is also where the trophies are judged, so it covers every way a session can end.
-export async function stopTrainingSession(sessionid, finishedAt = new Date().toISOString()) {
+// logContext = { actor, ip }: solo para el registro de actividad
+export async function stopTrainingSession(sessionid, finishedAt = new Date().toISOString(), logContext = {}) {
+    const { actor, ip } = logContext;
+
     // What the trophies need. A failure here must not stop the lab from closing.
     const { data: row, error: rowError } = await supabase
         .from('session')
@@ -171,17 +241,33 @@ export async function stopTrainingSession(sessionid, finishedAt = new Date().toI
 
     if (rowError) console.error('Session read error before stop:', rowError);
 
-    const runnerResponse = await fetch(`${RUNNER_URL}/stop`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionid }),
-    });
+    let runnerResult;
 
-    const runnerResult = await runnerResponse.json();
+    try {
+        const runnerResponse = await fetch(`${RUNNER_URL}/stop`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionid }),
+        });
 
-    if (!runnerResponse.ok) {
-        const err = new Error('Runner failed to stop lab');
-        err.details = runnerResult;
+        runnerResult = await runnerResponse.json();
+
+        if (!runnerResponse.ok) {
+            const err = new Error('Runner failed to stop lab');
+            err.details = runnerResult;
+            throw err;
+        }
+    } catch (err) {
+        logEvent({
+            actor: actor ?? (row ? { userid: row.userid } : null),
+            ip,
+            action: 'UPDATE',
+            facility: 'session',
+            event: 'SESSION_STOP_FAILED',
+            severity: 'error',
+            targetid: Number(sessionid),
+            description: `No se pudo cerrar la sesión #${sessionid} (los contenedores pueden seguir activos): ${err.message}`,
+        });
         throw err;
     }
 
@@ -221,10 +307,33 @@ export async function stopTrainingSession(sessionid, finishedAt = new Date().toI
         }
     }
 
+    // Una sola fila por sesión terminada: resuelta (con el tiempo) o cerrada sin resolver
+    if (firstCompletion) {
+        const elapsed = row ? (new Date(finishedAt) - new Date(row.starttime)) / 1000 : NaN;
+        const ownerNote = row && actor && actor.userid !== row.userid
+            ? ` (sesión del usuario #${row.userid})`
+            : '';
+
+        logEvent({
+            actor: actor ?? (row ? { userid: row.userid } : null),
+            ip,
+            action: 'UPDATE',
+            facility: 'session',
+            event: row?.issolved ? 'SESSION_SOLVED' : 'SESSION_STOPPED',
+            targetid: Number(sessionid),
+            description: row?.issolved
+                ? `Resolvió el laboratorio y cerró la sesión #${sessionid}${
+                    Number.isFinite(elapsed) ? ` en ${formatDuration(elapsed)}` : ''
+                }${ownerNote}`
+                : `Cerró la sesión #${sessionid} sin resolver el laboratorio${ownerNote}`,
+        });
+    }
+
     return { finishtime: updated?.[0]?.finishtime ?? null, trophies };
 }
 
-export async function submitFlag(sessionid, submittedFlag) {
+// logContext = { actor, ip }: solo para el registro de actividad
+export async function submitFlag(sessionid, submittedFlag, logContext = {}) {
     const { data: session, error: sessionError } = await supabase
         .from('session')
         .select('sessionid, userid, labid, iscompleted, failedflags, lab(flag)')
@@ -245,13 +354,28 @@ export async function submitFlag(sessionid, submittedFlag) {
     const matched = !!correctFlag && submittedFlag.trim() === correctFlag.trim();
 
     if (!matched) {
+        const failedFlags = (session.failedflags ?? 0) + 1;
+
         // Count the wrong flag: the failed-attempts trophies use this number
         const { error: countError } = await supabase
             .from('session')
-            .update({ failedflags: (session.failedflags ?? 0) + 1 })
+            .update({ failedflags: failedFlags })
             .eq('sessionid', sessionid);
 
         if (countError) console.error('Failed flag count error:', countError);
+
+        if (!countError && failedFlags === FLAG_WARNING_THRESHOLD) {
+            logEvent({
+                actor: logContext.actor,
+                ip: logContext.ip,
+                action: 'UPDATE',
+                facility: 'session',
+                event: 'FLAG_ATTEMPTS_HIGH',
+                severity: 'warning',
+                targetid: Number(sessionid),
+                description: `La sesión #${sessionid} acumula ${FLAG_WARNING_THRESHOLD} flags incorrectas`,
+            });
+        }
 
         return { matched: false };
     }
@@ -267,8 +391,8 @@ export async function submitFlag(sessionid, submittedFlag) {
 
     if (updateError) console.error('Capturedflag update error:', updateError);
 
-    // Closes the session, saves the evidence and awards the trophies
-    const { finishtime, trophies } = await stopTrainingSession(sessionid, finishedAt);
+    // Closes the session, saves the evidence, awards the trophies and logs "SESSION_SOLVED"
+    const { finishtime, trophies } = await stopTrainingSession(sessionid, finishedAt, logContext);
 
     // badges
     const badges = await checkBadgesSafely(session.userid);

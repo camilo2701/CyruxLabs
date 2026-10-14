@@ -4,6 +4,7 @@ import { supabase } from '../config/supabaseClient.js';
 import { AuthError } from './authService.js';
 import { getLevelInfo } from './levelService.js';
 import { checkBadgesSafely, getLockedBadgesSafely } from './badgeService.js';
+import { logEvent } from './logService.js';
 
 const usernameRegex = /^[a-zA-Z0-9.-]{1,12}$/;
 const nameRegex = /^\p{L}+$/u;
@@ -18,6 +19,8 @@ const ALLOWED_AVATARS = [
     'avatar-05.svg',
 ];
 
+const ROLE_NAMES = { 0: 'estudiante', 1: 'instructor', 2: 'administrador' };
+
 function signToken(user) {
     return jwt.sign(
         { userid: user.userid, username: user.username, role: user.role },
@@ -31,7 +34,27 @@ function toPublicUser(user) {
     return publicUser;
 }
 
-export async function updateProfile(userid, { username, firstName, lastName, email, currentPassword }) {
+// Una "contraseña actual" incorrecta en un endpoint que la pide: puede ser alguien adivinándola
+function logPasswordCheckFailed(actor, ip, doing) {
+    logEvent({
+        actor,
+        ip,
+        action: 'READ',
+        facility: 'auth',
+        event: 'PASSWORD_CHECK_FAILED',
+        severity: 'warning',
+        targetid: actor.userid,
+        description: `Contraseña actual incorrecta al ${doing}`,
+    });
+}
+
+// " junto con 2 laboratorio(s) y 5 sesión(es)", o '' si no había nada más
+function describeCascade({ labCount, sessionCount }) {
+    if (labCount === 0 && sessionCount === 0) return '';
+    return ` junto con ${labCount} laboratorio(s) y ${sessionCount} sesión(es)`;
+}
+
+export async function updateProfile(userid, { username, firstName, lastName, email, currentPassword, ip }) {
     if (!username || !firstName || !lastName || !email || !currentPassword) {
         throw new AuthError(400, 'Todos los campos son obligatorios');
     }
@@ -54,25 +77,33 @@ export async function updateProfile(userid, { username, firstName, lastName, ema
     if (fetchError) throw fetchError;
     if (!current) throw new AuthError(404, 'Usuario no encontrado');
 
+    const actor = { userid, username: current.username };
+
     const passwordMatches = await bcrypt.compare(currentPassword, current.password);
     if (!passwordMatches) {
+        logPasswordCheckFailed(actor, ip, 'editar el perfil');
         throw new AuthError(401, 'Contraseña actual incorrecta');
     }
 
-    const { data: existing, error: lookupError } = await supabase
+    // Dos consultas separadas: armar un solo ".or(...)" con el correo permitiría que un correo
+    // manipulado agregue condiciones propias (el formato de correo acepta "," y "()")
+    const { data: sameUsername, error: usernameError } = await supabase
         .from('users')
-        .select('userid, username, email')
-        .or(`username.eq.${username},email.eq.${email}`)
+        .select('userid')
+        .eq('username', username)
         .neq('userid', userid);
 
-    if (lookupError) throw lookupError;
-    if (existing && existing.length > 0) {
-        const usernameTaken = existing.some((u) => u.username === username);
-        throw new AuthError(
-            409,
-            usernameTaken ? 'Ese nombre de usuario ya está en uso' : 'Ese correo ya está registrado'
-        );
-    }
+    if (usernameError) throw usernameError;
+    if (sameUsername.length > 0) throw new AuthError(409, 'Ese nombre de usuario ya está en uso');
+
+    const { data: sameEmail, error: emailError } = await supabase
+        .from('users')
+        .select('userid')
+        .eq('email', email)
+        .neq('userid', userid);
+
+    if (emailError) throw emailError;
+    if (sameEmail.length > 0) throw new AuthError(409, 'Ese correo ya está registrado');
 
     const { data: updated, error: updateError } = await supabase
         .from('users')
@@ -83,11 +114,29 @@ export async function updateProfile(userid, { username, firstName, lastName, ema
 
     if (updateError) throw updateError;
 
+    // Solo se guardan los nombres de los campos (los correos y nombres son datos personales)
+    const changes = [];
+    if (current.username !== username) changes.push(`nombre de usuario («${current.username}» → «${username}»)`);
+    if (current.firstname !== firstName || current.lastname !== lastName) changes.push('nombre');
+    if (current.email !== email) changes.push('correo');
+
+    if (changes.length > 0) {
+        logEvent({
+            actor,
+            ip,
+            action: 'UPDATE',
+            facility: 'user',
+            event: 'PROFILE_UPDATED',
+            targetid: userid,
+            description: `Actualizó su perfil: ${changes.join(', ')}`,
+        });
+    }
+
     const token = signToken(updated);
     return { token, user: toPublicUser(updated) };
 }
 
-export async function updateAvatar(userid, avatar) {
+export async function updateAvatar(userid, avatar, ip) {
     if (!ALLOWED_AVATARS.includes(avatar)) {
         throw new AuthError(400, 'Avatar inválido');
     }
@@ -101,10 +150,20 @@ export async function updateAvatar(userid, avatar) {
 
     if (error) throw error;
 
+    logEvent({
+        actor: { userid, username: updated.username },
+        ip,
+        action: 'UPDATE',
+        facility: 'user',
+        event: 'AVATAR_UPDATED',
+        targetid: userid,
+        description: 'Cambió su avatar',
+    });
+
     return { user: toPublicUser(updated) };
 }
 
-export async function changePassword(userid, { currentPassword, newPassword }) {
+export async function changePassword(userid, { currentPassword, newPassword, ip }) {
     if (!currentPassword || !newPassword) {
         throw new AuthError(400, 'Debes ingresar la contraseña actual y la nueva');
     }
@@ -114,15 +173,18 @@ export async function changePassword(userid, { currentPassword, newPassword }) {
 
     const { data: current, error: fetchError } = await supabase
         .from('users')
-        .select('password')
+        .select('password, username')
         .eq('userid', userid)
         .maybeSingle();
 
     if (fetchError) throw fetchError;
     if (!current) throw new AuthError(404, 'Usuario no encontrado');
 
+    const actor = { userid, username: current.username };
+
     const passwordMatches = await bcrypt.compare(currentPassword, current.password);
     if (!passwordMatches) {
+        logPasswordCheckFailed(actor, ip, 'cambiar la contraseña');
         throw new AuthError(401, 'Contraseña actual incorrecta');
     }
 
@@ -134,31 +196,55 @@ export async function changePassword(userid, { currentPassword, newPassword }) {
         .eq('userid', userid);
 
     if (updateError) throw updateError;
+
+    logEvent({
+        actor,
+        ip,
+        action: 'UPDATE',
+        facility: 'auth',
+        event: 'PASSWORD_CHANGED',
+        targetid: userid,
+        description: 'Cambió su contraseña',
+    });
 }
 
-export async function deleteAccount(userid, { currentPassword }) {
+export async function deleteAccount(userid, { currentPassword, ip }) {
     if (!currentPassword) {
         throw new AuthError(400, 'Debes ingresar tu contraseña actual');
     }
 
     const { data: current, error: fetchError } = await supabase
         .from('users')
-        .select('password')
+        .select('password, username')
         .eq('userid', userid)
         .maybeSingle();
 
     if (fetchError) throw fetchError;
     if (!current) throw new AuthError(404, 'Usuario no encontrado');
 
+    const actor = { userid, username: current.username };
+
     const passwordMatches = await bcrypt.compare(currentPassword, current.password);
     if (!passwordMatches) {
+        logPasswordCheckFailed(actor, ip, 'eliminar la cuenta');
         throw new AuthError(401, 'Contraseña actual incorrecta');
     }
 
-    await deleteUserCascade(userid);
+    const cascade = await deleteUserCascade(userid);
+
+    logEvent({
+        actor,
+        ip,
+        action: 'DELETE',
+        facility: 'user',
+        event: 'ACCOUNT_DELETED',
+        targetid: userid,
+        description: `Eliminó su cuenta «${current.username}»${describeCascade(cascade)}`,
+    });
 }
 
 // borra al usuario en cascada (la usan deleteAccount y adminDeleteUser)
+// devuelve cuántos labs y sesiones se fueron con él, para el registro de actividad
 async function deleteUserCascade(userid) {
     // labs creados por el usuario
     const { data: labs, error: labsLookupError } = await supabase
@@ -240,6 +326,12 @@ async function deleteUserCascade(userid) {
             .delete()
             .in('labid', labIds);
         if (labError) throw labError;
+
+        // los zips de esos labs ya no hacen falta (si falla, solo se avisa: no debe frenar el borrado)
+        const { error: zipError } = await supabase.storage
+            .from('labfiles')
+            .remove(labIds.map((id) => `labs/${id}/bundle.zip`));
+        if (zipError) console.error('Delete lab zips error:', zipError);
     }
 
     // trofeos que el usuario desbloqueó (en labs de cualquier autor)
@@ -261,12 +353,16 @@ async function deleteUserCascade(userid) {
         .delete()
         .eq('userid', userid);
     if (userError) throw userError;
+
+    return { labCount: labIds.length, sessionCount: sessionIds.length };
 }
 
 export async function searchStudents(query) {
-    if (!query || !query.trim()) return [];
+    if (typeof query !== 'string' || !query.trim()) return [];
 
-    const safeQuery = query.trim().replace(/,/g, '');
+    // misma limpieza que searchUsers: sin comas, paréntesis ni comodines dentro del filtro
+    const safeQuery = query.trim().slice(0, 50).replace(/[,()*%\\]/g, '');
+    if (!safeQuery) return [];
 
     const { data, error } = await supabase
         .from('users')
@@ -382,7 +478,7 @@ async function getTrophyGroups(userid) {
 }
 
 export async function searchUsers(query) {
-    if (!query || !query.trim()) return [];
+    if (typeof query !== 'string' || !query.trim()) return [];
 
     const safeQuery = query.trim().slice(0, 50).replace(/[,()*%]/g, '');
     if (!safeQuery) return [];
@@ -404,11 +500,22 @@ const MANAGE_FIELDS = 'userid, username, firstname, lastname, email, role, avata
 const RECENT_LIMIT = 5;
 const PAGE_SIZE = 10;
 
-function assertCanManage(reqUser, target) {
+// denial: { ip, action, verb } solo sirve para el registro de actividad
+function assertCanManage(reqUser, target, denial) {
     if (target.userid === reqUser.userid) {
         throw new AuthError(403, 'No puedes gestionar tu propia cuenta desde aquí; usa "Mi perfil"');
     }
     if (reqUser.role === 1 && target.role !== 0) {
+        logEvent({
+            actor: reqUser,
+            ip: denial.ip,
+            action: denial.action,
+            facility: 'user',
+            event: 'USER_ACCESS_DENIED',
+            severity: 'warning',
+            targetid: target.userid,
+            description: `Intentó ${denial.verb} la cuenta #${target.userid}, que no es de un estudiante`,
+        });
         throw new AuthError(403, 'Los instructores solo pueden gestionar estudiantes');
     }
     if (reqUser.role !== 1 && reqUser.role !== 2) {
@@ -471,9 +578,9 @@ export async function listManagedUsers(reqUser, { search = '', page = 1 } = {}) 
     };
 }
 
-export async function adminUpdateUser(reqUser, targetId, { username, firstName, lastName, email, role }) {
+export async function adminUpdateUser(reqUser, targetId, { username, firstName, lastName, email, role, ip }) {
     const target = await getTargetUser(targetId);
-    assertCanManage(reqUser, target);
+    assertCanManage(reqUser, target, { ip, action: 'UPDATE', verb: 'modificar' });
 
     if (!username || !firstName || !lastName || !email) {
         throw new AuthError(400, 'Todos los campos son obligatorios');
@@ -489,16 +596,28 @@ export async function adminUpdateUser(reqUser, targetId, { username, firstName, 
     }
 
     const changes = { username, firstname: firstName, lastname: lastName, email };
+    let newRole = null;
 
     // solo el admin puede cambiar roles.
     if (role !== undefined && role !== null && Number(role) !== target.role) {
         if (reqUser.role !== 2) {
+            logEvent({
+                actor: reqUser,
+                ip,
+                action: 'UPDATE',
+                facility: 'user',
+                event: 'ROLE_CHANGE_DENIED',
+                severity: 'warning',
+                targetid: target.userid,
+                description: `Intentó cambiar el rol de «${target.username}» (#${target.userid}) sin ser administrador`,
+            });
             throw new AuthError(403, 'Solo un administrador puede cambiar roles');
         }
         if (!VALID_ROLES.includes(Number(role))) {
             throw new AuthError(400, 'Rol inválido');
         }
         changes.role = Number(role);
+        newRole = Number(role);
     }
 
     const { data: sameUsername, error: usernameError } = await supabase
@@ -525,11 +644,55 @@ export async function adminUpdateUser(reqUser, targetId, { username, firstName, 
         .single();
 
     if (updateError) throw updateError;
+
+    // Solo se guardan los nombres de los campos (los correos y nombres son datos personales)
+    const edited = [];
+    if (target.username !== username) edited.push(`nombre de usuario («${target.username}» → «${username}»)`);
+    if (target.firstname !== firstName || target.lastname !== lastName) edited.push('nombre');
+    if (target.email !== email) edited.push('correo');
+
+    if (edited.length > 0) {
+        logEvent({
+            actor: reqUser,
+            ip,
+            action: 'UPDATE',
+            facility: 'user',
+            event: 'USER_UPDATED',
+            targetid: target.userid,
+            description: `Modificó la cuenta de «${target.username}» (#${target.userid}): ${edited.join(', ')}`,
+        });
+    }
+
+    if (newRole !== null) {
+        logEvent({
+            actor: reqUser,
+            ip,
+            action: 'UPDATE',
+            facility: 'user',
+            event: 'ROLE_CHANGED',
+            severity: 'warning',
+            targetid: target.userid,
+            description: `Cambió el rol de «${target.username}» (#${target.userid}) de ${ROLE_NAMES[target.role]} a ${ROLE_NAMES[newRole]}`,
+        });
+    }
+
     return { user: updated };
 }
 
-export async function adminDeleteUser(reqUser, targetId) {
+export async function adminDeleteUser(reqUser, targetId, ip) {
     const target = await getTargetUser(targetId);
-    assertCanManage(reqUser, target);
-    await deleteUserCascade(target.userid);
+    assertCanManage(reqUser, target, { ip, action: 'DELETE', verb: 'eliminar' });
+
+    const cascade = await deleteUserCascade(target.userid);
+
+    logEvent({
+        actor: reqUser,
+        ip,
+        action: 'DELETE',
+        facility: 'user',
+        event: 'USER_DELETED',
+        severity: 'warning',
+        targetid: target.userid,
+        description: `Eliminó la cuenta de «${target.username}» (#${target.userid})${describeCascade(cascade)}`,
+    });
 }

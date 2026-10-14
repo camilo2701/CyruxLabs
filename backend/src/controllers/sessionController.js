@@ -1,9 +1,27 @@
 import { getSessionsForUser, getSessionById, startTrainingSession, restartTrainingSession, stopTrainingSession, submitFlag } from '../services/sessionService.js';
+import { logEvent, fromReq, clientIp } from '../services/logService.js';
 
-export function assertOwnsSession(session, reqUser) {
+// Quién lo hace y desde dónde, para el registro de actividad
+const logContextOf = (req) => ({ actor: req.user, ip: clientIp(req) });
+
+// denial (opcional): { action, verb, ip } solo sirve para registrar el intento denegado.
+// Otros archivos pueden seguir llamándola con dos argumentos.
+export function assertOwnsSession(session, reqUser, denial = null) {
     const isOwner = session.userid === reqUser.userid;
     const isStaff = reqUser.role === 1 || reqUser.role === 2;
     if (!isOwner && !isStaff) {
+        if (denial) {
+            logEvent({
+                actor: reqUser,
+                ip: denial.ip,
+                action: denial.action,
+                facility: 'session',
+                event: 'SESSION_ACCESS_DENIED',
+                severity: 'warning',
+                targetid: session.sessionid,
+                description: `Intentó ${denial.verb} la sesión #${session.sessionid} de otro usuario`,
+            });
+        }
         const err = new Error('No tienes permiso sobre esta sesión');
         err.status = 403;
         throw err;
@@ -22,8 +40,25 @@ export async function getMySessions(req, res) {
 
 export async function getSessionsByUserId(req, res) {
     try {
-        const { userid } = req.params;
-        const sessions = await getSessionsForUser(Number(userid));
+        const userid = Number(req.params.userid);
+        if (!Number.isInteger(userid) || userid <= 0) {
+            return res.status(400).json({ error: 'ID de usuario inválido' });
+        }
+
+        const sessions = await getSessionsForUser(userid);
+
+        // Mirar la actividad de una persona concreta no es un listado rutinario: se registra
+        if (userid !== req.user.userid) {
+            logEvent({
+                ...fromReq(req),
+                action: 'READ',
+                facility: 'session',
+                event: 'SESSIONS_VIEWED',
+                targetid: userid,
+                description: `Consultó el historial de sesiones del usuario #${userid}`,
+            });
+        }
+
         return res.status(200).json({ sessions });
     } catch (err) {
         console.error('Error obteniendo historial:', err);
@@ -35,7 +70,7 @@ export async function getSessionDetails(req, res) {
     try {
         const { sessionid } = req.params;
         const session = await getSessionById(sessionid);
-        assertOwnsSession(session, req.user);
+        assertOwnsSession(session, req.user, { action: 'READ', verb: 'ver', ip: clientIp(req) });
         res.json({ session });
     } catch (err) {
         console.error('Get session details error:', err);
@@ -47,7 +82,7 @@ export async function postStartSession(req, res) {
     try {
         const { labid } = req.body;
         const userid = req.user.userid;
-        const result = await startTrainingSession({ labid, userid });
+        const result = await startTrainingSession({ labid, userid, ...logContextOf(req) });
         res.json(result);
     } catch (err) {
         console.error('Start session error:', err);
@@ -57,10 +92,17 @@ export async function postStartSession(req, res) {
 
 export async function postRestartSession(req, res) {
     try {
-        const { labid, sessionid } = req.body;
+        const { sessionid } = req.body;
         const session = await getSessionById(sessionid);
-        assertOwnsSession(session, req.user);
-        const result = await restartTrainingSession({ labid, sessionid });
+        assertOwnsSession(session, req.user, { action: 'UPDATE', verb: 'reiniciar', ip: clientIp(req) });
+
+        // El lab sale de la propia sesión, no del cuerpo de la petición: así no se puede
+        // lanzar otro laboratorio bajo esta sesión
+        const result = await restartTrainingSession({
+            labid: session.labid,
+            sessionid,
+            ...logContextOf(req),
+        });
         res.json(result);
     } catch (err) {
         console.error('Restart session error:', err);
@@ -72,8 +114,8 @@ export async function postStopSession(req, res) {
     try {
         const { sessionid } = req.body;
         const session = await getSessionById(sessionid);
-        assertOwnsSession(session, req.user);
-        const { finishtime, trophies } = await stopTrainingSession(sessionid);
+        assertOwnsSession(session, req.user, { action: 'UPDATE', verb: 'cerrar', ip: clientIp(req) });
+        const { finishtime, trophies } = await stopTrainingSession(sessionid, undefined, logContextOf(req));
         res.json({ message: 'Session stopped', finishtime, trophies });
     } catch (err) {
         console.error('Stop session error:', err);
@@ -84,9 +126,14 @@ export async function postStopSession(req, res) {
 export async function postSubmitFlag(req, res) {
     try {
         const { sessionid, flag } = req.body;
+
+        if (typeof flag !== 'string') {
+            return res.status(400).json({ message: 'Flag inválida' });
+        }
+
         const session = await getSessionById(sessionid);
-        assertOwnsSession(session, req.user);
-        const result = await submitFlag(sessionid, flag);
+        assertOwnsSession(session, req.user, { action: 'UPDATE', verb: 'enviar una flag en', ip: clientIp(req) });
+        const result = await submitFlag(sessionid, flag, logContextOf(req));
         res.json(result);
     } catch (err) {
         console.error('Submit flag error:', err);

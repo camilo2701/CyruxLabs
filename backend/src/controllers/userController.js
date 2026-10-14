@@ -1,5 +1,6 @@
 import { updateProfile, updateAvatar, changePassword, deleteAccount, searchStudents, getPublicProfile, searchUsers, listManagedUsers, adminUpdateUser, adminDeleteUser } from '../services/userService.js';
 import { AuthError } from '../services/authService.js';
+import { clientIp } from '../services/logService.js';
 
 export async function putProfile(req, res) {
     try {
@@ -10,6 +11,7 @@ export async function putProfile(req, res) {
             lastName,
             email,
             currentPassword,
+            ip: clientIp(req),
         });
         return res.status(200).json(result);
     } catch (err) {
@@ -22,7 +24,7 @@ export async function putProfile(req, res) {
 export async function putAvatar(req, res) {
     try {
         const { avatar } = req.body;
-        const result = await updateAvatar(req.user.userid, avatar);
+        const result = await updateAvatar(req.user.userid, avatar, clientIp(req));
         return res.status(200).json(result);
     } catch (err) {
         if (err instanceof AuthError) return res.status(err.status).json({ error: err.message });
@@ -34,7 +36,7 @@ export async function putAvatar(req, res) {
 export async function putPassword(req, res) {
     try {
         const { currentPassword, newPassword } = req.body;
-        await changePassword(req.user.userid, { currentPassword, newPassword });
+        await changePassword(req.user.userid, { currentPassword, newPassword, ip: clientIp(req) });
         return res.status(200).json({ message: 'Contraseña actualizada correctamente' });
     } catch (err) {
         if (err instanceof AuthError) return res.status(err.status).json({ error: err.message });
@@ -46,7 +48,7 @@ export async function putPassword(req, res) {
 export async function deleteMe(req, res) {
     try {
         const { currentPassword } = req.body;
-        await deleteAccount(req.user.userid, { currentPassword });
+        await deleteAccount(req.user.userid, { currentPassword, ip: clientIp(req) });
         return res.status(200).json({ message: 'Cuenta eliminada correctamente' });
     } catch (err) {
         if (err instanceof AuthError) return res.status(err.status).json({ error: err.message });
@@ -112,6 +114,7 @@ export async function putManagedUser(req, res) {
             lastName,
             email,
             role,
+            ip: clientIp(req),
         });
         return res.status(200).json(result);
     } catch (err) {
@@ -123,7 +126,7 @@ export async function putManagedUser(req, res) {
 
 export async function deleteManagedUser(req, res) {
     try {
-        await adminDeleteUser(req.user, req.params.userid);
+        await adminDeleteUser(req.user, req.params.userid, clientIp(req));
         return res.status(200).json({ message: 'Usuario eliminado correctamente' });
     } catch (err) {
         if (err instanceof AuthError) return res.status(err.status).json({ error: err.message });
