@@ -1,4 +1,4 @@
-import { getSessionsForUser, getSessionById, startTrainingSession, restartTrainingSession, stopTrainingSession, submitFlag } from '../services/sessionService.js';
+import { getSessionsForUser, getSessionById, refreshStartStatus, startTrainingSession, restartTrainingSession, stopTrainingSession, submitFlag } from '../services/sessionService.js';
 import { logEvent, fromReq, clientIp } from '../services/logService.js';
 
 // Quién lo hace y desde dónde, para el registro de actividad
@@ -66,12 +66,15 @@ export async function getSessionsByUserId(req, res) {
     }
 }
 
+// Also the endpoint the loading dialog polls while a lab is starting:
+// refreshStartStatus asks the runner and brings startstatus / startphase up to date.
 export async function getSessionDetails(req, res) {
     try {
         const { sessionid } = req.params;
         const session = await getSessionById(sessionid);
         assertOwnsSession(session, req.user, { action: 'READ', verb: 'ver', ip: clientIp(req) });
-        res.json({ session });
+        const fresh = await refreshStartStatus(session, logContextOf(req));
+        res.json({ session: fresh });
     } catch (err) {
         console.error('Get session details error:', err);
         res.status(err.status || 500).json({ message: err.message, error: err.details || err.message });

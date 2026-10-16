@@ -11,6 +11,10 @@ export const FLAG_MIN = 4;
 export const FLAG_MAX = 100;
 export const INSTRUCTIONS_MAX = 20000;
 
+// Points a lab is worth. The tier names live in the frontend only; the backend just
+// needs the allowed values (the database has a CHECK constraint as a last line of defense).
+export const SCORE_VALUES = [100, 200, 300, 400, 500];
+
 // % and _ are left out on purpose: they are wildcards in ilike searches
 const TEXT_REGEX = /^[\p{L}\p{N} :.,()¿?¡!-]+$/u;
 const TEXT_RULE_MESSAGE = 'Solo se permiten letras, números, espacios y . , : ( ) ¿ ? ¡ ! -';
@@ -53,6 +57,17 @@ export function getFlagError(value) {
     if (flag.length < FLAG_MIN) return `La flag debe tener al menos ${FLAG_MIN} caracteres`;
     if (flag.length > FLAG_MAX) return `La flag no puede superar ${FLAG_MAX} caracteres`;
     if (!FLAG_REGEX.test(flag)) return 'La flag no puede contener espacios';
+    return '';
+}
+
+// Accepts a number or a numeric string (FormData always arrives as text).
+// Only digits are allowed, so things like "3e2", "300.0" or "-300" are rejected.
+export function getScoreError(value) {
+    const text = String(value ?? '').trim();
+    if (text === '') return 'Elige el nivel de dificultad del laboratorio';
+    if (!/^\d+$/.test(text) || !SCORE_VALUES.includes(Number(text))) {
+        return 'El puntaje debe ser 100, 200, 300, 400 o 500';
+    }
     return '';
 }
 

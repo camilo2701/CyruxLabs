@@ -6,6 +6,7 @@ import DashboardLabsFileModal from './DashboardLabsFileModal';
 import LabInfoFields from './labsCreate/LabInfoFields.jsx';
 import BenefitsInput from './labsCreate/BenefitsInput.jsx';
 import FlagField from './labsCreate/FlagField.jsx';
+import ScoreField from './labsCreate/ScoreField.jsx';
 import LabFileDrop from './labsCreate/LabFileDrop.jsx';
 import InstructionsEditor from './labsCreate/InstructionsEditor.jsx';
 import TrophiesEditor from './labsCreate/TrophiesEditor.jsx';
@@ -18,6 +19,7 @@ import {
     getDescriptionError,
     getBenefitError,
     getFlagError,
+    getScoreError,
     getInstructionsError,
     getTrophiesError,
 } from '../../utils/labRules.js';
@@ -32,6 +34,8 @@ function DashboardLabsCreate(){
     const [benefitInput, setBenefitInput] = useState('');
     const [benefitList, setBenefitList] = useState([]);
     const [flag, setFlag] = useState('');
+    // null = nothing picked yet (the field is required, so the instructor has to choose one)
+    const [score, setScore] = useState(null);
     const [instructions, setInstructions] = useState('');
     const [trophies, setTrophies] = useState([]);
     const [showTrophyErrors, setShowTrophyErrors] = useState(false);
@@ -46,6 +50,7 @@ function DashboardLabsCreate(){
     const [descError, setDescError] = useState('');
     const [benefitError, setBenefitError] = useState('');
     const [flagError, setFlagError] = useState('');
+    const [scoreError, setScoreError] = useState('');
     const [instructionsError, setInstructionsError] = useState('');
     const [fileError, setFileError] = useState(false);
     const [fileErrorMessage, setFileErrorMessage] = useState('');
@@ -63,6 +68,13 @@ function DashboardLabsCreate(){
         } else {
             setBenefitError('');
         }
+    };
+
+    /*** SCORE ***/
+    // Picking a tier is the only way to change it, so the error clears as soon as one is chosen
+    const handleScoreChange = (value) => {
+        setScore(value);
+        setScoreError(getScoreError(value));
     };
 
     /*** BENEFITS ***/
@@ -125,10 +137,12 @@ function DashboardLabsCreate(){
         const titleProblem = getTitleError(labTitle);
         const descProblem = getDescriptionError(labDesc);
         const flagProblem = getFlagError(flag);
+        const scoreProblem = getScoreError(score);
         const instructionsProblem = getInstructionsError(instructions);
         setTitleError(titleProblem);
         setDescError(descProblem);
         setFlagError(flagProblem);
+        setScoreError(scoreProblem);
         setInstructionsError(instructionsProblem);
         setShowTrophyErrors(true);
 
@@ -144,7 +158,7 @@ function DashboardLabsCreate(){
         }
 
         if (
-            titleProblem || descProblem || flagProblem || instructionsProblem ||
+            titleProblem || descProblem || flagProblem || scoreProblem || instructionsProblem ||
             trophiesError || missingFile || missingBenefits
         ) {
             return;
@@ -161,6 +175,7 @@ function DashboardLabsCreate(){
         formData.append('description', labDesc.trim());
         formData.append('benefits', JSON.stringify(benefitList));
         formData.append('flag', flag.trim());
+        formData.append('score', String(score));
         formData.append('instructions', instructions.trim());
         // The card id is only for the editor, so it is left out of what we send
         formData.append('trophies', JSON.stringify(trophies.map(({ id, ...trophy }) => trophy)));
@@ -223,6 +238,7 @@ function DashboardLabsCreate(){
         setBenefitInput('');
         setBenefitList([]);
         setFlag('');
+        setScore(null);
         setInstructions('');
         setTrophies([]);
         setShowTrophyErrors(false);
@@ -233,6 +249,7 @@ function DashboardLabsCreate(){
         setDescError('');
         setBenefitError('');
         setFlagError('');
+        setScoreError('');
         setInstructionsError('');
         setSubmitError('');
     };
@@ -280,6 +297,12 @@ function DashboardLabsCreate(){
                         onViewFiles={() => setShowFilesModal(true)}
                     />
                 </div>
+
+                <ScoreField
+                    value={score}
+                    onChange={handleScoreChange}
+                    error={scoreError}
+                />
 
                 <InstructionsEditor
                     value={instructions}

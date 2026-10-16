@@ -1,0 +1,40 @@
+.meter {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 22px;
+}
+
+.bar {
+    width: 5px;
+    border-radius: 2px;
+    background: rgba(238, 93, 251, 0.2);
+}
+
+/* Declared after .bar so the lit color wins (same specificity) */
+.on {
+    background: #ee5dfb;
+}
+
+.bar:nth-child(1) { height: 6px; }
+.bar:nth-child(2) { height: 10px; }
+.bar:nth-child(3) { height: 14px; }
+.bar:nth-child(4) { height: 18px; }
+.bar:nth-child(5) { height: 22px; }
+
+/* Compact version for the lab list */
+.small {
+    height: 14px;
+    gap: 2px;
+}
+
+.small .bar {
+    width: 3px;
+    border-radius: 1px;
+}
+
+.small .bar:nth-child(1) { height: 4px; }
+.small .bar:nth-child(2) { height: 6px; }
+.small .bar:nth-child(3) { height: 9px; }
+.small .bar:nth-child(4) { height: 11px; }
+.small .bar:nth-child(5) { height: 14px; }

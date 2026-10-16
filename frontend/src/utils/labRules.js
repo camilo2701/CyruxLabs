@@ -65,6 +65,35 @@ export function getInstructionsError(value) {
     return '';
 }
 
+// ---------- Score ----------
+
+// Difficulty tiers. The value is what gets stored in lab.score (and what the lab is worth in
+// points); the label and description are only for the screen. The tier order matters: the
+// ScoreMeter lights up one more bar for each step.
+export const SCORE_TIERS = [
+    { value: 100, label: 'Muy fácil', description: 'Un solo concepto, guiado paso a paso. Ideal para empezar.' },
+    { value: 200, label: 'Fácil', description: 'Pocas fases y pistas claras. No requiere experiencia previa.' },
+    { value: 300, label: 'Medio', description: 'Varias fases. Requiere una buena base de pentesting.' },
+    { value: 400, label: 'Difícil', description: 'Combina varias vulnerabilidades y da pocas pistas.' },
+    { value: 500, label: 'Extremo', description: 'Cadena compleja y casi sin pistas. Para perfiles expertos.' },
+];
+
+export const SCORE_VALUES = SCORE_TIERS.map((tier) => tier.value);
+
+// Returns the tier for a score, or null when there is none (no choice yet, or an old response without score)
+export function getScoreTier(value) {
+    return SCORE_TIERS.find((tier) => tier.value === Number(value)) ?? null;
+}
+
+export function getScoreError(value) {
+    const text = String(value ?? '').trim();
+    if (text === '') return 'Elige el nivel de dificultad del laboratorio';
+    if (!/^\d+$/.test(text) || !SCORE_VALUES.includes(Number(text))) {
+        return 'El puntaje debe ser 100, 200, 300, 400 o 500';
+    }
+    return '';
+}
+
 // ---------- Trophies ----------
 
 export const TROPHY_NAME_MAX = 30;

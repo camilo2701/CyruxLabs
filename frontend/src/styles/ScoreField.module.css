@@ -1,0 +1,106 @@
+.field {
+    border: 0;
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+}
+
+.legend {
+    padding: 0;
+    margin-bottom: 0.6em;
+    font-family: "Inter", sans-serif;
+    font-weight: 600;
+    font-size: 1rem;
+    color: aliceblue;
+}
+
+.tiers {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.75em;
+}
+
+.tier {
+    position: relative;
+    display: block;
+    cursor: pointer;
+}
+
+/* The real radio sits invisible on top of the card, so a click anywhere on it selects the tier */
+.radio {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4em;
+    padding: 0.9em 0.5em;
+    border: 1px solid rgba(238, 93, 251, 0.25);
+    border-radius: 8px;
+    background: #201d2a;
+    transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
+}
+
+.tier:hover .card {
+    border-color: rgba(238, 93, 251, 0.6);
+}
+
+.radio:checked + .card {
+    border-color: #ee5dfb;
+    background: rgba(238, 93, 251, 0.12);
+    box-shadow: 0 0 18px rgba(238, 93, 251, 0.35);
+}
+
+.radio:focus-visible + .card {
+    outline: 2px solid #ee83f8;
+    outline-offset: 2px;
+}
+
+.name {
+    font-family: "Inter", sans-serif;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: aliceblue;
+    text-align: center;
+}
+
+.points {
+    font-family: "Orbitron", sans-serif;
+    font-size: 0.8rem;
+    color: #ee83f8;
+}
+
+.hint {
+    margin: 0.6em 0 0;
+    min-height: 1.5em;
+    font-family: "Inter", sans-serif;
+    font-size: 0.9rem;
+    color: #a9a6b8;
+}
+
+.error {
+    margin: 0.4em 0 0;
+    font-family: "Inter", sans-serif;
+    font-size: 0.9rem;
+    color: #ff6b6b;
+}
+
+@media (max-width: 700px) {
+    .tiers {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .card {
+        transition: none;
+    }
+}

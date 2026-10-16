@@ -7,6 +7,7 @@ import {
     getBenefitError,
     getBenefitsError,
     getFlagError,
+    getScoreError,
     getInstructionsError,
     getTrophiesError,
     normalizeCriteria,
@@ -41,7 +42,7 @@ async function getCompletedUserCounts(labIds) {
 // Sin búsqueda: top 5 más recientes (o todos con fetchAll).
 // Con búsqueda: paginado, 5 por página, por título, descripción o autor (username).
 async function queryLabs({ search, pageNumber, fetchAll, ownerId = null }) {
-    const LAB_FIELDS = 'labid, title, description, userid, benefit(benefitid, description), users(username)';
+    const LAB_FIELDS = 'labid, title, description, score, userid, benefit(benefitid, description), users(username)';
 
     if (!search) {
         let query = supabase
@@ -230,6 +231,8 @@ export const createLab = async (req, res) => {
         const title = typeof req.body.title === 'string' ? req.body.title.trim() : '';
         const description = typeof req.body.description === 'string' ? req.body.description.trim() : '';
         const flag = typeof req.body.flag === 'string' ? req.body.flag.trim() : '';
+        // FormData sends everything as text; getScoreError checks it and Number() converts it below
+        const score = typeof req.body.score === 'string' ? req.body.score.trim() : '';
         const instructions = typeof req.body.instructions === 'string'
             ? req.body.instructions.replace(/\r\n/g, '\n').trim()
             : '';
@@ -242,6 +245,7 @@ export const createLab = async (req, res) => {
             getTitleError(title) ||
             getDescriptionError(description) ||
             getBenefitsError(benefits) ||
+            getScoreError(score) ||
             getInstructionsError(instructions) ||
             getTrophiesError(trophies) ||
             getFlagError(flag);
@@ -282,9 +286,10 @@ export const createLab = async (req, res) => {
             return res.status(409).json({ message: 'Ya existe un laboratorio con este título', field: 'title' });
         }
 
+        // dateofcreation is not sent: the database fills it in with its own clock (default now())
         const { data: labData, error: labError } = await supabase
             .from('lab')
-            .insert([{ title, description, flag, instructions, userid: req.user.userid }])
+            .insert([{ title, description, flag, instructions, score: Number(score), userid: req.user.userid }])
             .select();
 
         if (labError) {
