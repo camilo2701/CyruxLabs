@@ -1,5 +1,6 @@
 import { supabase } from '../config/supabaseClient.js';
 import { awardTrophies } from './trophyService.js';
+import { awardLabXp } from './xpService.js';
 import { checkBadgesSafely } from './badgeService.js';
 import { saveEvidenceReport } from './reportService.js';
 import { logEvent } from './logService.js';
@@ -70,8 +71,8 @@ async function assertLabAvailable(labid) {
         err.status = 404;
         throw err;
     }
-
 }
+
 // Phases the runner reports while a lab is starting
 const IN_PROGRESS_PHASES = ['preparing', 'building', 'starting', 'finalizing'];
 
@@ -475,9 +476,10 @@ export async function startTrainingSession({ labid, userid, actor, ip }) {
 
 // finishedAt defaults to "now", evaluated when this function is CALLED, so it is
 // taken before the runner starts tearing the containers down.
-// This is also where the trophies are judged, so it covers every way a session can end.
+// This is also where the trophies are judged and the XP is awarded, so it covers every way
+// a session can end.
 // A session that is still starting is a CANCEL: the runner kills the build, and there is
-// nothing to judge (no evidence, no trophies).
+// nothing to judge (no evidence, no trophies, no XP).
 // logContext = { actor, ip }: solo para el registro de actividad
 export async function stopTrainingSession(sessionid, finishedAt = new Date().toISOString(), logContext = {}) {
     const { actor, ip } = logContext;
@@ -545,7 +547,7 @@ export async function stopTrainingSession(sessionid, finishedAt = new Date().toI
             });
         }
 
-        return { finishtime: cancelled?.[0]?.finishtime ?? null, trophies: [] };
+        return { finishtime: cancelled?.[0]?.finishtime ?? null, trophies: [], xp: null };
     }
 
     let runnerResult;
@@ -614,12 +616,24 @@ export async function stopTrainingSession(sessionid, finishedAt = new Date().toI
         }
     }
 
+    // XP only when the session ended by solving the lab (issolved is saved before the stop).
+    // Same rule as the trophies: an XP problem must never break closing the session.
+    let xp = null;
+    if (firstCompletion && row?.issolved) {
+        try {
+            xp = await awardLabXp({ userid: row.userid, labid: row.labid, sessionid });
+        } catch (err) {
+            console.error('Award XP error:', err);
+        }
+    }
+
     // Una sola fila por sesión terminada: resuelta (con el tiempo) o cerrada sin resolver
     if (firstCompletion) {
         const elapsed = row ? (new Date(finishedAt) - new Date(row.starttime)) / 1000 : NaN;
         const ownerNote = row && actor && actor.userid !== row.userid
             ? ` (sesión del usuario #${row.userid})`
             : '';
+        const xpNote = xp?.earned > 0 ? ` (+${xp.earned} XP)` : '';
 
         logEvent({
             actor: actor ?? (row ? { userid: row.userid } : null),
@@ -631,12 +645,12 @@ export async function stopTrainingSession(sessionid, finishedAt = new Date().toI
             description: row?.issolved
                 ? `Resolvió el laboratorio y cerró la sesión #${sessionid}${
                     Number.isFinite(elapsed) ? ` en ${formatDuration(elapsed)}` : ''
-                }${ownerNote}`
+                }${ownerNote}${xpNote}`
                 : `Cerró la sesión #${sessionid} sin resolver el laboratorio${ownerNote}`,
         });
     }
 
-    return { finishtime: updated?.[0]?.finishtime ?? null, trophies };
+    return { finishtime: updated?.[0]?.finishtime ?? null, trophies, xp };
 }
 
 // logContext = { actor, ip }: solo para el registro de actividad
@@ -690,7 +704,7 @@ export async function submitFlag(sessionid, submittedFlag, logContext = {}) {
     // Take the finish time NOW, before the database writes and the teardown below
     const finishedAt = new Date().toISOString();
 
-    // Marked as solved BEFORE stopping: the stop flow reads this to judge the trophies
+    // Marked as solved BEFORE stopping: the stop flow reads this to judge the trophies and the XP
     const { error: updateError } = await supabase
         .from('session')
         .update({ capturedflag: submittedFlag.trim(), issolved: true })
@@ -698,11 +712,11 @@ export async function submitFlag(sessionid, submittedFlag, logContext = {}) {
 
     if (updateError) console.error('Capturedflag update error:', updateError);
 
-    // Closes the session, saves the evidence, awards the trophies and logs "SESSION_SOLVED"
-    const { finishtime, trophies } = await stopTrainingSession(sessionid, finishedAt, logContext);
+    // Closes the session, saves the evidence, awards trophies and XP and logs "SESSION_SOLVED"
+    const { finishtime, trophies, xp } = await stopTrainingSession(sessionid, finishedAt, logContext);
 
     // badges
     const badges = await checkBadgesSafely(session.userid);
 
-    return { matched: true, finishtime, trophies, badges };
+    return { matched: true, finishtime, trophies, xp, badges };
 }

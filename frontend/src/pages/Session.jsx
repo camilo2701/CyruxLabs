@@ -13,6 +13,17 @@ import styles from '../styles/Session.module.css'
 
 const UNLOAD_WARNING_ENABLED = false; // TODO: re-enable once real hosting removes the self-signed cert workflow
 
+// Sentence added to the success popup, from what the backend says about the XP
+function describeXp(xp) {
+    if (!xp) return '';
+    if (xp.earned > 0) {
+        return ` Ganaste +${xp.earned} XP${xp.leveledUp ? ` y subiste al nivel ${xp.level}` : ''}.`;
+    }
+    if (xp.reason === 'already_solved') return ' Ya lo habías resuelto antes, así que no suma XP.';
+    if (xp.reason === 'own_lab') return ' Es un laboratorio tuyo, así que no suma XP.';
+    return '';
+}
+
 function Session() {
     const { sessionid } = useParams();
     const { token } = useAuth();
@@ -30,6 +41,7 @@ function Session() {
     const [submittingFlag, setSubmittingFlag] = useState(false);
     const [stopping, setStopping] = useState(false);
     const [unlockedTrophies, setUnlockedTrophies] = useState([]);
+    const [xpMessage, setXpMessage] = useState('');
     const [isEnded, setIsEnded] = useState(false);
     const [isSolved, setIsSolved] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
@@ -238,6 +250,7 @@ function Session() {
             setIsEnded(true);
             setIsSolved(true);
             setUnlockedTrophies(result.trophies ?? []);
+            setXpMessage(describeXp(result.xp));
             // Use the exact time the server recorded
             setFinishTime(result.finishtime ? new Date(result.finishtime) : submittedAt);
             setShowSuccessModal(true);
@@ -294,7 +307,7 @@ function Session() {
 
             {showSuccessModal && (
                 <SuccessModal
-                    message="¡Correcto! Resolviste el laboratorio."
+                    message={`¡Correcto! Resolviste el laboratorio.${xpMessage}`}
                     onClose={() => setShowSuccessModal(false)}
                 />
             )}
