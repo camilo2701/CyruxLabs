@@ -91,6 +91,17 @@ function LabsPage(){
 
             if (!response.ok) {
                 console.error('Failed to start session:', result);
+
+                // The instructor queued a new zip + flag for this lab: it takes no new sessions until
+                // it has been applied. Nothing is broken, so it is not shown as an error.
+                if (result.error?.code === 'LAB_UPDATING') {
+                    showStartError(
+                        'Laboratorio en actualización',
+                        result.message || 'Este laboratorio se está actualizando. Podrás iniciarlo de nuevo en unos minutos.'
+                    );
+                    return;
+                }
+
                 showStartError(
                     'No se pudo iniciar el laboratorio',
                     `${result.message || 'Ocurrió un error inesperado.'} Inténtalo de nuevo en unos momentos.`

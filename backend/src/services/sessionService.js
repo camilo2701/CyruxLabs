@@ -4,6 +4,8 @@ import { awardLabXp } from './xpService.js';
 import { checkBadgesSafely } from './badgeService.js';
 import { saveEvidenceReport } from './reportService.js';
 import { logEvent } from './logService.js';
+import { RUNNER_URL } from '../config/runner.js';
+import { hasPendingUpdate, applyPendingUpdates } from './labUpdateService.js';
 
 // Las flags incorrectas no se registran una por una (la sesión ya las cuenta en failedflags):
 // solo se deja una advertencia cuando la cuenta llega a este número
@@ -53,7 +55,35 @@ export async function getSessionById(sessionid) {
     return data;
 }
 
-const RUNNER_URL = 'http://10.10.0.12:4000';
+// A lab with a pending zip + flag update takes no NEW sessions (see labUpdateService), so every open
+// session finishes with the zip and flag it started with. The page recognises err.details.code.
+const LAB_UPDATING_MESSAGE = 'Este laboratorio se está actualizando. Podrás iniciarlo de nuevo en unos minutos.';
+
+function labUpdatingError() {
+    const err = new Error(LAB_UPDATING_MESSAGE);
+    err.status = 409;
+    err.details = { code: 'LAB_UPDATING' };
+    return err;
+}
+
+// The zip path is read again right before downloading, so a session never starts from a zip
+// that was replaced while the request was on its way
+async function readCurrentZipPath(labid) {
+    const { data, error } = await supabase
+        .from('lab')
+        .select('zippath')
+        .eq('labid', labid)
+        .eq('isdeleted', false)
+        .single();
+
+    if (error || !data?.zippath) {
+        const err = new Error('Lab or zip path not found');
+        err.status = 404;
+        throw err;
+    }
+
+    return data.zippath;
+}
 
 // un lab eliminadono se puede iniciar ni reiniciar, pero las sesiones que ya
 // estaban en curso pueden terminarse
@@ -382,6 +412,9 @@ export async function startTrainingSession({ labid, userid, actor, ip }) {
     const reusable = await findReusableSession({ labid, userid }, { actor, ip });
     if (reusable) return reusable;
 
+    // A lab waiting for an update takes no new sessions (the ones already open keep working)
+    if (await hasPendingUpdate(labid)) throw labUpdatingError();
+
     const now = new Date();
     const { data: sessionData, error: sessionError } = await supabase
         .from('session')
@@ -408,10 +441,16 @@ export async function startTrainingSession({ labid, userid, actor, ip }) {
     const sessionid = sessionData[0].sessionid;
 
     try {
+        // Checked again now that the session exists: an update queued a moment ago must not be
+        // applied under a session that is only just starting
+        if (await hasPendingUpdate(labid)) throw labUpdatingError();
+
+        const zippath = await readCurrentZipPath(labid);
+
         const { data: zipBlob, error: downloadError } = await supabase
             .storage
             .from('labfiles')
-            .download(labData.zippath);
+            .download(zippath);
 
         if (downloadError) throw downloadError;
 
@@ -445,7 +484,9 @@ export async function startTrainingSession({ labid, userid, actor, ip }) {
                 finishtime: new Date().toISOString(),
                 startstatus: 'failed',
                 startphase: 'failed',
-                starterror: 'No se pudo contactar con el servicio de laboratorios.',
+                starterror: err.details?.code === 'LAB_UPDATING'
+                    ? LAB_UPDATING_MESSAGE
+                    : 'No se pudo contactar con el servicio de laboratorios.',
             })
             .eq('sessionid', sessionid);
 
@@ -482,6 +523,16 @@ export async function startTrainingSession({ labid, userid, actor, ip }) {
 // nothing to judge (no evidence, no trophies, no XP).
 // logContext = { actor, ip }: solo para el registro de actividad
 export async function stopTrainingSession(sessionid, finishedAt = new Date().toISOString(), logContext = {}) {
+    try {
+        return await closeTrainingSession(sessionid, finishedAt, logContext);
+    } finally {
+        // The session that just ended may have been the last one a pending update was waiting for.
+        // Not awaited and never throws: it must not slow down or break closing the session.
+        applyPendingUpdates().catch((err) => console.error('Pending update check failed:', err.message || err));
+    }
+}
+
+async function closeTrainingSession(sessionid, finishedAt, logContext = {}) {
     const { actor, ip } = logContext;
 
     // What the trophies need. A failure here must not stop the lab from closing.

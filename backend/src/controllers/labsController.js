@@ -2,6 +2,16 @@ import { supabase } from '../config/supabaseClient.js';
 import { getZipError } from '../utils/zipValidation.js';
 import { logEvent, fromReq } from '../services/logService.js';
 import {
+    getPendingUpdate,
+    isFlagTaken,
+    queueUpdate,
+    cancelUpdate,
+    tryApplyUpdate,
+} from '../services/labUpdateService.js';
+import {
+    MIN_BENEFITS,
+    MAX_BENEFITS,
+    COMPLETION_CRITERIA,
     getTitleError,
     getDescriptionError,
     getBenefitError,
@@ -42,7 +52,7 @@ async function getCompletedUserCounts(labIds) {
 // Sin búsqueda: top 5 más recientes (o todos con fetchAll).
 // Con búsqueda: paginado, 5 por página, por título, descripción o autor (username).
 async function queryLabs({ search, pageNumber, fetchAll, ownerId = null }) {
-    const LAB_FIELDS = 'labid, title, description, score, userid, benefit(benefitid, description), users(username)';
+    const LAB_FIELDS = 'labid, title, description, score, userid, dateofcreation, benefit(benefitid, description), users(username)';
 
     if (!search) {
         let query = supabase
@@ -286,6 +296,11 @@ export const createLab = async (req, res) => {
             return res.status(409).json({ message: 'Ya existe un laboratorio con este título', field: 'title' });
         }
 
+        // A flag that another lab has queued for its next update is taken as well
+        if (await isFlagTaken(flag)) {
+            return res.status(409).json({ message: 'Esa flag ya está en uso en otro laboratorio', field: 'flag' });
+        }
+
         // dateofcreation is not sent: the database fills it in with its own clock (default now())
         const { data: labData, error: labError } = await supabase
             .from('lab')
@@ -381,30 +396,204 @@ export const checkTitleDuplicate = async (req, res) => {
     res.json({ exists: data.length > 0 });
 };
 
-// UPDATE (protegido: requireAuth + requireRole en la ruta)
-// Guarda todo junto: título/descripción, más beneficios a agregar/quitar.
-export const updateLab = async (req, res) => {
+// Everything the edit screen needs in one call: the fields that can be edited, the trophies (with how
+// many students earned each), and the pending zip + flag update if there is one.
+// The flag is only sent here because checkLabAccess already limited this to the author and admins.
+export const getLabForEdit = async (req, res) => {
     const labid = Number(req.params.labid);
-    const { addBenefits = [], removeBenefitIds = [] } = req.body;
 
     try {
         if (!(await checkLabAccess(req, res, labid, 'UPDATE'))) return;
+
+        // The lab may be free by now: this is one of the moments a pending update gets applied
+        let pending = await getPendingUpdate(labid);
+        let openSessions = 0;
+
+        if (pending) {
+            const result = await tryApplyUpdate(labid, fromReq(req)).catch((err) => {
+                console.error('Apply pending update error:', err);
+                return null;
+            });
+
+            if (result?.applied) pending = null;
+            else openSessions = result?.openSessions ?? 0;
+        }
+
+        const { data: lab, error: labError } = await supabase
+            .from('lab')
+            .select('labid, title, description, score, instructions, flag, benefit(benefitid, description)')
+            .eq('labid', labid)
+            .single();
+
+        if (labError) throw labError;
+
+        const { data: trophies, error: trophyError } = await supabase
+            .from('trophy')
+            .select('trophyid, type, name, description, criteriatype, criteria')
+            .eq('labid', labid)
+            .neq('criteriatype', COMPLETION_CRITERIA) // the automatic trophy is not editable, so it is not sent
+            .order('trophyid', { ascending: true });
+
+        if (trophyError) throw trophyError;
+
+        const earnedCounts = await getEarnedCounts(trophies.map((trophy) => trophy.trophyid));
+
+        res.json({
+            lab: {
+                ...lab,
+                benefit: [...(lab.benefit ?? [])].sort((a, b) => a.benefitid - b.benefitid),
+                trophies: trophies.map((trophy) => ({ ...trophy, earnedCount: earnedCounts[trophy.trophyid] ?? 0 })),
+                pendingUpdate: pending && {
+                    dateofcreation: pending.dateofcreation,
+                    lasterror: pending.lasterror,
+                    openSessions,
+                },
+            },
+        });
+    } catch (error) {
+        console.error('Get lab for edit error:', error);
+        res.status(500).json({ message: 'Failed to fetch lab', error: error.message });
+    }
+};
+
+// How many students earned each trophy: { trophyid: count }
+async function getEarnedCounts(trophyIds) {
+    if (trophyIds.length === 0) return {};
+
+    const { data, error } = await supabase
+        .from('trophyuser')
+        .select('trophyid')
+        .in('trophyid', trophyIds);
+
+    if (error) throw error;
+
+    const counts = {};
+    data.forEach((row) => { counts[row.trophyid] = (counts[row.trophyid] ?? 0) + 1; });
+    return counts;
+}
+
+const toTrophyFields = (trophy) => ({
+    type: trophy.type,
+    name: typeof trophy.name === 'string' ? trophy.name.trim() : trophy.name,
+    description: typeof trophy.description === 'string' ? trophy.description.trim() : trophy.description,
+    criteriatype: trophy.criteriatype,
+    criteria: trophy.criteria,
+});
+
+// Works out what the trophy part of an edit would leave in the database, and checks it.
+// Returns { error } or { removeIds, updates: [{ trophyid, fields }], adds: [fields], finalList }.
+// Nothing is written here: the caller writes only after EVERYTHING in the request has been checked.
+async function planTrophyChanges(labid, changes) {
+    const { add = [], update = [], removeIds = [] } = changes;
+
+    if (!Array.isArray(add) || !Array.isArray(update) || !Array.isArray(removeIds)) {
+        return { error: 'Formato de trofeos inválido' };
+    }
+
+    const { data: current, error: currentError } = await supabase
+        .from('trophy')
+        .select('trophyid, type, name, description, criteriatype, criteria')
+        .eq('labid', labid)
+        .neq('criteriatype', COMPLETION_CRITERIA);
+
+    if (currentError) throw currentError;
+
+    const earnedCounts = await getEarnedCounts(current.map((trophy) => trophy.trophyid));
+    const byId = new Map(current.map((trophy) => [trophy.trophyid, trophy]));
+
+    const removeSet = new Set();
+    for (const raw of removeIds) {
+        const trophyid = Number(raw);
+        const trophy = byId.get(trophyid);
+        if (!trophy) return { error: 'Uno de los trofeos a eliminar no pertenece a este laboratorio' };
+
+        const earned = earnedCounts[trophyid] ?? 0;
+        if (earned > 0) {
+            return { error: `El trofeo «${trophy.name}» ya fue obtenido por ${earned} usuario(s) y no se puede eliminar` };
+        }
+        removeSet.add(trophyid);
+    }
+
+    const updates = [];
+    for (const raw of update) {
+        const trophyid = Number(raw?.trophyid);
+        const trophy = byId.get(trophyid);
+        if (!trophy || removeSet.has(trophyid)) {
+            return { error: 'Uno de los trofeos a editar no pertenece a este laboratorio' };
+        }
+
+        const fields = toTrophyFields(raw);
+
+        // Once somebody earned a trophy, its meaning is frozen: only the name and description can change
+        if ((earnedCounts[trophyid] ?? 0) > 0) {
+            const sameCriteria =
+                fields.criteriatype === trophy.criteriatype &&
+                normalizeCriteria(fields.criteriatype, fields.criteria) === normalizeCriteria(trophy.criteriatype, trophy.criteria);
+
+            if (fields.type !== trophy.type || !sameCriteria) {
+                return { error: `El trofeo «${trophy.name}» ya fue obtenido: solo puedes cambiar su nombre y descripción` };
+            }
+        }
+
+        updates.push({ trophyid, fields });
+    }
+
+    const adds = add.map(toTrophyFields);
+
+    // What the lab would have after the change: validated like a brand-new lab's trophies
+    // (caps per type, duplicated criteria...)
+    const updatesById = new Map(updates.map((item) => [item.trophyid, item.fields]));
+    const finalList = [
+        ...current
+            .filter((trophy) => !removeSet.has(trophy.trophyid))
+            .map((trophy) => updatesById.get(trophy.trophyid) ?? toTrophyFields(trophy)),
+        ...adds,
+    ];
+
+    const problem = getTrophiesError(finalList);
+    if (problem) return { error: problem };
+
+    return { removeIds: [...removeSet], updates, adds, finalList };
+}
+
+// UPDATE (protegido: requireAuth + requireRole en la ruta)
+// Solo cambia lo que llega en la petición. Se valida TODO antes de escribir nada.
+// Editable aquí: título, descripción, instrucciones, beneficios y trofeos.
+// NO editable aquí: el puntaje (de él salen los XP) ni la flag y el zip (van juntos, ver requestFileUpdate).
+export const updateLab = async (req, res) => {
+    const labid = Number(req.params.labid);
+    const body = req.body ?? {};
+
+    try {
+        const lab = await checkLabAccess(req, res, labid, 'UPDATE');
+        if (!lab) return;
+
+        if (body.score !== undefined) {
+            return res.status(400).json({ message: 'El puntaje no se puede modificar después de crear el laboratorio' });
+        }
+        if (body.flag !== undefined || body.zippath !== undefined) {
+            return res.status(400).json({ message: 'La flag y el archivo zip se cambian juntos, con una actualización programada' });
+        }
+
+        const addBenefits = body.addBenefits ?? [];
+        const removeBenefitIds = body.removeBenefitIds ?? [];
 
         if (!Array.isArray(addBenefits) || !Array.isArray(removeBenefitIds)) {
             return res.status(400).json({ message: 'Formato de beneficios inválido' });
         }
 
-        const benefitProblem = addBenefits.map(getBenefitError).find(Boolean);
+        const cleanBenefits = addBenefits.map((benefit) => (typeof benefit === 'string' ? benefit.trim() : benefit));
+        const benefitProblem = cleanBenefits.map(getBenefitError).find(Boolean);
         if (benefitProblem) {
-            return res.status(400).json({ message: benefitProblem });
+            return res.status(400).json({ message: benefitProblem, field: 'benefits' });
         }
 
         const updates = {};
 
-        if (req.body.title !== undefined) {
-            const title = String(req.body.title).trim();
+        if (body.title !== undefined) {
+            const title = String(body.title).trim();
             const titleProblem = getTitleError(title);
-            if (titleProblem) return res.status(400).json({ message: titleProblem });
+            if (titleProblem) return res.status(400).json({ message: titleProblem, field: 'title' });
 
             const { data: sameTitle, error: titleCheckError } = await supabase
                 .from('lab')
@@ -423,13 +612,64 @@ export const updateLab = async (req, res) => {
             updates.title = title;
         }
 
-        if (req.body.description !== undefined) {
-            const description = String(req.body.description).trim();
+        if (body.description !== undefined) {
+            const description = String(body.description).trim();
             const descriptionProblem = getDescriptionError(description);
-            if (descriptionProblem) return res.status(400).json({ message: descriptionProblem });
+            if (descriptionProblem) return res.status(400).json({ message: descriptionProblem, field: 'description' });
 
             updates.description = description;
         }
+
+        if (body.instructions !== undefined) {
+            const instructions = String(body.instructions).replace(/\r\n/g, '\n').trim();
+            const instructionsProblem = getInstructionsError(instructions);
+            if (instructionsProblem) return res.status(400).json({ message: instructionsProblem, field: 'instructions' });
+
+            updates.instructions = instructions;
+        }
+
+        // Benefits: the lab must still end up with the allowed amount (only checked when they change)
+        const benefitsChanged = cleanBenefits.length > 0 || removeBenefitIds.length > 0;
+        let removableBenefitIds = [];
+
+        if (benefitsChanged) {
+            const { data: currentBenefits, error: benefitsError } = await supabase
+                .from('benefit')
+                .select('benefitid')
+                .eq('labid', labid);
+
+            if (benefitsError) throw benefitsError;
+
+            const wanted = new Set(removeBenefitIds.map(Number));
+            removableBenefitIds = currentBenefits
+                .map((benefit) => benefit.benefitid)
+                .filter((benefitid) => wanted.has(benefitid)); // solo beneficios de ESTE lab
+
+            const finalCount = currentBenefits.length - removableBenefitIds.length + cleanBenefits.length;
+
+            if (finalCount < MIN_BENEFITS) {
+                return res.status(400).json({ message: `Debes indicar al menos ${MIN_BENEFITS} beneficios`, field: 'benefits' });
+            }
+            if (finalCount > MAX_BENEFITS) {
+                return res.status(400).json({ message: `Máximo ${MAX_BENEFITS} beneficios`, field: 'benefits' });
+            }
+        }
+
+        let trophyPlan = null;
+        const trophyChanges = body.trophyChanges;
+
+        if (trophyChanges !== undefined) {
+            if (!trophyChanges || typeof trophyChanges !== 'object' || Array.isArray(trophyChanges)) {
+                return res.status(400).json({ message: 'Formato de trofeos inválido', field: 'trophies' });
+            }
+
+            trophyPlan = await planTrophyChanges(labid, trophyChanges);
+            if (trophyPlan.error) {
+                return res.status(400).json({ message: trophyPlan.error, field: 'trophies' });
+            }
+        }
+
+        // ---- Everything is valid: now it is written ----
 
         if (Object.keys(updates).length > 0) {
             const { error: updateError } = await supabase
@@ -440,26 +680,68 @@ export const updateLab = async (req, res) => {
             if (updateError) throw updateError;
         }
 
-        if (removeBenefitIds.length > 0) {
+        if (removableBenefitIds.length > 0) {
             const { error: removeError } = await supabase
                 .from('benefit')
                 .delete()
-                .in('benefitid', removeBenefitIds)
-                .eq('labid', labid); // solo beneficios de ESTE lab
+                .in('benefitid', removableBenefitIds)
+                .eq('labid', labid);
 
             if (removeError) throw removeError;
         }
 
-        if (addBenefits.length > 0) {
-            const benefitRows = addBenefits.map((description) => ({ description: description.trim(), labid }));
+        if (cleanBenefits.length > 0) {
+            const benefitRows = cleanBenefits.map((description) => ({ description, labid }));
             const { error: addError } = await supabase.from('benefit').insert(benefitRows);
             if (addError) throw addError;
         }
 
+        if (trophyPlan) {
+            if (trophyPlan.removeIds.length > 0) {
+                const { error: removeError } = await supabase
+                    .from('trophy')
+                    .delete()
+                    .in('trophyid', trophyPlan.removeIds)
+                    .eq('labid', labid);
+
+                if (removeError) throw removeError;
+            }
+
+            for (const { trophyid, fields } of trophyPlan.updates) {
+                const { error: trophyUpdateError } = await supabase
+                    .from('trophy')
+                    .update({
+                        type: fields.type,
+                        name: fields.name,
+                        description: fields.description,
+                        criteriatype: fields.criteriatype,
+                        criteria: normalizeCriteria(fields.criteriatype, fields.criteria),
+                    })
+                    .eq('trophyid', trophyid)
+                    .eq('labid', labid);
+
+                if (trophyUpdateError) throw trophyUpdateError;
+            }
+
+            if (trophyPlan.adds.length > 0) {
+                const rows = trophyPlan.adds.map((fields) => ({
+                    ...fields,
+                    criteria: normalizeCriteria(fields.criteriatype, fields.criteria),
+                    labid,
+                }));
+                const { error: trophyInsertError } = await supabase.from('trophy').insert(rows);
+                if (trophyInsertError) throw trophyInsertError;
+            }
+        }
+
+        const fieldNames = { title: 'título', description: 'descripción', instructions: 'instrucciones' };
         const changes = [
-            ...Object.keys(updates).map((field) => (field === 'title' ? 'título' : 'descripción')),
-            addBenefits.length > 0 && `+${addBenefits.length} beneficio(s)`,
-            removeBenefitIds.length > 0 && `-${removeBenefitIds.length} beneficio(s)`,
+            ...Object.keys(updates).map((field) => fieldNames[field]),
+            cleanBenefits.length > 0 && `+${cleanBenefits.length} beneficio(s)`,
+            removableBenefitIds.length > 0 && `-${removableBenefitIds.length} beneficio(s)`,
+            trophyPlan && trophyPlan.adds.length > 0 && `+${trophyPlan.adds.length} trofeo(s)`,
+            trophyPlan && trophyPlan.updates.length > 0 && `${trophyPlan.updates.length} trofeo(s) editado(s)`,
+            trophyPlan && trophyPlan.removeIds.length > 0 && `-${trophyPlan.removeIds.length} trofeo(s)`,
         ].filter(Boolean);
 
         logEvent({
@@ -478,6 +760,137 @@ export const updateLab = async (req, res) => {
     }
 };
 
+// REQUEST A NEW ZIP + FLAG (protegido: requireAuth + requireRole en la ruta)
+// They always travel together: the flag must be the one hidden inside the new zip.
+// The pair is validated like in a new lab and queued; it is applied when the lab has no open session.
+export const requestFileUpdate = async (req, res) => {
+    const labid = Number(req.params.labid);
+
+    try {
+        const lab = await checkLabAccess(req, res, labid, 'UPDATE');
+        if (!lab) return;
+
+        const flag = typeof req.body?.flag === 'string' ? req.body.flag.trim() : '';
+        const flagProblem = getFlagError(flag);
+        if (flagProblem) return res.status(400).json({ message: flagProblem, field: 'flag' });
+
+        if (!req.file) {
+            return res.status(400).json({ message: 'Falta el archivo zip del laboratorio', field: 'zipfile' });
+        }
+
+        const zipProblem = await getZipError(req.file.buffer);
+        if (zipProblem) {
+            logEvent({
+                ...fromReq(req),
+                action: 'UPDATE',
+                facility: 'lab',
+                event: 'LAB_UPLOAD_REJECTED',
+                severity: 'warning',
+                targetid: labid,
+                description: `Subida rechazada para actualizar «${lab.title}»: ${zipProblem}`,
+            });
+            return res.status(400).json({ message: zipProblem, field: 'zipfile' });
+        }
+
+        // The same flag as the lab already has is fine (only the zip changes)
+        if (await isFlagTaken(flag, labid)) {
+            return res.status(409).json({ message: 'Esa flag ya está en uso en otro laboratorio', field: 'flag' });
+        }
+
+        try {
+            await queueUpdate({ labid, userid: req.user.userid, flag, zipBuffer: req.file.buffer });
+        } catch (error) {
+            // 23505 = another lab queued this flag a moment ago
+            if (error.code === '23505') {
+                return res.status(409).json({ message: 'Esa flag ya está en uso en otro laboratorio', field: 'flag' });
+            }
+            throw error;
+        }
+
+        logEvent({
+            ...fromReq(req),
+            action: 'UPDATE',
+            facility: 'lab',
+            event: 'LAB_UPDATE_QUEUED',
+            targetid: labid,
+            description: `Programó una actualización de archivo y flag del laboratorio «${lab.title}» (#${labid})`,
+        });
+
+        // If the lab is free right now it is applied on the spot; otherwise it waits
+        const result = await tryApplyUpdate(labid, fromReq(req)).catch((error) => {
+            console.error('Apply pending update error:', error);
+            return { applied: false };
+        });
+
+        res.json({
+            message: result.applied ? 'Archivo y flag actualizados' : 'Actualización programada',
+            applied: !!result.applied,
+            openSessions: result.openSessions ?? 0,
+        });
+    } catch (error) {
+        console.error('Request file update error:', error);
+        res.status(500).json({ message: 'Failed to queue the update', error: error.message });
+    }
+};
+
+// CANCEL THE PENDING UPDATE (protegido: requireAuth + requireRole en la ruta)
+export const cancelFileUpdate = async (req, res) => {
+    const labid = Number(req.params.labid);
+
+    try {
+        const lab = await checkLabAccess(req, res, labid, 'UPDATE');
+        if (!lab) return;
+
+        const cancelled = await cancelUpdate(labid);
+        if (!cancelled) {
+            return res.status(404).json({ message: 'Este laboratorio no tiene una actualización pendiente' });
+        }
+
+        logEvent({
+            ...fromReq(req),
+            action: 'UPDATE',
+            facility: 'lab',
+            event: 'LAB_UPDATE_CANCELLED',
+            targetid: labid,
+            description: `Canceló la actualización pendiente del laboratorio «${lab.title}» (#${labid})`,
+        });
+
+        res.json({ message: 'Update cancelled' });
+    } catch (error) {
+        console.error('Cancel file update error:', error);
+        res.status(500).json({ message: 'Failed to cancel the update', error: error.message });
+    }
+};
+
+// APPLY NOW (solo admin: se comprueba en la ruta). Cierra las sesiones abiertas del lab, sin XP ni trofeos.
+export const forceApplyFileUpdate = async (req, res) => {
+    const labid = Number(req.params.labid);
+
+    try {
+        const lab = await checkLabAccess(req, res, labid, 'UPDATE');
+        if (!lab) return;
+
+        if (!(await getPendingUpdate(labid))) {
+            return res.status(404).json({ message: 'Este laboratorio no tiene una actualización pendiente' });
+        }
+
+        const result = await tryApplyUpdate(labid, { ...fromReq(req), force: true });
+
+        if (!result.applied) {
+            return res.status(409).json({
+                message: result.reason === 'busy'
+                    ? 'La actualización ya se está aplicando, espera unos segundos'
+                    : 'No se pudo aplicar la actualización ahora. Se reintentará automáticamente.',
+            });
+        }
+
+        res.json({ message: 'Update applied', applied: true });
+    } catch (error) {
+        console.error('Force apply update error:', error);
+        res.status(500).json({ message: 'Failed to apply the update', error: error.message });
+    }
+};
+
 // DELETE (protegido: requireAuth + requireRole en la ruta)
 export const deleteLab = async (req, res) => {
     const labid = Number(req.params.labid);
@@ -493,6 +906,9 @@ export const deleteLab = async (req, res) => {
             .eq('labid', labid);
 
         if (labDeleteError) throw labDeleteError;
+
+        // Its queued zip + flag (if any) is dropped too
+        await cancelUpdate(labid).catch((err) => console.error('Cancel pending update after delete failed:', err));
 
         logEvent({
             ...fromReq(req),

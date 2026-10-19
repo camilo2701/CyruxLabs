@@ -8,6 +8,7 @@ import labsRoutes from './routes/labsRoutes.js';
 import bugReportRoutes from './routes/bugReportRoutes.js';
 import docsRoutes from './routes/docsRoutes.js';
 import logRoutes from './routes/logRoutes.js';
+import { startPendingUpdateSweeper } from './services/labUpdateService.js';
 
 dotenv.config();
 
@@ -31,4 +32,7 @@ app.get('/', (req, res) => {
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
     console.log(`Servidor escuchando en http://localhost:${PORT}`);
+
+    // Aplica las actualizaciones de zip + flag que estaban esperando a que el lab quedara libre
+    startPendingUpdateSweeper();
 });
