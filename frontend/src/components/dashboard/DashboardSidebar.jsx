@@ -12,7 +12,7 @@ const dashboardSections = [
     id: 'history',
     label: 'Historial de actividad',
     icon: '◷',
-    allowedRoles: ['student', 'instructor'],
+    allowedRoles: ['student', 'instructor', 'admin'],
   },
   {
     id: 'users',

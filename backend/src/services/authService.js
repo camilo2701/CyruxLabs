@@ -37,11 +37,11 @@ export function signToken(user) {
     return jwt.sign(
         { userid: user.userid, username: user.username, role: user.role },
         process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+        { algorithm: 'HS256', expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
     );
 }
 
-function toPublicUser(user) {
+export function toPublicUser(user) {
     // NO devolver el hash de la contraseña al cliente
     const { password, failedattempts, lockeduntil, ...publicUser } = user;
     return publicUser;

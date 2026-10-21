@@ -202,6 +202,23 @@ async function checkLabAccess(req, res, labid, action) {
     return lab;
 }
 
+// Borra la carpeta labs/{labid}/ completa del bucket (zip actual y cualquier sobrante).
+// Best effort: si falla, solo se registra en consola y no frena la eliminación.
+export async function removeLabFolder(labid) {
+    const folder = `labs/${labid}`;
+
+    const { data: files, error: listError } = await supabase.storage.from('labfiles').list(folder);
+    if (listError) {
+        console.error('Storage list failed:', folder, listError);
+        return;
+    }
+    if (!files || files.length === 0) return;
+
+    const paths = files.map((file) => `${folder}/${file.name}`);
+    const { error } = await supabase.storage.from('labfiles').remove(paths);
+    if (error) console.error('Storage folder remove failed:', folder, error);
+}
+
 // Best-effort cleanup when creating a lab fails halfway: undo whatever was already saved.
 // Failures are only logged so the original error is the one the client sees.
 async function rollbackLab(labId, filePath) {
@@ -902,13 +919,16 @@ export const deleteLab = async (req, res) => {
         // el lab se marca como eliminado pero se conserva todo lo asociado
         const { error: labDeleteError } = await supabase
             .from('lab')
-            .update({ isdeleted: true })
+            .update({ isdeleted: true, zippath: null })
             .eq('labid', labid);
 
         if (labDeleteError) throw labDeleteError;
 
         // Its queued zip + flag (if any) is dropped too
         await cancelUpdate(labid).catch((err) => console.error('Cancel pending update after delete failed:', err));
+
+        // un lab eliminado no se puede iniciar: su zip ya no hace falta
+        await removeLabFolder(labid);
 
         logEvent({
             ...fromReq(req),

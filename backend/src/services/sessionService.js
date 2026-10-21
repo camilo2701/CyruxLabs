@@ -42,7 +42,7 @@ export async function getSessionsForUser(userid) {
 export async function getSessionById(sessionid) {
     const { data, error } = await supabase
         .from('session')
-        .select('sessionid, userid, labid, iscompleted, issolved, port, protocol, starttime, finishtime, startstatus, startphase, starterror, lab(title, instructions)')
+        .select('sessionid, userid, labid, iscompleted, issolved, port, protocol, starttime, finishtime, startstatus, startphase, starterror, lab(title, instructions), users(role)')
         .eq('sessionid', sessionid)
         .single();
 
@@ -657,6 +657,7 @@ async function closeTrainingSession(sessionid, finishedAt, logContext = {}) {
             trophies = await awardTrophies({
                 userid: row.userid,
                 labid: row.labid,
+                sessionid,
                 solved: row.issolved,
                 elapsedSeconds: (new Date(finishedAt) - new Date(row.starttime)) / 1000,
                 failedFlags: row.failedflags ?? 0,

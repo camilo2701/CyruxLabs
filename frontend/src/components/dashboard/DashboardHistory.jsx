@@ -12,9 +12,13 @@ const ROLE_NAMES = {
   2: 'admin',
 };
 
+const ROLE_LABELS = { 0: 'Estudiante', 1: 'Instructor' };
+
 function DashboardHistory() {
   const { user, token } = useAuth();
   const role = ROLE_NAMES[user.role] || 'student';
+  // El admin busca estudiantes e instructores; el instructor solo estudiantes
+  const isAdmin = role === 'admin';
 
   const [studentSearch, setStudentSearch] = useState('');
   const [searchedStudents, setSearchedStudents] = useState([]);
@@ -26,6 +30,10 @@ function DashboardHistory() {
   const [history, setHistory] = useState([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [historyError, setHistoryError] = useState('');
+
+  // Descarga del reporte PDF: qué sesión se está descargando y el último error (por sesión)
+  const [downloadingId, setDownloadingId] = useState(null);
+  const [downloadError, setDownloadError] = useState({ id: null, message: '' });
 
   const formatTime = (date) => {
     if (!date) return 'En ejecución';
@@ -89,15 +97,17 @@ function DashboardHistory() {
     fetch(`${API_URL}/sessions/user/${selectedStudent.userid}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then((res) => res.json())
-      .then((data) => {
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw Object.assign(new Error(), { serverMessage: data.error });
         setHistory(data.sessions || []);
       })
-      .catch(() => {
-        setHistoryError('No se pudo cargar el historial de este estudiante.');
+      .catch((err) => {
+        setHistory([]);
+        setHistoryError(err.serverMessage || `No se pudo cargar el historial de este ${isAdmin ? 'usuario' : 'estudiante'}.`);
       })
       .finally(() => setIsLoadingHistory(false));
-  }, [role, selectedStudent, token]);
+  }, [role, selectedStudent, token, isAdmin]);
 
   const handleSearchInputChange = (event) => {
     setStudentSearch(event.target.value);
@@ -157,8 +167,36 @@ function DashboardHistory() {
     searchPage * ITEMS_PER_PAGE
   );
 
-  const handleDownload = () => {
-    alert('La descarga del reporte PDF estará disponible próximamente.');
+  const handleDownload = async (activity) => {
+    setDownloadingId(activity.id);
+    setDownloadError({ id: null, message: '' });
+
+    try {
+      const response = await fetch(`${API_URL}/sessions/${activity.id}/report`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setDownloadError({ id: activity.id, message: data.message || 'No se pudo generar el reporte.' });
+        return;
+      }
+
+      // El backend devuelve el PDF: se descarga con un enlace temporal
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `reporte-sesion-${activity.id}-${historyOwnerUsername ?? 'usuario'}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setDownloadError({ id: activity.id, message: 'No se pudo conectar con el servidor.' });
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   // A quién le pertenece el historial que se está mostrando ahora mismo.
@@ -187,7 +225,7 @@ function DashboardHistory() {
 
           <form onSubmit={handleStudentSearch}>
             <label htmlFor="student-search">
-              Buscar estudiante
+              {isAdmin ? 'Buscar estudiante o instructor' : 'Buscar estudiante'}
             </label>
 
             <div className="dashboard-search-row">
@@ -231,6 +269,7 @@ function DashboardHistory() {
 
                       <span>
                         {student.firstname} {student.lastname}
+                        {isAdmin && ROLE_LABELS[student.role] && ` · ${ROLE_LABELS[student.role]}`}
                       </span>
                     </div>
 
@@ -324,7 +363,7 @@ function DashboardHistory() {
               setHistory([]);
             }}
           >
-            Cambiar estudiante
+            {isAdmin ? 'Cambiar usuario' : 'Cambiar estudiante'}
           </button>
         </div>
       )}
@@ -409,10 +448,22 @@ function DashboardHistory() {
                     <button
                       type="button"
                       className="dashboard-history-report"
-                      onClick={handleDownload}
+                      onClick={() => handleDownload(activity)}
+                      disabled={activity.status === 'running' || downloadingId === activity.id}
+                      title={
+                        activity.status === 'running'
+                          ? 'El reporte estará disponible cuando la sesión termine'
+                          : undefined
+                      }
                     >
-                      Descargar reporte PDF
+                      {downloadingId === activity.id ? 'Generando reporte...' : 'Descargar reporte PDF'}
                     </button>
+
+                    {downloadError.id === activity.id && (
+                      <p style={{ margin: '8px 0 0', fontSize: '0.8rem', color: '#ff8b99' }}>
+                        {downloadError.message}
+                      </p>
+                    )}
 
                   </article>
                 ))

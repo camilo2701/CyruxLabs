@@ -21,7 +21,7 @@ function isEarned(trophy, { solved, elapsedSeconds, failedFlags, evidence }) {
 
 // Works out which trophies a finished session earned, saves the new unlocks and returns them.
 // Only NEW unlocks come back, so a trophy the player already owns never shows up twice.
-export async function awardTrophies({ userid, labid, solved, elapsedSeconds, failedFlags, evidence }) {
+export async function awardTrophies({ userid, labid, sessionid = null, solved, elapsedSeconds, failedFlags, evidence }) {
     const { data: trophies, error: trophyError } = await supabase
         .from('trophy')
         .select('trophyid, type, name, description, criteriatype, criteria')
@@ -40,7 +40,7 @@ export async function awardTrophies({ userid, labid, solved, elapsedSeconds, fai
     const { data: inserted, error: insertError } = await supabase
         .from('trophyuser')
         .upsert(
-            earned.map((trophy) => ({ trophyid: trophy.trophyid, userid })),
+            earned.map((trophy) => ({ trophyid: trophy.trophyid, userid, sessionid })),
             { onConflict: 'trophyid,userid', ignoreDuplicates: true }
         )
         .select('trophyid');

@@ -8,6 +8,7 @@ import {
     postRestartSession,
     postStopSession,
     postSubmitFlag,
+    getSessionReport,
 } from '../controllers/sessionController.js';
 
 const router = Router();
@@ -15,6 +16,7 @@ const router = Router();
 router.get('/me', requireAuth, getMySessions);
 router.get('/user/:userid', requireAuth, requireRole(1, 2), getSessionsByUserId);
 
+router.get('/:sessionid/report', requireAuth, getSessionReport);
 router.get('/:sessionid', requireAuth, getSessionDetails);
 router.post('/submit-flag', requireAuth, postSubmitFlag);
 

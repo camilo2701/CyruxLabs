@@ -53,21 +53,23 @@ export function evaluateBadges(catalog, sessions, { accountDate } = {}) {
     solved.forEach((session) => {
         if (!distinctLabs.has(session.labid)) {
             distinctLabs.add(session.labid);
-            labsReachedOn.push(session.day);
+            labsReachedOn.push({ day: session.day, sessionid: session.sessionid });
         }
 
         if ((session.failedflags ?? 0) === 0 && !cleanLabs.has(session.labid)) {
             cleanLabs.add(session.labid);
-            cleanReachedOn.push(session.day);
+            cleanReachedOn.push({ day: session.day, sessionid: session.sessionid });
         }
 
         const minutes = (new Date(session.finishtime) - new Date(session.starttime)) / 60000;
-        if (minutes >= 0) fastestBefore.push({ minutes, day: session.day });
+        if (minutes >= 0) fastestBefore.push({ minutes, day: session.day, sessionid: session.sessionid });
 
         if (session.day !== lastDay) {
             currentStreak = lastDay && daysBetween(lastDay, session.day) === 1 ? currentStreak + 1 : 1;
             lastDay = session.day;
-            if (currentStreak > streakReachedOn.length) streakReachedOn.push(session.day);
+            if (currentStreak > streakReachedOn.length) {
+                streakReachedOn.push({ day: session.day, sessionid: session.sessionid });
+            }
         }
     });
 
@@ -75,29 +77,29 @@ export function evaluateBadges(catalog, sessions, { accountDate } = {}) {
 
     catalog.forEach((badge) => {
         const n = badge.criteria;
-        let day = null;
+        let reached = null;
 
         switch (badge.category) {
             case 'account':
-                if (accountDate) day = accountDate;
+                if (accountDate) reached = { day: accountDate, sessionid: null };
                 break;
             case 'labs':
-                day = labsReachedOn[n - 1] ?? null;
+                reached = labsReachedOn[n - 1] ?? null;
                 break;
             case 'no_fail':
-                day = cleanReachedOn[n - 1] ?? null;
+                reached = cleanReachedOn[n - 1] ?? null;
                 break;
             case 'streak':
-                day = streakReachedOn[n - 1] ?? null;
+                reached = streakReachedOn[n - 1] ?? null;
                 break;
             case 'time':
-                day = fastestBefore.find((s) => s.minutes < n)?.day ?? null;
+                reached = fastestBefore.find((s) => s.minutes < n) ?? null;
                 break;
             default:
                 break;
         }
 
-        if (day) achieved.set(badge.badgeid, day);
+        if (reached) achieved.set(badge.badgeid, { day: reached.day, sessionid: reached.sessionid ?? null });
     });
 
     return achieved;
@@ -111,7 +113,7 @@ export async function checkBadges(userid) {
         supabase.from('userbadge').select('badgeid').eq('userid', userid),
         supabase
             .from('session')
-            .select('labid, starttime, finishtime, issolved, failedflags')
+            .select('sessionid, labid, starttime, finishtime, issolved, failedflags')
             .eq('userid', userid)
             .eq('issolved', true),
     ]);
@@ -130,7 +132,12 @@ export async function checkBadges(userid) {
     });
     if (achieved.size === 0) return [];
 
-    const rows = [...achieved].map(([badgeid, day]) => ({ badgeid, userid, dateofunlock: day }));
+    const rows = [...achieved].map(([badgeid, { day, sessionid }]) => ({
+        badgeid,
+        userid,
+        dateofunlock: day,
+        sessionid, // sesión en que se ganó 
+    }));
 
     const { error } = await supabase
         .from('userbadge')
@@ -139,7 +146,7 @@ export async function checkBadges(userid) {
 
     return pending
         .filter((badge) => achieved.has(badge.badgeid))
-        .map((badge) => ({ ...badge, dateofunlock: achieved.get(badge.badgeid) }));
+        .map((badge) => ({ ...badge, dateofunlock: achieved.get(badge.badgeid).day }));
 }
 
 export async function checkBadgesSafely(userid) {

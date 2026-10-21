@@ -5,6 +5,7 @@ import { AuthError } from './authService.js';
 import { getLevelInfo } from './levelService.js';
 import { checkBadgesSafely, getLockedBadgesSafely } from './badgeService.js';
 import { logEvent } from './logService.js';
+import { removeLabFolder } from '../controllers/labsController.js';
 
 const usernameRegex = /^[a-zA-Z0-9.-]{1,12}$/;
 const nameRegex = /^\p{L}+$/u;
@@ -25,7 +26,7 @@ function signToken(user) {
     return jwt.sign(
         { userid: user.userid, username: user.username, role: user.role },
         process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+        { algorithm: 'HS256', expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
     );
 }
 
@@ -48,10 +49,9 @@ function logPasswordCheckFailed(actor, ip, doing) {
     });
 }
 
-// " junto con 2 laboratorio(s) y 5 sesión(es)", o '' si no había nada más
-function describeCascade({ labCount, sessionCount }) {
-    if (labCount === 0 && sessionCount === 0) return '';
-    return ` junto con ${labCount} laboratorio(s) y ${sessionCount} sesión(es)`;
+function describeCascade({ labCount }) {
+    if (labCount === 0) return '';
+    return ` junto con ${labCount} laboratorio(s) marcado(s) como eliminado(s)`;
 }
 
 export async function updateProfile(userid, { username, firstName, lastName, email, currentPassword, ip }) {
@@ -254,12 +254,11 @@ async function deleteUserCascade(userid) {
     if (labsLookupError) throw labsLookupError;
     const labIds = (labs || []).map((l) => l.labid);
 
-    // sesiones a borrar: las del usuario + otros usuarios si tenia un lab
-    let sessionQuery = supabase.from('session').select('sessionid');
-    sessionQuery = labIds.length > 0
-        ? sessionQuery.or(`userid.eq.${userid},labid.in.(${labIds.join(',')})`)
-        : sessionQuery.eq('userid', userid);
-    const { data: sessions, error: sessionsLookupError } = await sessionQuery;
+    // solo las sesiones del propio usuario (las de otros en sus labs se conservan)
+    const { data: sessions, error: sessionsLookupError } = await supabase
+        .from('session')
+        .select('sessionid')
+        .eq('userid', userid);
     if (sessionsLookupError) throw sessionsLookupError;
     const sessionIds = (sessions || []).map((s) => s.sessionid);
 
@@ -278,7 +277,7 @@ async function deleteUserCascade(userid) {
         if (sessionError) throw sessionError;
     }
 
-    // bugreport tiene FK a users y a lab
+    // bug reports que escribió el usuario (los de otros sobre sus labs se conservan)
     const { error: bugByUserError } = await supabase
         .from('bugreport')
         .delete()
@@ -286,52 +285,16 @@ async function deleteUserCascade(userid) {
     if (bugByUserError) throw bugByUserError;
 
     if (labIds.length > 0) {
-        const { error: bugByLabError } = await supabase
-            .from('bugreport')
-            .delete()
-            .in('labid', labIds);
-        if (bugByLabError) throw bugByLabError;
-
-        // trophyuser
-        const { data: labTrophies, error: trophyLookupError } = await supabase
-            .from('trophy')
-            .select('trophyid')
-            .in('labid', labIds);
-        if (trophyLookupError) throw trophyLookupError;
-        const trophyIds = (labTrophies || []).map((t) => t.trophyid);
-
-        if (trophyIds.length > 0) {
-            const { error: unlockByTrophyError } = await supabase
-                .from('trophyuser')
-                .delete()
-                .in('trophyid', trophyIds);
-            if (unlockByTrophyError) throw unlockByTrophyError;
-
-            const { error: trophyError } = await supabase
-                .from('trophy')
-                .delete()
-                .in('trophyid', trophyIds);
-            if (trophyError) throw trophyError;
-        }
-
-        // 5) benefit depende de lab
-        const { error: benefitError } = await supabase
-            .from('benefit')
-            .delete()
-            .in('labid', labIds);
-        if (benefitError) throw benefitError;
-
+        // sus labs pasan a eliminados (como al eliminar un lab) y quedan sin creador,
+        // así se conservan las sesiones, trofeos y reportes de otros usuarios
         const { error: labError } = await supabase
             .from('lab')
-            .delete()
+            .update({ isdeleted: true, userid: null, zippath: null })
             .in('labid', labIds);
         if (labError) throw labError;
 
-        // los zips de esos labs ya no hacen falta (si falla, solo se avisa: no debe frenar el borrado)
-        const { error: zipError } = await supabase.storage
-            .from('labfiles')
-            .remove(labIds.map((id) => `labs/${id}/bundle.zip`));
-        if (zipError) console.error('Delete lab zips error:', zipError);
+        // libera el espacio de sus zips
+        for (const id of labIds) await removeLabFolder(id);
     }
 
     // trofeos que el usuario desbloqueó (en labs de cualquier autor)
@@ -357,7 +320,8 @@ async function deleteUserCascade(userid) {
     return { labCount: labIds.length, sessionCount: sessionIds.length };
 }
 
-export async function searchStudents(query) {
+// instructor (1) → solo estudiantes; admin (2) → estudiantes e instructores
+export async function searchStudents(query, viewerRole = 1) {
     if (typeof query !== 'string' || !query.trim()) return [];
 
     // misma limpieza que searchUsers: sin comas, paréntesis ni comodines dentro del filtro
@@ -366,8 +330,8 @@ export async function searchStudents(query) {
 
     const { data, error } = await supabase
         .from('users')
-        .select('userid, username, firstname, lastname')
-        .eq('role', 0)
+        .select('userid, username, firstname, lastname, role')
+        .in('role', viewerRole === 2 ? [0, 1] : [0])
         .or(`username.ilike.%${safeQuery}%,firstname.ilike.%${safeQuery}%,lastname.ilike.%${safeQuery}%`);
 
     if (error) throw error;

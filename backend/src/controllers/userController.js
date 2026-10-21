@@ -60,7 +60,7 @@ export async function deleteMe(req, res) {
 export async function getStudents(req, res) {
     try {
         const { search = '' } = req.query;
-        const students = await searchStudents(search);
+        const students = await searchStudents(search, req.user.role);
         return res.status(200).json({ students });
     } catch (err) {
         console.error('Error buscando estudiantes:', err);
