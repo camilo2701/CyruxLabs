@@ -12,7 +12,6 @@ import { logEvent } from './logService.js';
 
 const BUCKET = 'labfiles';
 const SWEEP_INTERVAL_MS = 60 * 1000;
-const FORCE_CLOSE_MESSAGE = 'El laboratorio se actualizó y la sesión se cerró.';
 
 // Labs whose update is being applied right now by this process, so two triggers never overlap
 const applying = new Set();
@@ -168,34 +167,42 @@ async function invalidateRunnerCache(labid) {
     if (!response.ok) throw new Error(`The runner answered ${response.status}`);
 }
 
-// Only for the admin's "apply now": stops every open session of the lab. Nobody gets trophies or XP
-// from these sessions. If the runner cannot stop one, this throws and the update is NOT applied.
+// Only for the admin's "apply now": closes every open session of the lab the same way the student
+// pressing "Terminar Lab" would (runner stopped, evidence saved, command / process trophies awarded),
+// so what the student already earned is kept. There is no XP: that only comes from solving the lab.
+// The session is first marked startstatus 'updated': the session page sees it, hides the lab and tells
+// the student why. If the runner cannot stop a session, the mark is undone and this throws, so the
+// update is NOT applied and the student keeps playing.
 async function closeSessionsForUpdate(openSessions, { actor, ip }) {
-    for (const session of openSessions) {
-        const response = await fetch(`${RUNNER_URL}/stop`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sessionid: session.sessionid }),
-            signal: AbortSignal.timeout(90_000),
-        });
+    // Loaded here (not at the top) because sessionService also imports this file
+    const { stopTrainingSession } = await import('./sessionService.js');
 
-        if (!response.ok) {
-            throw new Error(`The runner could not stop session #${session.sessionid}`);
+    for (const session of openSessions) {
+        // A lab that is still building is simply cancelled (that path already has its own status)
+        const mark = session.startstatus !== 'starting';
+
+        if (mark) {
+            const { error: markError } = await supabase
+                .from('session')
+                .update({ startstatus: 'updated', startphase: 'updated' })
+                .eq('sessionid', session.sessionid)
+                .eq('iscompleted', false);
+
+            if (markError) console.error('Session update mark error:', markError);
         }
 
-        const { error } = await supabase
-            .from('session')
-            .update({
-                iscompleted: true,
-                finishtime: new Date().toISOString(),
-                startstatus: 'failed',
-                startphase: 'failed',
-                starterror: FORCE_CLOSE_MESSAGE,
-            })
-            .eq('sessionid', session.sessionid)
-            .eq('iscompleted', false);
-
-        if (error) console.error('Forced session close update error:', error);
+        try {
+            await stopTrainingSession(session.sessionid, undefined, { actor, ip });
+        } catch (err) {
+            if (mark) {
+                await supabase
+                    .from('session')
+                    .update({ startstatus: session.startstatus, startphase: session.startphase })
+                    .eq('sessionid', session.sessionid)
+                    .eq('iscompleted', false);
+            }
+            throw err;
+        }
 
         logEvent({
             actor,

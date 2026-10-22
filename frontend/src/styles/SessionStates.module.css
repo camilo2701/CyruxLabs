@@ -1,0 +1,50 @@
+/* Screens for the right-hand side of the session page that are NOT the lab itself: waiting while the
+   lab restarts or closes, and the one for a session closed by a lab update.
+   They are always used together with styles.congrats from Session.module.css (same layout and fade-in).
+   The doubled class (.busy.busy, .updated.updated) only raises the specificity so these rules win over
+   the .congrats rules whatever order the stylesheets load in. */
+
+/* ---------- Waiting: restarting / closing ---------- */
+
+.busy.busy h1 {
+    color: aliceblue;
+}
+
+.spinner {
+    width: 44px;
+    height: 44px;
+
+    border: 3px solid #201d2a;
+    border-top-color: #ee5dfb;
+    border-radius: 50%;
+
+    animation: session-spin 0.9s linear infinite;
+}
+
+@keyframes session-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ---------- Closed because the lab was updated ---------- */
+
+.updated.updated h1 {
+    color: #ffc457;
+    text-shadow: 0 0 18px rgba(255, 196, 87, 0.35);
+}
+
+.updated.updated button {
+    background: transparent;
+    border: 1.5px solid #ffc457;
+    color: #ffc457;
+}
+
+.updated.updated button:hover {
+    background: rgba(255, 196, 87, 0.1);
+    box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .spinner {
+        animation-duration: 3s;
+    }
+}

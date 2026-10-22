@@ -3,6 +3,7 @@ import styles from '../../styles/Session.module.css';
 function SessionControls({
     isEnded,
     stopping,
+    restarting,
     flag,
     onFlagChange,
     submittingFlag,
@@ -15,7 +16,7 @@ function SessionControls({
         <div className={styles['sidebar-controls']}>
 
             <div className={styles['sidebar-controls-buttons']}>
-                <button onClick={onRestart} disabled={isEnded}>Reiniciar Lab</button>
+                <button onClick={onRestart} disabled={isEnded}>{restarting ? 'Reiniciando...' : 'Reiniciar Lab'}</button>
 
                 <button onClick={onStop} disabled={isEnded}>{stopping ? 'Terminando...' : 'Terminar Lab'}</button>
 

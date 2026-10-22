@@ -40,6 +40,7 @@ export async function awardTrophies({ userid, labid, sessionid = null, solved, e
     const { data: inserted, error: insertError } = await supabase
         .from('trophyuser')
         .upsert(
+            // sessionid: which session unlocked it, so the session page can show it again
             earned.map((trophy) => ({ trophyid: trophy.trophyid, userid, sessionid })),
             { onConflict: 'trophyid,userid', ignoreDuplicates: true }
         )

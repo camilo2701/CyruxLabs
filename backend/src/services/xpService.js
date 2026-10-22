@@ -78,16 +78,56 @@ async function addXpToUser(userid, points) {
     throw new Error('No se pudo actualizar el XP (demasiados cambios simultáneos)');
 }
 
-// Gives a student the lab's score as XP when they solve it.
-//  - Only the FIRST time they solve that lab counts (repeat solves earn nothing).
-//  - The author of a lab earns nothing on their own lab.
-// Called from stopTrainingSession, which already guarantees it runs once per session.
+// ---------- Trophy XP ----------
+// A trophy gives XP the first time a student unlocks it. The amount is a fixed number of XP for
+// every 100 points of the lab's score, so harder labs give more:
+//   bronze 5  ·  silver 10  ·  gold 20   (per 100 points of lab score)
 //
-// Returns what the screen needs:
-//   { earned, total, level, leveledUp }  when XP was given
-//   { earned: 0, reason }                when it was not ('own_lab' | 'already_solved')
+//   lab score |  bronze | silver | gold
+//       100   |     5   |   10   |  20
+//       200   |    10   |   20   |  40
+//       300   |    15   |   30   |  60
+//       400   |    20   |   40   |  80
+//       500   |    25   |   50   | 100
+//
+// Only whole numbers are multiplied (XP per 100 x number of hundreds), so there are never decimals.
+// A lab has the automatic bronze trophy plus at most 3 of its own (see MAX_TROPHIES_BY_TYPE in
+// labRules), so the trophies can add at most 45 % of the lab's score (5 + 20 + 10 + 10 per 100),
+// and a typical lab adds 15-35 %. The lab itself stays the main source of XP.
+// To rebalance, only change these numbers: nothing lives in the database.
+const TROPHY_XP_PER_100 = { 0: 5, 1: 10, 2: 20 };
+
+// XP of one trophy of a given type (0 bronze, 1 silver, 2 gold) in a lab with a given score.
+// Math.floor only protects against a score that is not a multiple of 100 (it never is today).
+export function trophyXp(type, labScore) {
+    const perHundred = TROPHY_XP_PER_100[type] ?? 0;
+    return perHundred * Math.floor(labScore / 100);
+}
+
+// ---------- Handing out the XP of a finished session ----------
+// Called from stopTrainingSession, which already guarantees it runs once per session.
+// It is what makes XP impossible to farm:
+//  - The lab's score is given only the FIRST time that student solves that lab (later solves earn nothing).
+//  - A trophy gives XP only when it is NEWLY unlocked. awardTrophies already filters out the ones the
+//    student owns (trophyuser has one row per student and trophy), so `trophies` only has new ones.
+//    An earned trophy cannot be deleted or recreated (see updateLab), so it cannot be earned twice either.
+//  - The author of a lab earns no XP at all on their own lab (neither the score nor the trophies).
+//  - All of it is added in ONE write, so the level is judged once with everything the session gave.
+//
+// solved   : the session ended by solving the lab
+// trophies : the trophies unlocked in this session ([{ type, name, description }])
+//
+// Returns { xp, trophies }:
+//   trophies: the same list, each one with the XP it gave ({ ..., xp })
+//   xp: what the screen needs
+//     { earned, lab, trophies, reason, total, level, leveledUp }  when XP was given
+//         earned = lab + trophies; reason ('already_solved' | 'own_lab') says why lab is 0 on a solve
+//     { earned: 0, lab: 0, trophies: 0, reason }                  when it solved but nothing was given
+//     null                                                        when it did not solve and gave nothing
 // It THROWS on database errors; the caller catches them so closing a session never fails.
-export async function awardLabXp({ userid, labid, sessionid }) {
+export async function awardSessionXp({ userid, labid, sessionid, solved, trophies = [] }) {
+    if (!solved && trophies.length === 0) return { xp: null, trophies };
+
     // The lab is read even if it was deleted since: a session that was already running
     // can still be finished (deleted labs are only flagged, nothing is removed)
     const { data: lab, error: labError } = await supabase
@@ -98,32 +138,60 @@ export async function awardLabXp({ userid, labid, sessionid }) {
 
     if (labError) throw labError;
 
-    if (lab.userid === userid) {
-        return { earned: 0, reason: 'own_lab' };
+    const labScore = lab.score ?? 0;
+    const isOwnLab = lab.userid === userid;
+
+    let labPoints = 0;
+    let reason;
+
+    if (solved) {
+        if (isOwnLab) {
+            reason = 'own_lab';
+        } else {
+            // Any OTHER session of this user that already solved this lab?
+            const { data: earlier, error: earlierError } = await supabase
+                .from('session')
+                .select('sessionid')
+                .eq('userid', userid)
+                .eq('labid', labid)
+                .eq('issolved', true)
+                .neq('sessionid', sessionid)
+                .limit(1);
+
+            if (earlierError) throw earlierError;
+
+            if (earlier.length > 0) reason = 'already_solved';
+            else labPoints = labScore;
+        }
     }
 
-    // Any OTHER session of this user that already solved this lab?
-    const { data: earlier, error: earlierError } = await supabase
-        .from('session')
-        .select('sessionid')
-        .eq('userid', userid)
-        .eq('labid', labid)
-        .eq('issolved', true)
-        .neq('sessionid', sessionid)
-        .limit(1);
+    const trophiesWithXp = trophies.map((trophy) => ({
+        ...trophy,
+        xp: isOwnLab ? 0 : trophyXp(trophy.type, labScore),
+    }));
+    const trophyPoints = trophiesWithXp.reduce((sum, trophy) => sum + trophy.xp, 0);
 
-    if (earlierError) throw earlierError;
+    const points = labPoints + trophyPoints;
 
-    if (earlier.length > 0) {
-        return { earned: 0, reason: 'already_solved' };
+    if (points === 0) {
+        return {
+            xp: solved ? { earned: 0, lab: 0, trophies: 0, reason } : null,
+            trophies: trophiesWithXp,
+        };
     }
 
-    const result = await addXpToUser(userid, lab.score);
+    const result = await addXpToUser(userid, points);
 
     return {
-        earned: lab.score,
-        total: result.total,
-        level: result.level,
-        leveledUp: result.level > result.previousLevel,
+        xp: {
+            earned: points,
+            lab: labPoints,
+            trophies: trophyPoints,
+            reason,
+            total: result.total,
+            level: result.level,
+            leveledUp: result.level > result.previousLevel,
+        },
+        trophies: trophiesWithXp,
     };
 }

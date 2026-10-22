@@ -1,4 +1,4 @@
-import { getSessionsForUser, getSessionById, refreshStartStatus, startTrainingSession, restartTrainingSession, stopTrainingSession, submitFlag } from '../services/sessionService.js';
+import { getSessionsForUser, getSessionById, getSessionTrophies, refreshStartStatus, startTrainingSession, restartTrainingSession, stopTrainingSession, submitFlag } from '../services/sessionService.js';
 import { logEvent, fromReq, clientIp } from '../services/logService.js';
 import { getSessionReportData, buildSessionReportPdf } from '../services/reportPdfService.js';
 import { supabase } from '../config/supabaseClient.js';
@@ -107,7 +107,12 @@ export async function getSessionDetails(req, res) {
         const session = await getSessionById(sessionid);
         assertOwnsSession(session, req.user, { action: 'READ', verb: 'ver', ip: clientIp(req) });
         const fresh = await refreshStartStatus(session, logContextOf(req));
-        res.json({ session: fresh });
+
+        // Once the session has ended it also says what it unlocked: the page needs it when the
+        // session was closed without the student asking (for example by a lab update)
+        const trophies = fresh.iscompleted ? await getSessionTrophies(sessionid) : [];
+
+        res.json({ session: { ...fresh, trophies } });
     } catch (err) {
         console.error('Get session details error:', err);
         res.status(err.status || 500).json({ message: err.message, error: err.details || err.message });
@@ -151,8 +156,9 @@ export async function postStopSession(req, res) {
         const { sessionid } = req.body;
         const session = await getSessionById(sessionid);
         assertOwnsSession(session, req.user, { action: 'UPDATE', verb: 'cerrar', ip: clientIp(req) });
-        const { finishtime, trophies } = await stopTrainingSession(sessionid, undefined, logContextOf(req));
-        res.json({ message: 'Session stopped', finishtime, trophies });
+        // xp: what the session gave (trophies can give XP even when the lab was not solved)
+        const { finishtime, trophies, xp } = await stopTrainingSession(sessionid, undefined, logContextOf(req));
+        res.json({ message: 'Session stopped', finishtime, trophies, xp });
     } catch (err) {
         console.error('Stop session error:', err);
         res.status(err.status || 500).json({ message: err.message, error: err.details || err.message });

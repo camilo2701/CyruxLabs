@@ -1,6 +1,6 @@
 import { supabase } from '../config/supabaseClient.js';
 import { awardTrophies } from './trophyService.js';
-import { awardLabXp } from './xpService.js';
+import { awardSessionXp } from './xpService.js';
 import { checkBadgesSafely } from './badgeService.js';
 import { saveEvidenceReport } from './reportService.js';
 import { logEvent } from './logService.js';
@@ -53,6 +53,23 @@ export async function getSessionById(sessionid) {
     }
 
     return data;
+}
+
+// The trophies a session unlocked (only NEW ones are linked to it). The session page asks for them
+// when it finds out the session ended on its own, for example when an admin applied a lab update.
+// A problem reading them must never break the page, so it answers an empty list.
+export async function getSessionTrophies(sessionid) {
+    const { data, error } = await supabase
+        .from('trophyuser')
+        .select('trophy(type, name, description)')
+        .eq('sessionid', sessionid);
+
+    if (error) {
+        console.error('Session trophies read error:', error);
+        return [];
+    }
+
+    return data.map((row) => row.trophy).filter(Boolean);
 }
 
 // A lab with a pending zip + flag update takes no NEW sessions (see labUpdateService), so every open
@@ -668,12 +685,21 @@ async function closeTrainingSession(sessionid, finishedAt, logContext = {}) {
         }
     }
 
-    // XP only when the session ended by solving the lab (issolved is saved before the stop).
-    // Same rule as the trophies: an XP problem must never break closing the session.
+    // XP: the lab's score (only if the session ended by solving it) plus the XP of the trophies
+    // unlocked in this session. Trophies can be earned without solving, so this runs for every
+    // session that ends. An XP problem must never break closing the session.
     let xp = null;
-    if (firstCompletion && row?.issolved) {
+    if (firstCompletion && row) {
         try {
-            xp = await awardLabXp({ userid: row.userid, labid: row.labid, sessionid });
+            const result = await awardSessionXp({
+                userid: row.userid,
+                labid: row.labid,
+                sessionid,
+                solved: !!row.issolved,
+                trophies,
+            });
+            xp = result.xp;
+            trophies = result.trophies; // same trophies, each now with the XP it gave
         } catch (err) {
             console.error('Award XP error:', err);
         }
@@ -698,7 +724,7 @@ async function closeTrainingSession(sessionid, finishedAt, logContext = {}) {
                 ? `Resolvió el laboratorio y cerró la sesión #${sessionid}${
                     Number.isFinite(elapsed) ? ` en ${formatDuration(elapsed)}` : ''
                 }${ownerNote}${xpNote}`
-                : `Cerró la sesión #${sessionid} sin resolver el laboratorio${ownerNote}`,
+                : `Cerró la sesión #${sessionid} sin resolver el laboratorio${ownerNote}${xpNote}`,
         });
     }
 

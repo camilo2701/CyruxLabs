@@ -550,3 +550,81 @@
     flex-shrink: 0;
     margin-top: 0.1rem;
 }
+
+.congrats-trophy-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.congrats-trophy-xp {
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+
+    font-family: "Orbitron", sans-serif;
+    font-size: 0.8rem;
+    color: #ee5dfb;
+    white-space: nowrap;
+}
+
+
+/* =========================
+   XP SUMMARY (congrats screen)
+   ========================= */
+
+.congrats-xp {
+    width: min(90%, 420px);
+    margin-top: 1rem;
+    padding: 1rem 1.25rem;
+
+    background: rgba(13, 11, 19, 0.7);
+    border: 1px solid #201d2a;
+    border-radius: 12px;
+
+    font-family: "Inter", sans-serif;
+}
+
+.congrats-xp h2 {
+    margin: 0 0 0.75rem;
+
+    font-family: "Orbitron", sans-serif;
+    font-size: 1rem;
+    font-weight: 400;
+    color: aliceblue;
+
+    text-align: center;
+}
+
+.congrats-xp-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+
+    padding: 0.25rem 0;
+
+    font-size: 0.95rem;
+    color: #c9c7d1;
+}
+
+.congrats-xp-row--total {
+    margin-top: 0.5rem;
+    padding-top: 0.6rem;
+
+    border-top: 1px solid #201d2a;
+
+    font-weight: 600;
+    color: #ee5dfb;
+}
+
+.congrats-xp-row--muted {
+    font-size: 0.85rem;
+    color: #8a8594;
+}
+
+.congrats-xp-levelup {
+    margin-top: 0.75rem;
+
+    text-align: center;
+    font-family: "Orbitron", sans-serif;
+    color: #ee5dfb;
+    text-shadow: 0 0 14px rgba(238, 93, 251, 0.5);
+}

@@ -145,8 +145,8 @@ export function useLabFileUpdate({ labid, token, isAdmin, detail, refreshMeta })
         const confirmed = await confirm({
             title: '¿Aplicar ahora?',
             message:
-                `Se cerrarán las ${pending?.openSessions ?? 0} sesión(es) activa(s) de este laboratorio, ` +
-                'sin dar XP ni trofeos, y se aplicará la actualización. Los estudiantes perderán su progreso.',
+                `Se cerrarán las ${pending?.openSessions ?? 0} sesión(es) activa(s) de este laboratorio y se aplicará la actualización. ` +
+                'Cada estudiante verá un aviso y conservará los trofeos que ya haya ganado, pero no recibe XP y pierde su progreso en el laboratorio.',
             confirmText: 'Sí, aplicar ahora',
             cancelText: 'Cancelar',
         });
