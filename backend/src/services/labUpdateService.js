@@ -263,7 +263,7 @@ async function applyUpdate(labid, { force, actor, ip }) {
 
     const { error: flipError } = await supabase
         .from('lab')
-        .update({ zippath: pending.newzippath, flag: pending.newflag })
+        .update({ zippath: pending.newzippath, flag: pending.newflag, dateofupdate: new Date().toISOString() })
         .eq('labid', labid);
 
     if (flipError) {

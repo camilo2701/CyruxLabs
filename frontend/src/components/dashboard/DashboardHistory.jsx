@@ -12,12 +12,12 @@ const ROLE_NAMES = {
   2: 'admin',
 };
 
-const ROLE_LABELS = { 0: 'Estudiante', 1: 'Instructor' };
+const ROLE_LABELS = { 0: 'Estudiante', 1: 'Instructor', 2: 'Admin' };
 
 function DashboardHistory() {
   const { user, token } = useAuth();
   const role = ROLE_NAMES[user.role] || 'student';
-  // El admin busca estudiantes e instructores; el instructor solo estudiantes
+  // El admin busca usuarios de cualquier rol; el instructor solo estudiantes
   const isAdmin = role === 'admin';
 
   const [studentSearch, setStudentSearch] = useState('');
@@ -225,7 +225,7 @@ function DashboardHistory() {
 
           <form onSubmit={handleStudentSearch}>
             <label htmlFor="student-search">
-              {isAdmin ? 'Buscar estudiante o instructor' : 'Buscar estudiante'}
+              {isAdmin ? 'Buscar usuario' : 'Buscar estudiante'}
             </label>
 
             <div className="dashboard-search-row">

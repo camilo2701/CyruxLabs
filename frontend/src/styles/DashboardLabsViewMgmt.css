@@ -67,7 +67,7 @@
 
 .manage-users__table-header--labs,
 .manage-users__row--labs {
-  grid-template-columns: 60px 1.5fr 1fr 1fr 1fr 130px;
+  grid-template-columns: 60px 1.5fr 1fr 1fr 1fr 1fr 130px;
 }
 
 .lab-edit-fields {

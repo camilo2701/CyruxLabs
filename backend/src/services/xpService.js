@@ -17,6 +17,23 @@ export function levelForXp(xp) {
     return level;
 }
 
+// Datos para la barra de progreso del perfil (niveles sin tope, misma curva de arriba)
+export function getLevelInfo(score = 0) {
+    const safeScore = Math.max(0, Number(score) || 0);
+    const level = levelForXp(safeScore);
+    const currentLevelMin = xpForLevel(level);
+    const nextLevelMin = xpForLevel(level + 1);
+
+    return {
+        level,
+        score: safeScore,
+        currentLevelMin,
+        nextLevelMin,
+        pointsToNextLevel: nextLevelMin - safeScore,
+        progress: Math.floor(((safeScore - currentLevelMin) / (nextLevelMin - currentLevelMin)) * 100),
+    };
+}
+
 // ---------- Adding XP ----------
 
 const MAX_UPDATE_ATTEMPTS = 5;

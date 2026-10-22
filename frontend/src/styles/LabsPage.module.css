@@ -108,6 +108,13 @@
     min-width: 0;
 }
 
+/* Fecha de actualización bajo el título del lab seleccionado */
+.lab-updated{
+    margin-top: -0.3em;
+    font-size: 0.8rem;
+    color: #9b93ab;
+}
+
 /* Difficulty + points of the selected lab */
 .score-chip{
     display: inline-flex;

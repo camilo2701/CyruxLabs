@@ -235,31 +235,16 @@
   color: #9b93ab;
 }
 
-.levelSteps {
-  display: grid;
-  grid-template-columns: repeat(10, 1fr);
-  gap: 6px;
+.levelRange {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
 
-  margin-top: 20px;
-}
+  margin-bottom: 8px;
 
-.levelStep {
-  padding: 6px 0;
-
-  text-align: center;
-  font-family: 'Orbitron', sans-serif;
   font-size: 0.75rem;
-  color: #6f687d;
-
-  background: #0d0b13;
-  border: 1px solid rgba(198, 100, 247, 0.08);
-  border-radius: 6px;
-}
-
-.levelStepDone {
-  color: #f4f2f8;
-  background: rgba(198, 100, 247, 0.18);
-  border-color: rgba(198, 100, 247, 0.4);
+  color: #9b93ab;
 }
 
 .badgeGrid {
@@ -594,9 +579,5 @@
   .heroTitle,
   .heroMeta {
     justify-content: center;
-  }
-
-  .levelSteps {
-    grid-template-columns: repeat(5, 1fr);
   }
 }

@@ -11,6 +11,10 @@ import ScoreMeter from '../components/ScoreMeter.jsx'
 import { useAuth } from '../context/AuthContext';
 import { getScoreTier } from '../utils/labRules.js';
 
+// Solo el día, siempre en hora de Chile
+const formatDate = (iso) =>
+    iso ? new Date(iso).toLocaleDateString('es-CL', { timeZone: 'America/Santiago' }) : '—';
+
 // How often the page asks how the lab is going, and how many failed asks in a row it tolerates
 const POLL_MS = 2000;
 const MAX_POLL_ERRORS = 5;
@@ -314,6 +318,11 @@ function LabsPage(){
                         <div className={styles['lab-selection-nav']}>
                             <div className={styles['lab-selection-heading']}>
                                 <h2>{selectedLab?.title}</h2>
+                                {selectedLab?.dateofupdate && (
+                                    <span className={styles['lab-updated']}>
+                                        Última actualización: {formatDate(selectedLab.dateofupdate)}
+                                    </span>
+                                )}
                                 {selectedTier && (
                                     <div className={styles['score-chip']}>
                                         <ScoreMeter score={selectedLab.score} />

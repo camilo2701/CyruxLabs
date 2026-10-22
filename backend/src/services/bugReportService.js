@@ -109,7 +109,7 @@ export async function updateReportStatus(bugreportid, status, reqUser) {
 
     const { data: report, error: fetchError } = await supabase
         .from('bugreport')
-        .select('bugreportid, labid')
+        .select('bugreportid, labid, status')
         .eq('bugreportid', bugreportid)
         .maybeSingle();
 
@@ -124,6 +124,16 @@ export async function updateReportStatus(bugreportid, status, reqUser) {
         .eq('bugreportid', bugreportid);
 
     if (updateError) throw updateError;
+
+    // un bug que pasa a Resuelto cuenta como actualización del lab (volver a Pendiente no)
+    if (report.status === 0 && status === 1) {
+        const { error: dateError } = await supabase
+            .from('lab')
+            .update({ dateofupdate: new Date().toISOString() })
+            .eq('labid', report.labid);
+
+        if (dateError) throw dateError;
+    }
 
     return { bugreportid, status };
 }

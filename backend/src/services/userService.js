@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { supabase } from '../config/supabaseClient.js';
 import { AuthError } from './authService.js';
-import { getLevelInfo } from './levelService.js';
+import { getLevelInfo } from './xpService.js';
 import { checkBadgesSafely, getLockedBadgesSafely } from './badgeService.js';
 import { logEvent } from './logService.js';
 import { removeLabFolder } from '../controllers/labsController.js';
@@ -320,7 +320,7 @@ async function deleteUserCascade(userid) {
     return { labCount: labIds.length, sessionCount: sessionIds.length };
 }
 
-// instructor (1) → solo estudiantes; admin (2) → estudiantes e instructores
+// instructor (1) → solo estudiantes; admin (2) → cualquier rol
 export async function searchStudents(query, viewerRole = 1) {
     if (typeof query !== 'string' || !query.trim()) return [];
 
@@ -331,7 +331,7 @@ export async function searchStudents(query, viewerRole = 1) {
     const { data, error } = await supabase
         .from('users')
         .select('userid, username, firstname, lastname, role')
-        .in('role', viewerRole === 2 ? [0, 1] : [0])
+        .in('role', viewerRole === 2 ? [0, 1, 2] : [0])
         .or(`username.ilike.%${safeQuery}%,firstname.ilike.%${safeQuery}%,lastname.ilike.%${safeQuery}%`);
 
     if (error) throw error;

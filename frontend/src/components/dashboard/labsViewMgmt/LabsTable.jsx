@@ -1,4 +1,6 @@
-const formatDate = (iso) => (iso ? new Date(iso).toLocaleDateString('es-CL') : '—');
+// Solo el día, siempre en hora de Chile (no depende de la zona horaria del navegador)
+const formatDate = (iso) =>
+  iso ? new Date(iso).toLocaleDateString('es-CL', { timeZone: 'America/Santiago' }) : '—';
 
 // The table of labs, with the pending-bugs badge and the "Administrar" button of each row
 function LabsTable({ labs, bugCounts, onManage }) {
@@ -10,6 +12,7 @@ function LabsTable({ labs, bugCounts, onManage }) {
         <span>Laboratorio</span>
         <span>Autor</span>
         <span>Fecha de creación</span>
+        <span>Fecha de actualización</span>
         <span>Completado por</span>
         <span>Administrar</span>
       </div>
@@ -35,6 +38,8 @@ function LabsTable({ labs, bugCounts, onManage }) {
           <span>{lab.users?.username ?? 'Desconocido'}</span>
 
           <span>{formatDate(lab.dateofcreation)}</span>
+
+          <span>{formatDate(lab.dateofupdate)}</span>
 
           <span>{lab.completedUserCount} usuario(s)</span>
 

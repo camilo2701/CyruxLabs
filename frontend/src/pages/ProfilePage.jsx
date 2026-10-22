@@ -160,8 +160,6 @@ function ProfilePage() {
 
     if (!profile) return null;
 
-    const isMaxLevel = profile.level === profile.maxLevel;
-
     return (
       <>
         {/* info principal */}
@@ -210,8 +208,14 @@ function ProfilePage() {
           <div className={styles.cardHeader}>
             <h2>Progreso</h2>
             <span className={styles.levelLabel}>
-              Nivel {profile.level} / {profile.maxLevel}
+              Nivel {profile.level}
             </span>
+          </div>
+
+          {/* niveles sin tope: se muestra desde dónde parte el nivel actual y dónde empieza el siguiente */}
+          <div className={styles.levelRange}>
+            <span>Nivel {profile.level} · {formatPoints(profile.currentLevelMin)} pts</span>
+            <span>Nivel {profile.level + 1} · {formatPoints(profile.nextLevelMin)} pts</span>
           </div>
 
           <div
@@ -227,21 +231,8 @@ function ProfilePage() {
           <div className={styles.progressMeta}>
             <span>{formatPoints(profile.score)} pts</span>
             <span>
-              {isMaxLevel
-                ? 'Nivel máximo alcanzado'
-                : `Faltan ${formatPoints(profile.pointsToNextLevel)} pts para el nivel ${profile.level + 1}`}
+              Faltan {formatPoints(profile.pointsToNextLevel)} pts para el nivel {profile.level + 1}
             </span>
-          </div>
-
-          <div className={styles.levelSteps}>
-            {Array.from({ length: profile.maxLevel }, (_, i) => i + 1).map((step) => (
-              <span
-                key={step}
-                className={`${styles.levelStep} ${step <= profile.level ? styles.levelStepDone : ''}`}
-              >
-                {step}
-              </span>
-            ))}
           </div>
         </div>
 

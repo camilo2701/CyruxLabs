@@ -52,7 +52,7 @@ async function getCompletedUserCounts(labIds) {
 // Sin búsqueda: top 5 más recientes (o todos con fetchAll).
 // Con búsqueda: paginado, 5 por página, por título, descripción o autor (username).
 async function queryLabs({ search, pageNumber, fetchAll, ownerId = null }) {
-    const LAB_FIELDS = 'labid, title, description, score, userid, dateofcreation, benefit(benefitid, description), users(username)';
+    const LAB_FIELDS = 'labid, title, description, score, userid, dateofcreation, dateofupdate, benefit(benefitid, description), users(username)';
 
     if (!search) {
         let query = supabase
@@ -760,6 +760,16 @@ export const updateLab = async (req, res) => {
             trophyPlan && trophyPlan.updates.length > 0 && `${trophyPlan.updates.length} trofeo(s) editado(s)`,
             trophyPlan && trophyPlan.removeIds.length > 0 && `-${trophyPlan.removeIds.length} trofeo(s)`,
         ].filter(Boolean);
+
+        // fecha de actualización: solo si de verdad cambió algo (General, Instrucciones o Trofeos)
+        if (changes.length > 0) {
+            const { error: dateError } = await supabase
+                .from('lab')
+                .update({ dateofupdate: new Date().toISOString() })
+                .eq('labid', labid);
+
+            if (dateError) throw dateError;
+        }
 
         logEvent({
             ...fromReq(req),
