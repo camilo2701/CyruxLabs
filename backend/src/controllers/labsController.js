@@ -761,7 +761,7 @@ export const updateLab = async (req, res) => {
             trophyPlan && trophyPlan.removeIds.length > 0 && `-${trophyPlan.removeIds.length} trofeo(s)`,
         ].filter(Boolean);
 
-        // fecha de actualización: solo si de verdad cambió algo (General, Instrucciones o Trofeos)
+        // fecha de actualizacion
         if (changes.length > 0) {
             const { error: dateError } = await supabase
                 .from('lab')

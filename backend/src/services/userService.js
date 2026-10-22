@@ -320,7 +320,7 @@ async function deleteUserCascade(userid) {
     return { labCount: labIds.length, sessionCount: sessionIds.length };
 }
 
-// instructor (1) → solo estudiantes; admin (2) → cualquier rol
+// instructor solo estudiantes, admin cualquier rol
 export async function searchStudents(query, viewerRole = 1) {
     if (typeof query !== 'string' || !query.trim()) return [];
 

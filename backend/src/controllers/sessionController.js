@@ -6,8 +6,7 @@ import { supabase } from '../config/supabaseClient.js';
 // Quién lo hace y desde dónde, para el registro de actividad
 const logContextOf = (req) => ({ actor: req.user, ip: clientIp(req) });
 
-// Qué usuarios puede revisar el staff según el rol del dueño:
-// instructor → solo estudiantes; admin → cualquier rol.
+// instructor solo estudiantes, admin cualquier rol
 export function staffCanAccess(reqUser, ownerRole) {
     if (reqUser.role === 2) return ownerRole === 0 || ownerRole === 1 || ownerRole === 2;
     if (reqUser.role === 1) return ownerRole === 0;

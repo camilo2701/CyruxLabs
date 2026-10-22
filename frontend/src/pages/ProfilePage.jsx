@@ -212,7 +212,7 @@ function ProfilePage() {
             </span>
           </div>
 
-          {/* niveles sin tope: se muestra desde dónde parte el nivel actual y dónde empieza el siguiente */}
+          {/* se muestra desde donde parte el nivel actual y donde empieza el siguiente */}
           <div className={styles.levelRange}>
             <span>Nivel {profile.level} · {formatPoints(profile.currentLevelMin)} pts</span>
             <span>Nivel {profile.level + 1} · {formatPoints(profile.nextLevelMin)} pts</span>

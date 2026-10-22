@@ -109,7 +109,7 @@ function DashboardLabsViewMgmt() {
           onClose={() => {
             setReportsLab(null);
             closeLabModal();
-            // un bug marcado como Resuelto cambia la fecha de actualización del lab
+            // un bug marcado como Resuelto cambia la fecha de actualizacion del lab
             list.reload();
           }}
           onPendingCountChange={list.setBugCount}

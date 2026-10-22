@@ -63,8 +63,6 @@ function LogsIcon() {
   );
 }
 
-// Íconos del menú basados en Lucide (https://lucide.dev, licencia ISC).
-// Son declaraciones de función para poder usarlas en dashboardSections (definido más arriba).
 function SidebarIcon({ children }) {
   return (
     <svg
@@ -114,7 +112,6 @@ function UsersIcon() {
   );
 }
 
-// Misma probeta que la insignia de "labs" en BadgeIcon.jsx
 function FlaskIcon() {
   return (
     <SidebarIcon>

@@ -1,4 +1,3 @@
-// Solo el día, siempre en hora de Chile (no depende de la zona horaria del navegador)
 const formatDate = (iso) =>
   iso ? new Date(iso).toLocaleDateString('es-CL', { timeZone: 'America/Santiago' }) : '—';
 

@@ -125,7 +125,7 @@ export async function updateReportStatus(bugreportid, status, reqUser) {
 
     if (updateError) throw updateError;
 
-    // un bug que pasa a Resuelto cuenta como actualización del lab (volver a Pendiente no)
+    // un bug que pasa a Resuelto cuenta como actualizacion del lab
     if (report.status === 0 && status === 1) {
         const { error: dateError } = await supabase
             .from('lab')

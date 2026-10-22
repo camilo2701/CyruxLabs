@@ -11,7 +11,6 @@ import ScoreMeter from '../components/ScoreMeter.jsx'
 import { useAuth } from '../context/AuthContext';
 import { getScoreTier } from '../utils/labRules.js';
 
-// Solo el día, siempre en hora de Chile
 const formatDate = (iso) =>
     iso ? new Date(iso).toLocaleDateString('es-CL', { timeZone: 'America/Santiago' }) : '—';
 
