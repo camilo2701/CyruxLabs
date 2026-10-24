@@ -1,3 +1,6 @@
+/* LEAVE THIS HERE FOR NOW. A bare "nav" selector in a CSS module is not scoped: it styles EVERY <nav> in the
+   app, and the footer depends on it. Removing it is what broke the footer. The header has its own scoped
+   .nav class below; once the footer has its own styles this block can be deleted. */
 nav {
   width: 100%;
   padding: 1rem 5%;
@@ -11,13 +14,30 @@ nav {
   justify-content: flex-end;
 }
 
+/* The header's own, scoped version (Header.jsx uses styles.nav). The phone layout lives on this class
+   so it never reaches other <nav> elements. */
+.nav {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 1rem 5%;
+  background: #14121c;
+  border-bottom: 1px solid #ee5dfb;
+  backdrop-filter: blur(15px);
+  margin-bottom: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+
 .nav-links{
   list-style: none;
   display: flex;
   gap: 2rem;
   margin: 0;
   padding: 0;
-  margin-right: 50px;
+  margin-right: clamp(1rem, 4vw, 3.1rem);   /* was a fixed 50px */
 }
 
 .nav-links li a{
@@ -29,13 +49,21 @@ nav {
   color: #ee5dfb;
   transition: 0.4s;
 }
-.nav-links li a:hover{
+.nav-links li a:hover,
+.nav-links li a:focus-visible{
   color:#ee83f8;
   text-shadow: 0 0 12px #ca94e5;
 }
 
+.nav-links li a:focus-visible{
+  outline: 2px solid #ee83f8;
+  outline-offset: 4px;
+  border-radius: 3px;
+}
+
 .btns{
   display: flex;
+  flex-shrink: 0;
 }
 
 .btn{
@@ -48,6 +76,7 @@ nav {
   color:aliceblue;
   box-shadow: 0 0 15px #ee5dfb;
   border:none;
+  white-space: nowrap;
   cursor: pointer;
   transition: 0.4s;
 }
@@ -57,12 +86,18 @@ nav {
   box-shadow: 0 0 20px #ee83f8;
 }
 
+.btn:focus-visible{
+  outline: 2px solid aliceblue;
+  outline-offset: 3px;
+}
+
 .logo{
   font-family: "Orbitron", sans-serif;
   font-size: 2.2rem;
   color: aliceblue;
   letter-spacing: 1px;
   margin-right: auto;
+  white-space: nowrap;
 }
 
 .userMenu {
@@ -73,9 +108,19 @@ nav {
   display: flex;
   align-items: center;
   gap: 8px;
+  max-width: 15rem;                 /* a very long username no longer stretches the header */
+}
+
+/* The username is cut with "..." when it does not fit */
+.userName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .userMenuIcon {
+  flex-shrink: 0;
   font-size: 1.1rem;
 }
 
@@ -97,11 +142,13 @@ nav {
   opacity: 0;
   transform: translateY(-8px) scaleY(0.95);
   transition: opacity 0.18s ease, transform 0.18s ease;
+  pointer-events: none;             /* while it fades out it can no longer be clicked */
 }
 
 .userMenuDropdownOpen {
   opacity: 1;
   transform: translateY(0) scaleY(1);
+  pointer-events: auto;
 }
 
 .userMenuItem {
@@ -115,15 +162,68 @@ nav {
   text-decoration: none;
 }
 
-.userMenuItem:hover {
+.userMenuItem:hover,
+.userMenuItem:focus-visible {
   background: #14121c; /* Secondary */
+}
+
+.userMenuItem:focus-visible {
+  outline: 2px solid #ee83f8;
+  outline-offset: -2px;
 }
 
 .userMenuLogout {
   color: #ff8080; /* rojo suave, legible sobre fondo oscuro */
 }
 
-.userMenuLogout:hover {
+.userMenuLogout:hover,
+.userMenuLogout:focus-visible {
   background: #14121c;
   color: #ff9d9d;
+}
+
+/* ---------- Smaller screens ---------- */
+
+@media (max-width: 900px) {
+  .logo {
+    font-size: 1.8rem;
+  }
+
+  .nav-links {
+    gap: 1.25rem;
+  }
+
+  .nav-links li a {
+    font-size: 1rem;
+  }
+}
+
+/* Phones: the logo and the button share the first row, the links go to a second row (no hamburger needed) */
+@media (max-width: 640px) {
+  .nav {
+    flex-wrap: wrap;
+    padding: 0.75rem 4%;
+    row-gap: 0.5rem;
+  }
+
+  .logo {
+    font-size: 1.5rem;
+  }
+
+  .btn {
+    padding: 0.4rem 1rem;
+    font-size: 0.9rem;
+  }
+
+  .userMenuTrigger {
+    max-width: 10rem;
+  }
+
+  .nav-links {
+    order: 3;                       /* after the logo and the button */
+    flex: 1 0 100%;
+    justify-content: center;
+    gap: 1.25rem;
+    margin-right: 0;
+  }
 }

@@ -18,10 +18,14 @@ const formatDate = (iso) =>
 const POLL_MS = 2000;
 const MAX_POLL_ERRORS = 5;
 
-function LabsPage(){
+// onLoginClick: opens the login window (the same one the header's "Iniciar Sesión" button opens)
+function LabsPage({ onLoginClick }){
     const [query, setQuery] = useState("");
     const [labs, setLabs] = useState([]);
     const [selectedLab, setSelectedLab] = useState(null);
+    const [labsLoading, setLabsLoading] = useState(true);
+    const [labsError, setLabsError] = useState(false);
+    const detailsRef = useRef(null);
     // null = nothing starting; otherwise { sessionid, phase, startedAt } and the loading dialog is shown
     // (sessionid is null for the first moments, while the start request is still on its way)
     const [launch, setLaunch] = useState(null);
@@ -36,6 +40,15 @@ function LabsPage(){
 
     // Tier (name + points) of the selected lab; null if the lab has no score
     const selectedTier = getScoreTier(selectedLab?.score);
+
+    const selectLab = (lab) => {
+        setSelectedLab(lab);
+
+        // Small screens stack the list on top of the lab, so bring the lab into view
+        if (window.matchMedia('(max-width: 900px)').matches) {
+            detailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    };
 
     const showStartError = (title, message) => {
         setLaunch(null);
@@ -231,13 +244,20 @@ function LabsPage(){
 
                 if (!Array.isArray(labsList)) {
                     console.error('Unexpected /api/labs response:', data);
+                    setLabsError(true);
                     return;
                 }
                 setLabs(labsList);
                 if (labsList.length > 0) setSelectedLab(labsList[0]);
             })
-            .catch((err) => console.error('Failed to fetch labs:', err));
+            .catch((err) => {
+                console.error('Failed to fetch labs:', err);
+                setLabsError(true);
+            })
+            .finally(() => setLabsLoading(false));
     }, []);
+
+    const visibleLabs = labs.filter((lab) => lab.title.toLowerCase().includes(query.toLowerCase()));
 
     return(
         <>
@@ -283,7 +303,8 @@ function LabsPage(){
                                     id="query"
                                     className={styles.input}
                                     type="search"
-                                    placeholder="Search labs by name..."
+                                    placeholder="Buscar laboratorios por nombre..."
+                                    aria-label="Buscar laboratorios por nombre"
                                     name="searchbar"
                                     value={query}
                                     onChange={(event) => setQuery(event.target.value)}
@@ -291,29 +312,53 @@ function LabsPage(){
                             </div>
                         </div>
                         <div className={styles['lab-menu-scroll']}>
+                            {labsLoading && (
+                                <p className={styles['lab-menu-empty']}>Cargando laboratorios...</p>
+                            )}
+                            {!labsLoading && labsError && (
+                                <p className={styles['lab-menu-empty']}>No se pudieron cargar los laboratorios.</p>
+                            )}
+                            {!labsLoading && !labsError && visibleLabs.length === 0 && (
+                                <p className={styles['lab-menu-empty']}>
+                                    {labs.length === 0
+                                        ? 'Todavía no hay laboratorios.'
+                                        : 'Ningún laboratorio coincide con tu búsqueda.'}
+                                </p>
+                            )}
                             <ul className={styles['lab-menu-list']}>
-                                {labs
-                                    .filter((lab) => lab.title.toLowerCase().includes(query.toLowerCase()))
-                                    .map((lab) => (
-                                        <li
-                                            key={lab.labid}
-                                            onClick={() => setSelectedLab(lab)}
-                                            className={selectedLab?.labid === lab.labid ? styles['lab-selected'] : ''}
-                                        >
-                                            <span className={styles['lab-menu-item-title']}>{lab.title}</span>
-                                            {getScoreTier(lab.score) && (
-                                                <span className={styles['lab-menu-item-score']}>
-                                                    <ScoreMeter score={lab.score} size="small" />
-                                                    {lab.score}
-                                                </span>
-                                            )}
+                                {visibleLabs.map((lab) => {
+                                    const isSelected = selectedLab?.labid === lab.labid;
+
+                                    return (
+                                        <li key={lab.labid}>
+                                            <button
+                                                type="button"
+                                                onClick={() => selectLab(lab)}
+                                                aria-current={isSelected ? 'true' : undefined}
+                                                className={`${styles['lab-menu-item']} ${isSelected ? styles['lab-selected'] : ''}`}
+                                            >
+                                                <span className={styles['lab-menu-item-title']}>{lab.title}</span>
+                                                {getScoreTier(lab.score) && (
+                                                    <span className={styles['lab-menu-item-score']}>
+                                                        <ScoreMeter score={lab.score} size="small" />
+                                                        {lab.score}
+                                                    </span>
+                                                )}
+                                            </button>
                                         </li>
-                                    ))}
+                                    );
+                                })}
                             </ul>
                         </div>
 
                     </div>
-                    <div className={styles['lab-selection']}>
+                    <div className={styles['lab-selection']} ref={detailsRef}>
+                        {!selectedLab ? (
+                            <p className={styles['lab-selection-empty']}>
+                                {labsLoading ? 'Cargando...' : 'Elige un laboratorio de la lista para ver su detalle.'}
+                            </p>
+                        ) : (
+                        <>
                         <div className={styles['lab-selection-nav']}>
                             <div className={styles['lab-selection-heading']}>
                                 <h2>{selectedLab?.title}</h2>
@@ -331,7 +376,8 @@ function LabsPage(){
                                 )}
                             </div>
                             <div className={styles['lab-selection-nav-btn']}>
-                                <button onClick={handleComenzar} disabled={!isAuthenticated || launch !== null}>
+                                {/* Without a session the button opens the login window; with one it starts the lab */}
+                                <button onClick={isAuthenticated ? handleComenzar : onLoginClick} disabled={launch !== null}>
                                     {!isAuthenticated
                                         ? 'Inicia sesión para comenzar'
                                         : launch
@@ -350,6 +396,8 @@ function LabsPage(){
                                 ))}
                             </ul>
                         </div>
+                        </>
+                        )}
 
                     </div>
                 </div>

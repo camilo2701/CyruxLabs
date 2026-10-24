@@ -65,7 +65,7 @@ function Header({ onLoginClick }){
 
     return(
         <header>
-            <nav>
+            <nav className={styles.nav}>
                 <div className={styles.logo}>CyruxLabs</div>
                 <ul className={styles['nav-links']}>
                     <li><Link to="/">Inicio</Link></li>
@@ -82,7 +82,7 @@ function Header({ onLoginClick }){
                                 onClick={toggleMenu}
                                 aria-expanded={isMenuOpen}
                             >
-                                {user?.username}
+                                <span className={styles.userName}>{user?.username}</span>
                                 <span className={styles.userMenuIcon}>☰</span>
                             </button>
 

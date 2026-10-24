@@ -27,14 +27,17 @@ import { AuthProvider } from './context/AuthContext'
 function App() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
 
+  // One function for everything that opens the login window (the header, the register page, the labs page)
+  const openLogin = () => setIsLoginOpen(true);
+
   return (
     <AuthProvider>
       <BrowserRouter>
-        <Header onLoginClick={() => {setIsLoginOpen(true)}} />
+        <Header onLoginClick={openLogin} />
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/register" element={<RegisterPage onLoginClick={() => {setIsLoginOpen(true)}}/>}/>
-          <Route path="/labs" element={<LabsPage />} />
+          <Route path="/register" element={<RegisterPage onLoginClick={openLogin}/>}/>
+          <Route path="/labs" element={<LabsPage onLoginClick={openLogin} />} />
           <Route path="/dashboard" element={<Dashboard/>}/>
           <Route path="/session/:sessionid" element={<Session/>}/>
           <Route path="/docs" element={<CreationGuide/>}/>
@@ -53,4 +56,3 @@ function App() {
 }
 
 export default App;
-

@@ -1,20 +1,26 @@
 .page{
-    height: calc(100vh - 76.8px);
+    --lp-header-height: 86px;       /* height of the header bar above; the page fills the rest of the screen */
+    min-height: 480px;              /* on very short screens the page scrolls instead of squashing */
+    height: calc(100vh - var(--lp-header-height));
+    height: calc(100dvh - var(--lp-header-height));
     display: flex;
     flex-direction: column;
     background: #14121c;
-    overflow: hidden;              /* NEW */
+    overflow: hidden;
 }
 
 .lab-ui{
     display: flex;
     flex-direction: row;
     flex: 1;
-    min-height: 0;  /* NEW */
+    min-height: 0;
 }
 
+/* Left column: title, search and the list of labs */
 .lab-menu{
-    width: 30%;
+    box-sizing: border-box;
+    flex: 0 0 clamp(280px, 30%, 460px);   /* 30% of the screen, but never too narrow or too wide */
+    min-width: 0;
     display: flex;
     flex-direction: column;
     padding: .5em 1em;
@@ -33,9 +39,12 @@
 }
 
 .lab-menu-scroll{
-  flex: 1;        /* NEW */
-  min-height: 0;  /* NEW */
-  overflow-y: auto; /* NEW */
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* same magenta scrollbar as the rest of the site */
+  scrollbar-width: thin;
+  scrollbar-color: #ee5dfb transparent;
 }
 
 .lab-menu-list{
@@ -47,21 +56,42 @@
 }
 
 .lab-menu-list li{
+  border-bottom: 1px solid rgba(238, 93, 251, 0.2);
+}
+
+/* Each lab is a button, so it can also be chosen with the keyboard */
+.lab-menu-item{
+  box-sizing: border-box;
   display: flex;                    /* title on the left, score on the right */
   align-items: center;
   justify-content: space-between;
   gap: 1em;
+  width: 100%;
+  padding: 1em 1em;
+  border: none;
+  background: none;
+  color: inherit;
+  text-align: left;
   font-family: "Inter", sans-serif;
   font-weight: 500;
   font-size: 1rem;
-  padding: 1em 1em;
-  border-bottom: 1px solid rgba(238, 93, 251, 0.2); /* NEW */
   cursor: pointer;
   transition:0.15s;
 }
 
-.lab-menu-list li:hover{
+.lab-menu-item:hover{
   background-color: #201d2a;
+}
+
+.lab-menu-item:focus-visible{
+  outline: 2px solid #ee83f8;
+  outline-offset: -2px;
+}
+
+/* The lab that is open on the right */
+.lab-selected{
+  background-color: #201d2a;
+  box-shadow: inset 3px 0 0 #ee5dfb;
 }
 
 .lab-menu-item-title{
@@ -80,30 +110,49 @@
   color: #ee83f8;
 }
 
+/* "Loading", "no results"... messages */
+.lab-menu-empty,
+.lab-selection-empty{
+  margin: 0;
+  padding: 1.5em 1em;
+  text-align: center;
+  font-family: "Inter", sans-serif;
+  font-size: 0.9rem;
+  color: #9b93ab;
+}
+
+/* Right column: the selected lab */
 .lab-selection{
-    width: 70%;
+    box-sizing: border-box;
+    flex: 1 1 0;
+    min-width: 0;
     border-left: 1px solid #ee5dfb;
     padding: 1em 2em;
     overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #ee5dfb transparent;
 }
 
 .lab-selection-nav{
     display: flex;
     flex-direction: row;
+    flex-wrap: wrap;                  /* the button drops under the title when there is no room */
     justify-content: space-between;
-    align-items: center;  
-    margin-right: 16px;
+    align-items: center;
+    gap: 1em 1.5em;
     padding-top: 1em;
     padding-bottom: 1em;
 }
 
 .lab-selection-nav h2{
-    margin: 0;                /* NEW: kill the browser's default heading margin */
+    margin: 0;                        /* kill the browser's default heading margin */
+    overflow-wrap: anywhere;          /* a very long title wraps instead of pushing the page */
 }
 
 .lab-selection-heading{
     display: flex;
     flex-direction: column;
+    flex: 1 1 18rem;
     gap: 0.5em;
     min-width: 0;
 }
@@ -137,6 +186,7 @@
 }
 
 .lab-selection-nav-btn{
+  flex: 0 0 auto;
   justify-content: center;
 }
 
@@ -149,13 +199,30 @@
   padding: 0.5rem 1.5rem;
   border-radius: 5px;
   border:none;
+  white-space: nowrap;
   cursor: pointer;
   transition: 0.4s;
 }
 
-.lab-selection-nav-btn button:hover{
+.lab-selection-nav-btn button:hover:not(:disabled){
   background:#ee83f8;
   box-shadow: 0 0 20px #ee83f8;
+}
+
+.lab-selection-nav-btn button:focus-visible{
+  outline: 2px solid aliceblue;
+  outline-offset: 2px;
+}
+
+.lab-selection-nav-btn button:disabled{
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.lab-selection-summary{
+  max-width: 80ch;                  /* readable line length on very wide screens */
+  line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
 .lab-selection-summary ul{
@@ -175,20 +242,23 @@
   line-height: 28px;
   align-items: center;
   position: relative;
-  max-width: 500px;
+  width: 100%;                      /* same width as the list under it */
 }
 
 .input {
+  box-sizing: border-box;
   font-family: "Inter", sans-serif;
   width: 100%;
   height: 45px;
   padding-left: 2.5rem;
+  padding-right: 1rem;
   box-shadow: 0 0 0 2px #ee5dfb, 0 0 25px -17px #000;
   border: 0;
   border-radius: 12px;
   background-color: #14121c;
   outline: none;
   color: aliceblue;
+  color-scheme: dark;               /* the browser's own "clear" (x) button turns light */
   transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1);
   cursor: text;
   z-index: 0;
@@ -203,11 +273,12 @@
 }
 
 .input:active {
-  transform: scale(0.95);
+  transform: scale(0.99);
 }
 
+/* The ring used to turn dark grey on focus, so the focused bar looked LESS highlighted */
 .input:focus {
-  box-shadow: 0 0 0 2.5px #2f303d;
+  box-shadow: 0 0 0 2.5px #ee83f8, 0 0 20px -4px rgba(238, 93, 251, 0.55);
 }
 
 .search-icon {
@@ -220,6 +291,52 @@
   z-index: 1;
 }
 
+/* ---------- Tablets and phones: the list goes on top, the lab under it ---------- */
+
+@media (max-width: 900px) {
+  .page{
+    height: auto;
+    min-height: calc(100dvh - var(--lp-header-height));
+    overflow: visible;
+  }
+
+  .lab-ui{
+    flex-direction: column;
+    flex: none;
+  }
+
+  .lab-menu{
+    flex: none;
+    max-height: 45dvh;              /* the list scrolls inside this box */
+    border-bottom: 1px solid #ee5dfb;
+  }
+
+  .lab-selection{
+    border-left: none;
+    overflow: visible;
+    padding: 1em;
+  }
+}
+
+@media (max-width: 560px) {
+  .lab-menu-title h1{
+    font-size: 1.25rem;
+  }
+
+  .lab-selection-nav-btn{
+    width: 100%;
+  }
+
+  .lab-selection-nav-btn button{
+    width: 100%;
+    white-space: normal;
+  }
+}
+
+/* LEAVE THIS HERE FOR NOW. In a CSS module :root is not scoped, so this block styles the WHOLE app
+   (canvas background, Inter font, text colour). Other parts, the footer for one, silently depend on it.
+   The right home for it is the global stylesheet (index.css); move it there together with a Footer
+   that does not need it, then delete it from here. */
 :root {
   font-family: "Inter", sans-serif;
   line-height: 1.5;
