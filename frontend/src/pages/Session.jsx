@@ -51,6 +51,8 @@ function Session() {
     const [stopping, setStopping] = useState(false);
     const [restarting, setRestarting] = useState(false);
     const [unlockedTrophies, setUnlockedTrophies] = useState([]);
+    // Insignias nuevas que entregó esta sesión (solo llegan al enviar la flag correcta)
+    const [unlockedBadges, setUnlockedBadges] = useState([]);
     // What the session gave in XP (lab + trophies), as the backend reports it; null when unknown or nothing
     const [xp, setXp] = useState(null);
     const [isEnded, setIsEnded] = useState(false);
@@ -410,6 +412,7 @@ function Session() {
             setIsEnded(true);
             setIsSolved(true);
             setUnlockedTrophies(result.trophies ?? []);
+            setUnlockedBadges(result.badges ?? []);
             setXp(result.xp ?? null);
             // Use the exact time the server recorded
             setFinishTime(result.finishtime ? new Date(result.finishtime) : submittedAt);
@@ -462,6 +465,7 @@ function Session() {
                 totalSeconds={totalSeconds}
                 iframeUrl={iframeUrl}
                 trophies={unlockedTrophies}
+                badges={unlockedBadges}
                 xp={xp}
                 onBack={() => navigate('/labs')}
             />

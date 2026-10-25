@@ -566,6 +566,92 @@
     white-space: nowrap;
 }
 
+.congrats-badges {
+    width: min(90%, 420px);
+    margin-top: 1rem;
+    padding: 1rem 1.25rem;
+
+    background: rgba(13, 11, 19, 0.7);
+    border: 1px solid #201d2a;
+    border-radius: 12px;
+
+    text-align: left;
+}
+
+.congrats-badges h2 {
+    margin: 0 0 0.75rem;
+
+    font-family: "Orbitron", sans-serif;
+    font-size: 1rem;
+    font-weight: 400;
+    color: aliceblue;
+
+    text-align: center;
+}
+
+.congrats-badges ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.congrats-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.congrats-badge strong {
+    font-family: "Inter", sans-serif;
+    color: aliceblue;
+}
+
+.congrats-badge p {
+    margin: 0.1rem 0 0;
+    font-size: 0.85rem;
+}
+
+.congrats-badge-icon {
+    flex-shrink: 0;
+}
+
+.congrats-badge-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.congrats-badge-rarity {
+    color: #ee5dfb;
+}
+
+/* Contenedor de recompensas: con 1 sola sección queda centrada (como siempre);
+   con trofeos E insignias a la vez, se ponen lado a lado para no scrollear. */
+.congrats-rewards {
+    width: 100%;
+
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.congrats-rewards .congrats-trophies,
+.congrats-rewards .congrats-badges {
+    margin-top: 0;
+}
+
+.congrats-rewards--split .congrats-trophies,
+.congrats-rewards--split .congrats-badges {
+    flex: 1 1 340px;
+    width: auto;
+    max-width: 420px;
+}
+
 
 /* =========================
    XP SUMMARY (congrats screen)

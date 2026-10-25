@@ -1,4 +1,5 @@
 import TrophyIcon from '../TrophyIcon.jsx';
+import BadgeIcon, { BADGE_TYPE_LABELS } from '../BadgeIcon.jsx';
 import { formatElapsed } from '../../utils/formatElapsed.js';
 import styles from '../../styles/Session.module.css';
 import stateStyles from '../../styles/SessionStates.module.css';
@@ -25,6 +26,38 @@ function TrophyList({ trophies }) {
                         {trophy.xp > 0 && (
                             <span className={styles['congrats-trophy-xp']}>+{trophy.xp} XP</span>
                         )}
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+}
+
+// Las insignias que la sesión desbloqueó (solo aparecen al resolver el lab)
+function BadgeList({ badges }) {
+    if (badges.length === 0) return null;
+
+    return (
+        <div className={styles['congrats-badges']}>
+            <h2>Insignias desbloqueadas</h2>
+            <ul>
+                {badges.map((badge, index) => (
+                    <li key={`${badge.name}-${index}`} className={styles['congrats-badge']}>
+                        <BadgeIcon
+                            category={badge.category}
+                            tier={badge.type}
+                            size={38}
+                            className={styles['congrats-badge-icon']}
+                        />
+                        <div className={styles['congrats-badge-text']}>
+                            <strong>{badge.name}</strong>
+                            <p>
+                                {badge.description}
+                                {BADGE_TYPE_LABELS[badge.type] && (
+                                    <span className={styles['congrats-badge-rarity']}> · {BADGE_TYPE_LABELS[badge.type]}</span>
+                                )}
+                            </p>
+                        </div>
                     </li>
                 ))}
             </ul>
@@ -109,7 +142,7 @@ function BusyScreen({ title, children }) {
 //   ended       the session is over (any other reason)
 // Everything except "running" and "checking" leaves the iframe out of the page, so the address of
 // the lab runner is not left in the page's HTML once the lab is not being used.
-function SessionDesktop({ view, labTitle, totalSeconds, iframeUrl, trophies = [], xp = null, onBack }) {
+function SessionDesktop({ view, labTitle, totalSeconds, iframeUrl, trophies = [], badges = [], xp = null, onBack }) {
     return (
         <section className={styles.desktop}>
             {(view === 'running' || view === 'checking') && iframeUrl && (
@@ -150,7 +183,15 @@ function SessionDesktop({ view, labTitle, totalSeconds, iframeUrl, trophies = []
                     <p>Completaste {labTitle ?? 'este laboratorio'} en {formatElapsed(totalSeconds)}.</p>
 
                     <XpSummary xp={xp} />
-                    <TrophyList trophies={trophies} />
+
+                    <div
+                        className={`${styles['congrats-rewards']} ${
+                            trophies.length > 0 && badges.length > 0 ? styles['congrats-rewards--split'] : ''
+                        }`}
+                    >
+                        <TrophyList trophies={trophies} />
+                        <BadgeList badges={badges} />
+                    </div>
 
                     <button onClick={onBack}>Volver a laboratorios</button>
                 </div>
