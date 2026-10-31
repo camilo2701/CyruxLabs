@@ -110,7 +110,7 @@ function Home() {
 
           <div className="home__quick-grid">
             {quickAccessItems.map((item) => (
-              <Link key={item.path} to={item.path} className="home__quick-card">
+              <Link key={item.label} to={item.path} className="home__quick-card">
                 <span className="home__quick-label">{item.label}</span>
                 <span className="home__quick-description">{item.description}</span>
                 <span className="home__quick-arrow" aria-hidden="true">
