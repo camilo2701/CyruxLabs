@@ -1,7 +1,7 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { supabase } from '../config/supabaseClient.js';
-import { AuthError } from './authService.js';
+import { AuthError, normalizeEmail } from './authService.js';
 import { getLevelInfo } from './xpService.js';
 import { checkBadgesSafely, getLockedBadgesSafely } from './badgeService.js';
 import { logEvent } from './logService.js';
@@ -55,6 +55,7 @@ function describeCascade({ labCount }) {
 }
 
 export async function updateProfile(userid, { username, firstName, lastName, email, currentPassword, ip }) {
+    email = normalizeEmail(email);
     if (!username || !firstName || !lastName || !email || !currentPassword) {
         throw new AuthError(400, 'Todos los campos son obligatorios');
     }
@@ -549,6 +550,7 @@ export async function adminUpdateUser(reqUser, targetId, { username, firstName, 
     if (!username || !firstName || !lastName || !email) {
         throw new AuthError(400, 'Todos los campos son obligatorios');
     }
+    email = normalizeEmail(email);
     if (!usernameRegex.test(username)) {
         throw new AuthError(400, 'Nombre de usuario inválido (solo letras, números, puntos y guiones, máx 12)');
     }

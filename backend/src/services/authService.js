@@ -12,6 +12,11 @@ const nameRegex = /^\p{L}+$/u;
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,20}$/;
 
+// Los correos se normalizan a minúsculas (y sin espacios) en todo el sistema: así el
+// inicio de sesión funciona sin importar cómo se escriba y no hay cuentas duplicadas
+// que solo se diferencien por mayúsculas.
+export const normalizeEmail = (value) => String(value ?? '').trim().toLowerCase();
+
 export class AuthError extends Error {
     constructor(status, message, extra = {}) {
         super(message);
@@ -67,6 +72,7 @@ function validateRegisterInput({ username, email, firstName, lastName, password 
 
 // ip: para el registro de actividad (la pasa el controller)
 export async function registerUser({ username, email, firstName, lastName, password, ip }) {
+    email = normalizeEmail(email);
     validateRegisterInput({ username, email, firstName, lastName, password });
 
     // Dos consultas separadas: armar un solo ".or(...)" con el correo permitiría que un correo
@@ -141,6 +147,8 @@ export async function loginUser({ email, password, ip }) {
     if (typeof email !== 'string' || typeof password !== 'string') {
         throw new AuthError(400, 'Email o contraseña no válidos');
     }
+
+    email = normalizeEmail(email);
 
     const { data: user, error } = await supabase
         .from('users')
