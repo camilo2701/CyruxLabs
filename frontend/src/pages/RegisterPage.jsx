@@ -67,7 +67,7 @@ function RegisterPage({ onLoginClick }) {
                 break;
             case 3:
                 if (!passwordRegex.test(password)){
-                    setPasswordError('La contraseña debe contener al menos 1 caracter especial, 1 Mayús y 1 número');
+                    setPasswordError('La contraseña debe tener al menos 8 caracteres, incluyendo 1 carácter especial, 1 mayúscula y 1 número.');
                     return false;
                 }
                 else{
@@ -137,6 +137,7 @@ function RegisterPage({ onLoginClick }) {
 
     return (
         <div className={styles.page}>
+            <div className={styles.content}>
             <div className={styles.card}>
                 <h2>Crea una Cuenta</h2>
 
@@ -247,6 +248,7 @@ function RegisterPage({ onLoginClick }) {
                 <p>
                     ¿Ya tienes cuenta? <Link className={styles['modal-link']} onClick={onLoginClick}>Inicia Sesión</Link>
                 </p>
+            </div>
             </div>
 
             <Footer/>

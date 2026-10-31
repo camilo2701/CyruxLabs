@@ -71,7 +71,6 @@ function Header({ onLoginClick }){
                     <li><Link to="/">Inicio</Link></li>
                     <li><Link to="/labs">Laboratorios</Link></li>
                     <li><Link to="/docs">Docs</Link></li>
-                    <li><Link to="/faq">FAQ</Link></li>
                 </ul>
                 <div className={styles.btns}>
                     {isAuthenticated ? (
