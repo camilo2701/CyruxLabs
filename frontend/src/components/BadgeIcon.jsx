@@ -1,8 +1,12 @@
+// Este archivo se encarga de dibujar el ícono SVG de las insignias (badges),
+// generando un hexágono con gradiente, símbolo y "pips" según su rareza.
 import { useId } from 'react';
 
+// Esta constante se encarga de mapear cada tipo de badge a su etiqueta de rareza.
 // tipos de badges
 export const BADGE_TYPE_LABELS = { 0: 'Común', 1: 'Rara', 2: 'Épica', 3: 'Única' };
 
+// Esta constante se encarga de definir los colores, brillo y cantidad de pips de cada rareza.
 // colores según rareza
 export const BADGE_TYPE_STYLES = {
   0: { from: '#3ee6c4', to: '#1fa88e', glow: 'rgba(62, 230, 196, 0.35)', pips: 1 },
@@ -11,6 +15,7 @@ export const BADGE_TYPE_STYLES = {
   3: { from: '#8fd3ff', to: '#c664f7', glow: 'rgba(150, 140, 255, 0.45)', pips: 0 },
 };
 
+// Esta constante se encarga de almacenar los trazos SVG de cada símbolo según la categoría de la insignia.
 const SYMBOLS = {
   // icono labs
   labs: (
@@ -55,19 +60,26 @@ const SYMBOLS = {
   ),
 };
 
+// Estas constantes se encargan de definir los trazos del hexágono exterior e interior del ícono.
 const HEXAGON = 'M50 4 L90 27 L90 73 L50 96 L10 73 L10 27 Z';
 const INNER_HEXAGON = 'M50 13 L82 31.5 L82 68.5 L50 87 L18 68.5 L18 31.5 Z';
 
+// Esta constante se encarga de definir el estilo gris apagado para las insignias bloqueadas.
 // color para locked badges
 const LOCKED_STYLE = { from: '#5a5468', to: '#34303f', glow: 'transparent' };
 
+// Este componente se encarga de renderizar el ícono de una insignia, aplicando
+// el color según su rareza, el símbolo de su categoría y el estado bloqueado.
 function BadgeIcon({ category, type = 0, size = 72, title, className, locked = false }) {
+  // useId genera un id único por instancia para que cada gradiente SVG no choque con otros
   const gradientId = `badge-gradient-${useId().replace(/:/g, '')}`;
   const typeStyle = BADGE_TYPE_STYLES[type] ?? BADGE_TYPE_STYLES[0];
+  // Si está bloqueada, se mezcla el estilo de rareza con el estilo gris apagado
   const style = locked ? { ...typeStyle, ...LOCKED_STYLE } : typeStyle;
   const symbol = SYMBOLS[category] ?? SYMBOLS.default;
   const paint = `url(#${gradientId})`;
 
+  // Calcula la posición horizontal inicial para centrar los pips según cuántos haya
   const pipsStart = 50 - (style.pips - 1) * 5;
 
   return (
@@ -114,6 +126,8 @@ function BadgeIcon({ category, type = 0, size = 72, title, className, locked = f
         {symbol}
       </g>
 
+      {/* Dibuja un círculo (pip) por cada punto de rareza; si no hay pips,
+          se dibuja un rombo como marca de la rareza "Única" */}
       {style.pips > 0 ? (
         Array.from({ length: style.pips }, (_, i) => (
           <circle key={i} cx={pipsStart + i * 10} cy="80" r="2.6" fill={paint} />

@@ -1,7 +1,10 @@
+// Este archivo se encarga de la lógica de la lista de laboratorios administrables: carga inicial,
+// búsqueda, paginación y los contadores de bugs pendientes por laboratorio.
 import { useCallback, useEffect, useState } from 'react';
 import { listManagedLabs, getBugCounts } from './labsApi.js';
 
 // The list of labs the user can manage: first load, search, pages and the pending-bug badges.
+// Este hook se encarga de manejar el estado y las operaciones de la lista de laboratorios.
 export function useLabsList(token) {
     const [labSearch, setLabSearch] = useState('');
     // The search that was actually run (what is typed in the box only counts after pressing Buscar)
@@ -14,6 +17,7 @@ export function useLabsList(token) {
     const [listError, setListError] = useState('');
     const [bugCounts, setBugCounts] = useState({});
 
+    // Esta función se encarga de pedir cuántos bugs pendientes tiene cada laboratorio de la lista.
     const fetchBugCounts = useCallback(async (labIds) => {
         if (labIds.length === 0) {
             setBugCounts({});
@@ -28,6 +32,7 @@ export function useLabsList(token) {
         }
     }, [token]);
 
+    // Esta función se encarga de traer los laboratorios (búsqueda y página) y sus contadores de bugs.
     const fetchLabs = useCallback(async (search, page) => {
         setIsLoading(true);
         setListError('');
@@ -54,12 +59,15 @@ export function useLabsList(token) {
     }, [token, fetchBugCounts]);
 
     // Carga inicial: los 5 laboratorios más recientes.
+    // Este useEffect se encarga de la carga inicial de los laboratorios más recientes.
     useEffect(() => {
         fetchLabs('', 1);
     }, [fetchLabs]);
 
+    // Esta función se encarga de actualizar el texto del buscador limitándolo a 100 caracteres.
     const changeSearchText = (text) => setLabSearch(text.slice(0, 100));
 
+    // Esta función se encarga de ejecutar la búsqueda con el texto escrito y activar el modo búsqueda.
     const runSearch = () => {
         const query = labSearch.trim();
         if (!query) return;
@@ -70,14 +78,16 @@ export function useLabsList(token) {
         fetchLabs(query, 1);
     };
 
+    // Esta función se encarga de cambiar de página y recargar los laboratorios correspondientes.
     const goToPage = (page) => {
         setCurrentPage(page);
         fetchLabs(activeSearch, page);
     };
 
-    // Loads the current page again (after saving or deleting a lab)
+    // Recarga la página actual (después de guardar o eliminar el lab)
     const reload = () => fetchLabs(activeSearch, currentPage);
 
+    // Esta función se encarga de actualizar el contador de bugs pendientes de un laboratorio concreto.
     const setBugCount = (labid, pending) => setBugCounts((prev) => ({ ...prev, [labid]: pending }));
 
     return {

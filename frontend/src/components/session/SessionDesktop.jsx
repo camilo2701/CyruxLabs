@@ -1,9 +1,13 @@
+// Este archivo se encarga de renderizar el área principal (escritorio) de una sesión de laboratorio:
+// muestra el iframe del lab cuando está en marcha y las distintas pantallas de estado (verificando,
+// reiniciando, terminando, resuelto, etc.), junto con los premios obtenidos (trofeos, insignias y XP).
 import TrophyIcon from '../TrophyIcon.jsx';
 import BadgeIcon, { BADGE_TYPE_LABELS } from '../BadgeIcon.jsx';
 import { formatElapsed } from '../../utils/formatElapsed.js';
 import styles from '../../styles/Session.module.css';
 import stateStyles from '../../styles/SessionStates.module.css';
 
+// Este componente se encarga de mostrar la caja de trofeos desbloqueados, reutilizada por varias pantallas.
 // The unlocked trophies box, shared by every screen that can show trophies
 function TrophyList({ trophies }) {
     if (trophies.length === 0) return null;
@@ -33,6 +37,7 @@ function TrophyList({ trophies }) {
     );
 }
 
+// Este componente se encarga de mostrar las insignias desbloqueadas por la sesión.
 // Las insignias que la sesión desbloqueó (solo aparecen al resolver el lab)
 function BadgeList({ badges }) {
     if (badges.length === 0) return null;
@@ -65,10 +70,13 @@ function BadgeList({ badges }) {
     );
 }
 
+// Este componente se encarga de resumir la experiencia (XP) ganada: por el lab, por trofeos,
+// el total acumulado y el nivel, incluyendo avisos cuando no se otorga XP.
 // What the session gave in XP: the lab, the trophies, the total and the level
 function XpSummary({ xp }) {
     if (!xp) return null;
 
+    // Nota a mostrar cuando el lab no da XP: ya resuelto antes o es un lab propio.
     const labNote = xp.reason === 'already_solved'
         ? 'Ya lo habías resuelto antes'
         : xp.reason === 'own_lab' ? 'Es un laboratorio tuyo' : null;
@@ -114,6 +122,8 @@ function XpSummary({ xp }) {
     );
 }
 
+// Este componente se encarga de mostrar una pantalla de espera genérica (con spinner) mientras
+// el lab se reinicia, se cierra o se verifica su flag.
 // A screen that only says "wait": the lab is restarting, closing or its flag is being checked
 function BusyScreen({ title, children }) {
     return (
@@ -142,6 +152,8 @@ function BusyScreen({ title, children }) {
 //   ended       the session is over (any other reason)
 // Everything except "running" and "checking" leaves the iframe out of the page, so the address of
 // the lab runner is not left in the page's HTML once the lab is not being used.
+// Este componente se encarga de elegir qué se muestra en el escritorio de la sesión según "view":
+// el iframe del lab o una de las pantallas de estado (verificando, resuelto, terminado, etc.).
 function SessionDesktop({ view, labTitle, totalSeconds, iframeUrl, trophies = [], badges = [], xp = null, onBack }) {
     return (
         <section className={styles.desktop}>

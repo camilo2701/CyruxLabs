@@ -1,3 +1,5 @@
+// Este archivo se encarga de la raíz de la aplicación: define las rutas, el proveedor de autenticación
+// y el modal de inicio de sesión compartido.
 import { use, useState } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Home from './pages/Home';
@@ -24,6 +26,7 @@ import TermsPage from './pages/TermsPage'
 
 import { AuthProvider } from './context/AuthContext'
 
+// Este componente se encarga de montar el router, las rutas de la app y el control del modal de login.
 function App() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
 

@@ -1,11 +1,15 @@
+// Este archivo se encarga de la sección "Mi perfil" del dashboard: permite ver y
+// editar los datos personales, cambiar el avatar y eliminar la cuenta del usuario.
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import AvatarSelector, { avatarMap } from './AvatarSelector';
 import DeleteAccountModal from './DeleteAccountModal';
 import '../../styles/DashboardProfile.css';
 
+// Esta constante se encarga de resolver la URL base de la API (variable de entorno o local).
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
+// Este componente se encarga de renderizar y manejar la vista del perfil del usuario.
 function DashboardProfile({ onChangePassword }) {
   const { user, token, login, updateUser, logout } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
@@ -25,6 +29,8 @@ function DashboardProfile({ onChangePassword }) {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState('');
 
+  // Esta función se encarga de actualizar el campo del formulario que cambió y
+  // limpiar el mensaje previo.
   const handleChange = (event) => {
     const { name, value } = event.target;
 
@@ -36,6 +42,8 @@ function DashboardProfile({ onChangePassword }) {
     setMessage('');
   };
 
+  // Esta función se encarga de validar y guardar los cambios de los datos
+  // personales, enviándolos al backend con la contraseña actual.
   const handleSave = async (event) => {
     event.preventDefault();
 
@@ -44,6 +52,7 @@ function DashboardProfile({ onChangePassword }) {
       return;
     }
 
+    // Comprueba si hubo algún cambio real respecto a los datos actuales del usuario.
     const hasChanges =
       formData.username !== user.username ||
       formData.firstName !== user.firstname ||
@@ -92,6 +101,8 @@ function DashboardProfile({ onChangePassword }) {
     }
   };
 
+  // Esta función se encarga de enviar al backend el nuevo avatar elegido y
+  // actualizar el usuario en el estado global.
   const handleAvatarChange = async (newAvatarFile) => {
     setMessage('');
     try {
@@ -117,6 +128,8 @@ function DashboardProfile({ onChangePassword }) {
     }
   };
 
+  // Esta función se encarga de eliminar la cuenta de forma permanente tras validar
+  // la contraseña: muestra confirmación, cierra sesión y redirige al inicio.
   const handleDeleteAccount = async (password) => {
     setDeleteLoading(true);
     setDeleteError('');
@@ -204,6 +217,7 @@ function DashboardProfile({ onChangePassword }) {
             )}
           </div>
 
+          {/* Según isEditing, muestra los datos en modo lectura o el formulario de edición */}
           {!isEditing ? (
             <div className="dashboard-profile__fields">
               <div>

@@ -1,3 +1,6 @@
+// Este archivo se encarga de la página de perfil de usuario: carga los datos del
+// perfil (propio o de otro), muestra progreso, insignias y trofeos, y permite
+// buscar otros usuarios.
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -10,14 +13,18 @@ import styles from '../styles/ProfilePage.module.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
+// Esta constante se encarga de mapear el número de rol a su etiqueta legible.
 const ROLE_LABELS = {
   0: 'Estudiante',
   1: 'Instructor',
   2: 'Administrador',
 };
 
+// Esta función se encarga de formatear una fecha "YYYY-MM-DD" a texto legible en
+// español, o devolver un guion si no hay fecha.
 function formatDate(dateString) {
   if (!dateString) return '—';
+  // Se separa la fecha a mano para construir un Date local y evitar desfases de zona horaria
   const [year, month, day] = dateString.split('-').map(Number);
   return new Date(year, month - 1, day).toLocaleDateString('es-CL', {
     day: 'numeric',
@@ -26,12 +33,17 @@ function formatDate(dateString) {
   });
 }
 
+// Esta función se encarga de formatear números de puntos con separador de miles en español.
 const formatPoints = (value) => Number(value || 0).toLocaleString('es-CL');
+// Estas constantes se encargan de definir cuántos elementos se muestran por paso al "Ver más".
 const BADGES_STEP = 8;
 const TROPHY_LABS_STEP = 3;
 
+// Esta constante se encarga de mapear el tipo de trofeo a su clase CSS (bronce, plata, oro).
 const TROPHY_TYPE_CLASS = { 0: 'trophyBronze', 1: 'trophySilver', 2: 'trophyGold' };
 
+// Este componente se encarga del botón "Ver más / Ver menos" que amplía o contrae
+// una lista paginada; no se muestra si el total cabe en un solo paso.
 function ShowMoreButton({ shown, total, step, unit, onChange }) {
   if (total <= step) return null;
 
@@ -52,6 +64,8 @@ function ShowMoreButton({ shown, total, step, unit, onChange }) {
   );
 }
 
+// Este componente se encarga de renderizar la página de perfil completa y de
+// coordinar la carga de datos, la paginación de insignias/trofeos y la búsqueda.
 function ProfilePage() {
   const { username: usernameParam } = useParams();
   const { user, token, isLoading } = useAuth();
@@ -68,9 +82,12 @@ function ProfilePage() {
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
 
+  // Si no viene username en la URL, se usa el del usuario logueado (su propio perfil)
   const username = usernameParam || user?.username;
   const isOwnProfile = !!user && profile?.userid === user.userid;
 
+  // Este useEffect se encarga de cargar el perfil cada vez que cambia el usuario o el token,
+  // reiniciando los contadores de paginación y cancelando la petición anterior si aplica.
   useEffect(() => {
     if (!token || !username) return;
 
@@ -104,6 +121,8 @@ function ProfilePage() {
     return () => controller.abort();
   }, [username, token]);
 
+  // Este useEffect se encarga de la búsqueda de usuarios con "debounce": espera a que
+  // el usuario deje de escribir antes de consultar al backend.
   useEffect(() => {
     const query = searchText.trim();
     if (!query || !token) {
@@ -115,6 +134,7 @@ function ProfilePage() {
     const controller = new AbortController();
     setSearching(true);
 
+    // Espera 300 ms tras la última tecla para no disparar una petición por cada letra
     const timeoutId = setTimeout(() => {
       fetch(`${API_URL}/users/search?search=${encodeURIComponent(query)}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -142,6 +162,8 @@ function ProfilePage() {
     return <Navigate to="/" replace />;
   }
 
+  // Esta función se encarga de renderizar el contenido del perfil según el estado:
+  // cargando, error, vacío, o las tarjetas con progreso, insignias y trofeos.
   const renderProfile = () => {
     if (loading) return <p className={styles.status}>Cargando perfil...</p>;
 

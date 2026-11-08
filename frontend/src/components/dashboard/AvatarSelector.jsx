@@ -1,3 +1,5 @@
+// Este archivo se encarga del selector de avatar: muestra un popover con los avatares disponibles
+// y avisa al componente padre cuál eligió el usuario.
 import { useState } from 'react';
 import '../../styles/AvatarSelector.css';
 
@@ -21,6 +23,7 @@ export const avatarMap = {
 
 const avatarFiles = Object.keys(avatarMap);
 
+// Este componente se encarga de mostrar el botón y la grilla para elegir un avatar.
 function AvatarSelector({ selectedAvatar, onAvatarChange }) {
   const [isOpen, setIsOpen] = useState(false);
 

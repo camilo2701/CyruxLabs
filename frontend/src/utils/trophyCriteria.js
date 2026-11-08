@@ -1,3 +1,5 @@
+// Este archivo se encarga de la lógica de los criterios por "fragmentos" (trofeos de comando y proceso):
+// normalizar, validar y comparar fragmentos de texto contra las líneas de evidencia.
 // Fragment criteria for the "command" and "process" trophies.
 // A trophy stores 1 to 4 fragments; a line of evidence matches when it contains ALL of them,
 // in any order, ignoring extra spaces (case-sensitive, plain text, never a regex).
@@ -6,11 +8,13 @@ export const FRAGMENT_MIN_LENGTH = 2;
 export const FRAGMENT_MAX_LENGTH = 50;
 export const MAX_FRAGMENTS = 4;
 
+// Esta función se encarga de normalizar un fragmento: colapsa espacios/tabs y recorta los extremos.
 // Collapses runs of spaces/tabs and trims the ends
 export function normalizeFragment(text) {
     return String(text ?? '').replace(/\s+/g, ' ').trim();
 }
 
+// Esta función se encarga de obtener la lista de fragmentos desde un array o desde el JSON guardado.
 // Accepts either an array or the JSON string stored in the database. null = not a list.
 export function getFragments(criteria) {
     if (Array.isArray(criteria)) return criteria;
@@ -23,6 +27,7 @@ export function getFragments(criteria) {
     }
 }
 
+// Esta función se encarga de validar la lista de fragmentos (cantidad, largo y caracteres de control).
 // '' when fine, otherwise the error message
 export function getFragmentsError(criteria) {
     const fragments = getFragments(criteria);
@@ -48,17 +53,20 @@ export function getFragmentsError(criteria) {
     return '';
 }
 
+// Esta función se encarga de dejar los fragmentos en su forma canónica: limpios, sin duplicados, ordenados y como JSON.
 // Canonical form that gets stored: cleaned, no duplicates, sorted, as a JSON string
 export function normalizeFragments(criteria) {
     const fragments = getFragments(criteria) ?? [];
     return JSON.stringify([...new Set(fragments.map(normalizeFragment))].sort());
 }
 
+// Esta función se encarga de comprobar si una línea contiene TODOS los fragmentos indicados.
 export function lineMatchesFragments(line, fragments) {
     const normalizedLine = normalizeFragment(line);
     return fragments.every((fragment) => normalizedLine.includes(fragment));
 }
 
+// Esta función se encarga de verificar si alguna línea de la evidencia cumple con todos los fragmentos.
 // True when at least one line of the evidence contains every fragment
 export function evidenceMatches(evidenceText, criteria) {
     const fragments = (getFragments(criteria) ?? []).map(normalizeFragment);

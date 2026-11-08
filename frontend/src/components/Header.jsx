@@ -1,3 +1,5 @@
+// Este archivo se encarga de la barra de navegación superior del sitio, incluyendo
+// el menú desplegable de usuario con su animación de entrada/salida.
 import React, { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -6,6 +8,8 @@ import styles from '../styles/Header.module.css'
 // Debe coincidir con la duración de transition en .userMenuDropdown (CSS).
 const MENU_ANIMATION_MS = 180;
 
+// Este componente se encarga de renderizar el header con los enlaces de navegación
+// y el menú de usuario (perfil, dashboard, cerrar sesión) cuando hay sesión iniciada.
 function Header({ onLoginClick }){
     const { user, isAuthenticated, logout } = useAuth();
 
@@ -17,6 +21,8 @@ function Header({ onLoginClick }){
     const menuRef = useRef(null);
     const closeTimeoutRef = useRef(null);
 
+    // Esta función se encarga de abrir el menú: lo monta y luego activa la
+    // animación de entrada en el siguiente frame.
     const openMenu = () => {
         clearTimeout(closeTimeoutRef.current);
         setIsMenuRendered(true);
@@ -25,6 +31,8 @@ function Header({ onLoginClick }){
         requestAnimationFrame(() => setIsMenuOpen(true));
     };
 
+    // Esta función se encarga de cerrar el menú: lanza la animación de salida y
+    // recién lo desmonta del DOM cuando termina la transición.
     const closeMenu = () => {
         setIsMenuOpen(false);
         closeTimeoutRef.current = setTimeout(() => {
@@ -32,6 +40,7 @@ function Header({ onLoginClick }){
         }, MENU_ANIMATION_MS);
     };
 
+    // Esta función se encarga de alternar el menú entre abierto y cerrado.
     const toggleMenu = () => {
         if (isMenuOpen) {
             closeMenu();
@@ -40,6 +49,7 @@ function Header({ onLoginClick }){
         }
     };
 
+    // Este useEffect se encarga de cerrar el menú cuando se hace clic fuera de él.
     useEffect(() => {
         function handleClickOutside(event) {
             if (isMenuOpen && menuRef.current && !menuRef.current.contains(event.target)) {
@@ -56,6 +66,7 @@ function Header({ onLoginClick }){
         return () => clearTimeout(closeTimeoutRef.current);
     }, []);
 
+    // Esta función se encarga de cerrar la sesión y redirigir al inicio.
     const handleLogout = () => {
         logout();
         // href (en vez de navigate) hace la redirección Y el refresh

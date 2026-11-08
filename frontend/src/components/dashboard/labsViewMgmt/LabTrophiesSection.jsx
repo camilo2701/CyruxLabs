@@ -1,3 +1,4 @@
+// Este archivo se encarga de la pestaña "Trofeos" para crear, editar y quitar los trofeos propios de un laboratorio.
 import { useState } from 'react';
 import {
   MAX_CUSTOM_TROPHIES,
@@ -13,6 +14,7 @@ import { TimeCriteria, AttemptsCriteria, FragmentsCriteria } from './TrophyCrite
 
 const TYPE_CLASS = { 0: 'bronze', 1: 'silver', 2: 'gold' };
 
+// Esta función se encarga de dar el valor de criterio por defecto según el tipo elegido.
 // A fresh value each time, so cards never share the same array
 function getDefaultCriteria(criteriatype) {
   if (FRAGMENT_CRITERIA.includes(criteriatype)) return [''];
@@ -21,8 +23,10 @@ function getDefaultCriteria(criteriatype) {
 
 let nextNewTrophy = 1;
 
+// Esta función se encarga de crear un trofeo nuevo con el primer tipo que aún tenga cupo, para que sea válido desde el inicio.
 // A brand-new trophy. It starts with the first type that still has room, so it is valid from the start.
 function createTrophy(trophies) {
+  // Elige el primer tipo (bronce/plata/oro) que todavía no llegó a su máximo
   const type = [0, 1, 2].find(
     (candidate) => trophies.filter((trophy) => trophy.type === candidate).length < MAX_TROPHIES_BY_TYPE[candidate]
   ) ?? 0;
@@ -44,26 +48,34 @@ function createTrophy(trophies) {
 //  - once a student has earned a trophy, its tier, criteria and existence are frozen
 //    (otherwise what that student earned would stop meaning what it meant)
 //  - new trophies can be added while there is room (they are not given to people retroactively)
+// Este componente se encarga de renderizar y gestionar la lista de trofeos editables del laboratorio y sus reglas.
 function LabTrophiesSection({ editor }) {
   const { trophies, setTrophies, trophyErrorList, showTrophyErrors, errors } = editor;
   const [touched, setTouched] = useState({});
 
+  // Esta función se encarga de marcar un campo como "tocado" para empezar a mostrar su error.
   const touch = (key, field) => setTouched((prev) => ({ ...prev, [`${key}:${field}`]: true }));
+  // Esta función se encarga de decidir si se muestra el error de un campo (al enviar o tras tocarlo).
   const isShown = (key, field) => showTrophyErrors || touched[`${key}:${field}`];
 
+  // Esta función se encarga de aplicar cambios a un trofeo concreto identificándolo por su key.
   const updateTrophy = (key, changes) => {
     setTrophies(trophies.map((trophy) => (trophy.key === key ? { ...trophy, ...changes } : trophy)));
   };
 
+  // Esta función se encarga de quitar un trofeo de la lista.
   const removeTrophy = (key) => setTrophies(trophies.filter((trophy) => trophy.key !== key));
 
+  // Esta función se encarga de agregar un trofeo nuevo mientras no se supere el máximo permitido.
   const addTrophy = () => {
     if (trophies.length < MAX_CUSTOM_TROPHIES) setTrophies([...trophies, createTrophy(trophies)]);
   };
 
+  // Esta función se encarga de contar cuántos trofeos hay de un tipo (opcionalmente excluyendo uno).
   const countOfType = (type, exceptKey) =>
     trophies.filter((trophy) => trophy.type === type && trophy.key !== exceptKey).length;
 
+  // Esta función se encarga de cambiar el tipo de criterio y reiniciar su valor por defecto.
   const changeCriteriaType = (trophy, criteriatype) => {
     updateTrophy(trophy.key, { criteriatype, criteria: getDefaultCriteria(criteriatype) });
   };
@@ -112,8 +124,10 @@ function LabTrophiesSection({ editor }) {
           </p>
         </div>
 
+        {/* Una tarjeta editable por cada trofeo propio del laboratorio */}
         {trophies.map((trophy, index) => {
           const trophyErrors = trophyErrorList[index];
+          // Si algún estudiante ya lo ganó, el trofeo queda bloqueado (solo se puede cambiar nombre y descripción)
           const locked = trophy.earnedCount > 0;
 
           return (
@@ -136,6 +150,7 @@ function LabTrophiesSection({ editor }) {
                 )}
               </div>
 
+              {/* Selector de tipo (bronce/plata/oro); se deshabilita el que esté lleno o si el trofeo está bloqueado */}
               <div className="lvm-chips" role="group" aria-label="Tipo de trofeo">
                 {[0, 1, 2].map((type) => {
                   const isActive = trophy.type === type;
@@ -210,6 +225,7 @@ function LabTrophiesSection({ editor }) {
                 </select>
               </label>
 
+              {/* Según el tipo de criterio elegido, muestra el campo correspondiente */}
               {trophy.criteriatype === 'time' && (
                 <TimeCriteria
                   value={trophy.criteria}

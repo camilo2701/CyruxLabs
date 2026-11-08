@@ -1,15 +1,23 @@
+// Este archivo se encarga de mostrar el modal de confirmación para eliminar la cuenta,
+// pidiendo la contraseña del usuario antes de ejecutar la eliminación definitiva.
 import { useState } from 'react';
 import '../../styles/DeleteAccountModal.css';
 
+// Este componente se encarga de renderizar el modal de eliminación de cuenta y
+// capturar la contraseña necesaria para confirmar la acción.
 function DeleteAccountModal({ onConfirm, onCancel, loading, error }) {
   const [password, setPassword] = useState('');
 
+  // Esta función se encarga de evitar el envío por defecto del formulario y
+  // delegar la confirmación pasando la contraseña ingresada.
   const handleSubmit = (event) => {
     event.preventDefault();
     onConfirm(password);
   };
 
   return (
+    // El clic en el fondo cancela; stopPropagation evita que un clic dentro
+    // de la tarjeta cierre el modal por accidente
     <div className="delete-account-modal__overlay" onClick={onCancel}>
       <div
         className="delete-account-modal__card"

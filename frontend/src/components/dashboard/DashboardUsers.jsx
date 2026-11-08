@@ -1,3 +1,5 @@
+// Este archivo se encarga de la pantalla de gestión de usuarios: buscar, listar, paginar,
+// editar el perfil/rol y eliminar usuarios registrados en CyruxLabs (solo admin/instructor).
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -6,12 +8,14 @@ import '../../styles/DashboardUsers.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
+// Esta constante se encarga de traducir el número de rol a su etiqueta legible.
 const ROLE_LABELS = {
   0: 'Estudiante',
   1: 'Instructor',
   2: 'Administrador',
 };
 
+// Esta función se encarga de armar el formulario de edición a partir de los datos de un usuario.
 const toEditForm = (user) => ({
   username: user.username,
   firstName: user.firstname,
@@ -20,6 +24,7 @@ const toEditForm = (user) => ({
   role: user.role,
 });
 
+// Este componente se encarga de renderizar la gestión de usuarios y manejar toda su lógica.
 function ManageUsers() {
   const navigate = useNavigate();
   const confirm = useConfirm();
@@ -43,6 +48,7 @@ function ManageUsers() {
   const [modalMessage, setModalMessage] = useState({ type: '', text: '' });
   const [saving, setSaving] = useState(false);
 
+  // Esta función se encarga de pedir los usuarios al backend (búsqueda y página) y guardar la respuesta.
   const fetchUsers = useCallback(
     async (search, page) => {
       setLoading(true);
@@ -79,20 +85,24 @@ function ManageUsers() {
     [token]
   );
 
+  // Este useEffect se encarga de recargar la lista cada vez que cambia la búsqueda o la página.
   useEffect(() => {
     fetchUsers(activeSearch, currentPage);
   }, [fetchUsers, activeSearch, currentPage]);
 
+  // Esta función se encarga de activar la búsqueda con el texto escrito y volver a la primera página.
   const handleSearch = () => {
     const query = searchText.trim();
     setActiveSearch(query || null);
     setCurrentPage(1);
   };
 
+  // Esta función se encarga de lanzar la búsqueda al presionar Enter en el input.
   const handleKeyDown = (event) => {
     if (event.key === 'Enter') handleSearch();
   };
 
+  // Esta función se encarga de limpiar la búsqueda y volver a mostrar los registros recientes.
   const clearSearch = () => {
     setSearchText('');
     setActiveSearch(null);
@@ -101,6 +111,7 @@ function ManageUsers() {
 
   // ── Modal ──
 
+  // Esta función se encarga de dejar el modal completamente en su estado inicial y cerrarlo.
   const resetModal = () => {
     setSelectedUser(null);
     setModalMode('menu');
@@ -108,6 +119,7 @@ function ManageUsers() {
     setModalMessage({ type: '', text: '' });
   };
 
+  // Esta función se encarga de abrir el modal de un usuario mostrando el menú de acciones.
   const openModal = (user) => {
     setSelectedUser(user);
     setModalMode('menu');
@@ -115,22 +127,26 @@ function ManageUsers() {
     setModalMessage({ type: '', text: '' });
   };
 
+  // Esta función se encarga de cerrar el modal, salvo que haya un guardado en curso.
   const closeModal = () => {
     if (!saving) resetModal();
   };
 
+  // Esta función se encarga de entrar al modo edición cargando el formulario del usuario.
   const startEditing = () => {
     setEditForm(toEditForm(selectedUser));
     setModalMode('edit');
     setModalMessage({ type: '', text: '' });
   };
 
+  // Esta función se encarga de volver del modo edición al menú sin guardar cambios.
   const cancelEditing = () => {
     setModalMode('menu');
     setEditForm(null);
     setModalMessage({ type: '', text: '' });
   };
 
+  // Esta función se encarga de actualizar el formulario al escribir; convierte el rol a número.
   const handleEditChange = (event) => {
     const { name, value } = event.target;
     setEditForm((previous) => ({
@@ -140,9 +156,11 @@ function ManageUsers() {
     setModalMessage({ type: '', text: '' });
   };
 
+  // Esta función se encarga de guardar los cambios del perfil: valida, confirma el cambio de rol y envía.
   const handleSave = async (event) => {
     event.preventDefault();
 
+    // Si no se modificó ningún dato, no se envía nada.
     const original = toEditForm(selectedUser);
     const hasChanges = Object.keys(original).some((key) => original[key] !== editForm[key]);
     if (!hasChanges) {
@@ -150,6 +168,7 @@ function ManageUsers() {
       return;
     }
 
+    // Cambiar el rol exige confirmación explícita del administrador.
     if (isAdmin && editForm.role !== selectedUser.role) {
       const confirmed = await confirm({
         title: 'Cambiar rol',
@@ -198,6 +217,7 @@ function ManageUsers() {
     }
   };
 
+  // Esta función se encarga de eliminar un usuario tras confirmación y recargar la lista.
   const handleDeleteUser = async () => {
     const target = selectedUser;
 

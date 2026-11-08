@@ -1,3 +1,6 @@
+// Este archivo se encarga de mostrar el historial de sesiones de laboratorios:
+// el estudiante ve el suyo y el instructor/admin puede buscar usuarios y ver el de ellos,
+// con paginación y descarga del reporte PDF de cada sesión.
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import '../../styles/DashboardHistory.css';
@@ -5,6 +8,7 @@ import '../../styles/DashboardHistory.css';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 const ITEMS_PER_PAGE = 10;
 
+// Esta constante se encarga de traducir el número de rol a su nombre en texto.
 // Misma traducción número -> string que ya usan DashboardSidebar y Home.
 const ROLE_NAMES = {
   0: 'student',
@@ -12,8 +16,10 @@ const ROLE_NAMES = {
   2: 'admin',
 };
 
+// Esta constante se encarga de dar la etiqueta visible del rol (solo para mostrar en pantalla).
 const ROLE_LABELS = { 0: 'Estudiante', 1: 'Instructor', 2: 'Admin' };
 
+// Este componente se encarga de renderizar la sección de historial de actividad del dashboard.
 function DashboardHistory() {
   const { user, token } = useAuth();
   const role = ROLE_NAMES[user.role] || 'student';
@@ -35,6 +41,7 @@ function DashboardHistory() {
   const [downloadingId, setDownloadingId] = useState(null);
   const [downloadError, setDownloadError] = useState({ id: null, message: '' });
 
+  // Esta función se encarga de formatear una fecha a texto legible en formato chileno (24h).
   const formatTime = (date) => {
     if (!date) return 'En ejecución';
 
@@ -49,11 +56,13 @@ function DashboardHistory() {
     });
   };
 
+  // Esta función se encarga de calcular la duración entre inicio y fin y devolverla como HH:MM:SS.
   const calculateDuration = (start, end) => {
     if (!end) return 'En curso';
 
     const difference = new Date(end) - new Date(start);
 
+    // Pasa la diferencia de milisegundos a segundos y la reparte en horas, minutos y segundos.
     const totalSeconds = Math.floor(difference / 1000);
 
     const hours = Math.floor(totalSeconds / 3600);
@@ -67,6 +76,7 @@ function DashboardHistory() {
     ].join(':');
   };
 
+  // Este useEffect se encarga de cargar el historial del propio estudiante al entrar.
   // Estudiante: carga su propio historial una sola vez al entrar.
   useEffect(() => {
     if (role !== 'student') return;
@@ -87,6 +97,7 @@ function DashboardHistory() {
       .finally(() => setIsLoadingHistory(false));
   }, [role, token]);
 
+  // Este useEffect se encarga de cargar el historial del estudiante seleccionado (solo instructor/admin).
   // Instructor/admin: carga el historial del estudiante seleccionado.
   useEffect(() => {
     if (role === 'student' || !selectedStudent) return;
@@ -109,11 +120,13 @@ function DashboardHistory() {
       .finally(() => setIsLoadingHistory(false));
   }, [role, selectedStudent, token, isAdmin]);
 
+  // Esta función se encarga de actualizar el texto de búsqueda y reiniciar el estado de "ya buscó".
   const handleSearchInputChange = (event) => {
     setStudentSearch(event.target.value);
     setHasSearched(false);
   };
 
+  // Esta función se encarga de buscar estudiantes/usuarios en el backend según el texto ingresado.
   const handleStudentSearch = async (event) => {
     event.preventDefault();
 
@@ -140,6 +153,7 @@ function DashboardHistory() {
     }
   };
 
+  // Esta función se encarga de seleccionar un estudiante de la lista para ver su historial.
   const handleSelectStudent = (student) => {
     setSelectedStudent(student);
     setCurrentPage(1);
@@ -167,6 +181,7 @@ function DashboardHistory() {
     searchPage * ITEMS_PER_PAGE
   );
 
+  // Esta función se encarga de descargar el reporte PDF de una sesión concreta.
   const handleDownload = async (activity) => {
     setDownloadingId(activity.id);
     setDownloadError({ id: null, message: '' });

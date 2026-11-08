@@ -1,5 +1,9 @@
+// Este archivo se encarga de mostrar los controles de una sesión de laboratorio:
+// botones para reiniciar, terminar y reportar, más el campo para enviar la flag.
 import styles from '../../styles/Session.module.css';
 
+// Este componente se encarga de renderizar los controles de la barra lateral de la sesión.
+// Recibe por props el estado (cargando/terminado) y los manejadores de cada acción.
 function SessionControls({
     isEnded,
     stopping,
@@ -33,6 +37,7 @@ function SessionControls({
                 </button>
             </div>
 
+            {/* Campo donde el estudiante escribe la flag; se deshabilita si la sesión terminó */}
             <div className={styles['nebula-input']}>
                 <input
                     required

@@ -1,21 +1,27 @@
+// Este archivo se encarga del modal para reportar un problema (bug) dentro de un laboratorio:
+// recoge título y descripción, valida y envía el reporte, y gestiona estados de envío y error.
 import { useState, useEffect } from 'react';
 import confirmStyles from '../../styles/ConfirmDialog.module.css';
 import styles from '../../styles/BugReportModal.module.css';
 
+// Estas constantes se encargan de limitar la longitud máxima del título y de la descripción.
 const TITLE_MAX = 100;
 const DESCRIPTION_MAX = 2000;
 
+// Este componente se encarga de renderizar el modal de reporte de problemas y gestionar su envío.
 function BugReportModal({ onSubmit, onClose }) {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState(null);
 
+    // Se puede enviar solo si el título y la descripción tienen contenido y no hay un envío en curso.
     const canSubmit =
         title.trim().length > 0 &&
         description.trim().length > 0 &&
         !submitting;
 
+    // Este hook se encarga de cerrar el modal al pulsar Escape (salvo que se esté enviando).
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (e.key === 'Escape' && !submitting) onClose();
@@ -24,6 +30,8 @@ function BugReportModal({ onSubmit, onClose }) {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [onClose, submitting]);
 
+    // Esta función se encarga de enviar el reporte (título y descripción recortados) y cerrar el modal,
+    // mostrando un mensaje de error si el envío falla.
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!canSubmit) return;

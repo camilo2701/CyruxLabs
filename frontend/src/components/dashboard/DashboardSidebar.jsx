@@ -1,6 +1,10 @@
+// Este archivo se encarga de la barra lateral del dashboard: muestra las secciones
+// de navegación según el rol del usuario y resalta la sección activa.
 import { useAuth } from '../../context/AuthContext';
 import '../../styles/DashboardSidebar.css';
 
+// Esta constante se encarga de definir las secciones del dashboard: su id, etiqueta,
+// icono y los roles que pueden verlas.
 const dashboardSections = [
   {
     id: 'profile',
@@ -42,6 +46,7 @@ const ROLE_NAMES = {
   2: 'admin',
 };
 
+// Este componente se encarga de dibujar el icono SVG de la sección de registros.
 function LogsIcon() {
   return (
     <svg
@@ -63,6 +68,8 @@ function LogsIcon() {
   );
 }
 
+// Este componente se encarga de envolver cualquier icono de la barra en un SVG
+// con estilos comunes, para no repetirlos en cada icono.
 function SidebarIcon({ children }) {
   return (
     <svg
@@ -82,6 +89,7 @@ function SidebarIcon({ children }) {
   );
 }
 
+// Este componente se encarga de dibujar el icono de "Mi perfil".
 function UserIcon() {
   return (
     <SidebarIcon>
@@ -91,6 +99,7 @@ function UserIcon() {
   );
 }
 
+// Este componente se encarga de dibujar el icono de "Historial de actividad".
 function HistoryIcon() {
   return (
     <SidebarIcon>
@@ -101,6 +110,7 @@ function HistoryIcon() {
   );
 }
 
+// Este componente se encarga de dibujar el icono de "Gestionar usuarios".
 function UsersIcon() {
   return (
     <SidebarIcon>
@@ -112,6 +122,7 @@ function UsersIcon() {
   );
 }
 
+// Este componente se encarga de dibujar el icono de "Gestionar laboratorios".
 function FlaskIcon() {
   return (
     <SidebarIcon>
@@ -122,10 +133,13 @@ function FlaskIcon() {
   );
 }
 
+// Este componente se encarga de renderizar la barra lateral completa del dashboard.
 function DashboardSidebar({ activeSection, onSectionChange }) {
   const { user } = useAuth();
+  // Traduce el rol numérico del usuario a su nombre; por defecto 'student'.
   const roleName = ROLE_NAMES[user.role] || 'student';
 
+  // Filtra las secciones para dejar solo las permitidas al rol del usuario actual.
   const availableSections = dashboardSections.filter((section) =>
     section.allowedRoles.includes(roleName)
   );

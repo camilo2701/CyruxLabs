@@ -1,12 +1,17 @@
+// Este archivo se encarga de la sección de gestión de laboratorios del dashboard,
+// alternando entre el menú principal, la vista de revisión y la creación de labs.
 import { useState } from 'react';
 
 import DashboardLabsViewMgmt from './DashboardLabsViewMgmt.jsx';
 import DashboardLabsCreate from './DashboardLabsCreate.jsx';
 import '../../styles/DashboardLabs.css';
 
+// Este componente se encarga de controlar qué sub-sección de laboratorios se
+// muestra (menú, revisar o crear) mediante un estado local.
 function DashboardLabs() {
   const [activeLabSection, setActiveLabSection] = useState('menu');
 
+  // Esta función se encarga de decidir qué vista renderizar según la sección activa.
   const renderLabSection = () => {
     switch (activeLabSection) {
       case 'view':

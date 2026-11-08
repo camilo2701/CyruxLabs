@@ -1,3 +1,5 @@
+// Este archivo se encarga del modal con pestañas para administrar un laboratorio:
+// datos generales, instrucciones, trofeos y actualización de archivo, además de guardar y eliminar.
 import { useConfirm } from '../../ConfirmContext.jsx';
 import { useLabEditor, TABS } from './useLabEditor.js';
 import { useLabFileUpdate } from './useLabFileUpdate.js';
@@ -9,6 +11,8 @@ import LabFileUpdateSection from './LabFileUpdateSection.jsx';
 // The window to manage one lab. It is wide and has tabs because it holds as much as the create form.
 // While the bug reports window is open this one is only hidden (hidden), not removed, so nothing
 // that was typed and not saved is lost when the person comes back.
+
+// Este componente se encarga de renderizar el modal de edición y coordinar sus pestañas y acciones.
 function LabEditModal({ lab, token, isAdmin, bugCount, hidden, onClose, onOpenBugReports, onChanged, onDeleted }) {
   const confirm = useConfirm();
   const editor = useLabEditor({ lab, token, onSaved: onChanged, onDeleted });
@@ -23,6 +27,7 @@ function LabEditModal({ lab, token, isAdmin, bugCount, hidden, onClose, onOpenBu
   const busy = editor.isSaving || editor.isDeleting;
   const ready = editor.loadState === 'ready';
 
+  // Esta función se encarga de cerrar el modal, pidiendo confirmación si hay cambios sin guardar.
   const requestClose = async () => {
     if (editor.hasChanges) {
       const discard = await confirm({
@@ -37,11 +42,13 @@ function LabEditModal({ lab, token, isAdmin, bugCount, hidden, onClose, onOpenBu
   };
 
   // A tab is marked when it holds unsaved changes (or, for the file tab, a pending update)
+  // Esta función se encarga de devolver la marca de una pestaña (cambios sin guardar o actualización pendiente).
   const tabMark = (id) => {
     if (id === 'file') return editor.detail?.pendingUpdate ? 'pendiente' : null;
     return editor.dirty[id] ? 'sin guardar' : null;
   };
 
+  // Esta función se encarga de dar las props de cada panel, ocultando el que no es la pestaña activa.
   const panel = (id) => ({ hidden: editor.activeTab !== id, role: 'tabpanel' });
 
   return (

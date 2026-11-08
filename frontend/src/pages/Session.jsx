@@ -1,3 +1,5 @@
+// Este archivo se encarga de la página de una sesión de laboratorio: muestra el escritorio remoto, el temporizador,
+// los controles (enviar flag, reiniciar, terminar, reportar) y maneja el cierre de la sesión por distintas causas.
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import { useConfirm } from '../components/ConfirmContext.jsx';
@@ -18,6 +20,7 @@ const UNLOAD_WARNING_ENABLED = false; // TODO: re-enable once real hosting remov
 const WATCH_MS = 5000;
 const WATCH_CLOSING_MS = 2000;
 
+// Esta función se encarga de armar la frase sobre el XP ganado que se añade al modal de éxito.
 // Sentence added to the success popup, from what the backend says about the XP
 function describeXp(xp) {
     if (!xp) return '';
@@ -33,6 +36,7 @@ function describeXp(xp) {
     return '';
 }
 
+// Este componente se encarga de toda la pantalla de la sesión activa de un laboratorio y su ciclo de vida.
 function Session() {
     const { sessionid } = useParams();
     const { token } = useAuth();
@@ -75,6 +79,7 @@ function Session() {
     const endedRef = useRef(false);
     endedRef.current = isEnded;
 
+    // Dirección del escritorio del laboratorio; solo existe mientras la sesión tiene puerto asignado
     const iframeUrl = port ? `${protocol}://10.10.0.12:${port}/` : null;
 
     // Final time for the end screens. While the lab is running, SessionTimer keeps its own clock.
@@ -85,6 +90,7 @@ function Session() {
     // What the right-hand side shows. Only 'running' and 'checking' have the lab (the iframe) in the page:
     // in every other state it is gone, so the address of the lab runner is not left there.
     // 'checking' keeps the iframe mounted but hidden, so a wrong flag does not reload the student's desktop.
+    // Decide qué estado mostrar en el panel derecho a partir de las banderas de la sesión
     let view = 'running';
     if (isSolved) view = 'solved';
     else if (endReason === 'updated') view = isEnded ? 'updated' : 'updating';
@@ -100,6 +106,7 @@ function Session() {
 
     // An admin applied a lab update while this session was open. The server marks the session as
     // 'updated' first (it is still being closed) and completes it a moment later, with its trophies.
+    // Esta función se encarga de reaccionar cuando un admin cierra la sesión al aplicar una actualización del lab.
     // notify: show the dialog (false when the page is just opened on a session that already ended that way)
     const handleClosedByUpdate = (session, { notify }) => {
         setEndReason('updated');
@@ -127,6 +134,7 @@ function Session() {
         }
     };
 
+    // Esta función se encarga de cerrar la sesión en la interfaz cuando se terminó por otra vía (otra pestaña, etc.).
     // The session was closed some other way (another tab, a lab that was no longer running...)
     const handleClosedElsewhere = (session) => {
         setPort(null);
@@ -137,6 +145,7 @@ function Session() {
         setIsEnded(true);
     };
 
+    // Este efecto se encarga de cargar los datos de la sesión al abrir la página.
     useEffect(() => {
         if (!token || !sessionid) return;
 
@@ -176,11 +185,13 @@ function Session() {
     const watching = !!token && !!sessionid && !loading && !loadError
         && !isEnded && !stopping && !restarting && !submittingFlag;
 
+    // Este efecto se encarga de sondear periódicamente el estado de la sesión mientras el lab está en uso.
     useEffect(() => {
         if (!watching) return;
 
         let cancelled = false;
 
+        // Consulta el estado y actúa si la sesión fue cerrada por actualización o completada en otro lado
         const check = async () => {
             try {
                 const response = await fetch(`http://localhost:4000/api/sessions/${sessionid}`, {
@@ -205,7 +216,9 @@ function Session() {
         };
     }, [watching, closingForUpdate, sessionid, token]);
 
+    // Este efecto se encarga de intentar detener la sesión en el servidor cuando el usuario cierra o abandona la página.
     useEffect(() => {
+        // Al cerrar la pestaña se envía un aviso al backend para detener la sesión (si está habilitado)
         const handleBeforeUnload = (e) => {
             if (!sessionid) return;
 
@@ -228,6 +241,7 @@ function Session() {
                 window.removeEventListener('beforeunload', handleBeforeUnload);
             }
 
+            // Evita detener la sesión en el primer desmontaje (React StrictMode monta y desmonta dos veces en desarrollo)
             stopCleanupCount.current += 1;
             if (stopCleanupCount.current < 2) return;
 
@@ -247,6 +261,7 @@ function Session() {
         };
     }, [sessionid, token]);
 
+    // Esta función se encarga de terminar el laboratorio a pedido del estudiante y mostrar lo que se desbloqueó.
     const handleStopLab = async () => {
         const ok = await confirm({
             title: '¿Terminar laboratorio?',
@@ -295,6 +310,7 @@ function Session() {
         }
     };
 
+    // Esta función se encarga de reiniciar el laboratorio, lo que crea un nuevo intento y reinicia el temporizador.
     const handleRestartLab = async () => {
         const ok = await confirm({
             title: '¿Reiniciar laboratorio?',
@@ -345,6 +361,7 @@ function Session() {
         }
     };
 
+    // Esta función se encarga de enviar un reporte de bug de la sesión al backend.
     const handleSubmitReport = async ({ title, description }) => {
         let response;
         try {
@@ -378,6 +395,7 @@ function Session() {
         });
     };
 
+    // Esta función se encarga de enviar la flag ingresada y, si es correcta, marcar el lab como resuelto con sus recompensas.
     const handleSubmitFlag = async () => {
         if (!flag.trim() || submittingFlag) return;
         setSubmittingFlag(true);
@@ -397,6 +415,7 @@ function Session() {
             });
             const result = await response.json();
 
+            // Flag incorrecta: se reanuda el reloj y se avisa; la correcta sigue hacia el bloque de éxito
             if (!response.ok || !result.matched) {
                 setFinishTime(null); // wrong flag: the clock keeps running
                 await confirm({
@@ -430,6 +449,7 @@ function Session() {
         }
     };
 
+    // Mientras carga o si no hay acceso, muestra una pantalla simple antes del layout completo
     if (loading) {
         return <div className={styles.page}>Cargando sesión...</div>;
     }
@@ -440,6 +460,7 @@ function Session() {
 
     return (
         <div className={styles.page}>
+            {/* Barra lateral: instrucciones, controles del lab y temporizador */}
             <section className={styles.sidebar}>
                 <SessionInstructions labTitle={labTitle} instructions={instructions} />
 
@@ -459,6 +480,7 @@ function Session() {
                 <SessionTimer startTime={startTime} finishTime={finishTime} isEnded={isEnded} />
             </section>
 
+            {/* Panel principal: muestra el escritorio del lab o la pantalla final según el estado 'view' */}
             <SessionDesktop
                 view={view}
                 labTitle={labTitle}

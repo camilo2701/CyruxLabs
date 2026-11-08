@@ -1,8 +1,12 @@
+// Este archivo se encarga de la pestaña "Archivo y flag" para actualizar el .zip y la flag de un
+// laboratorio; el cambio se programa y se aplica cuando no hay sesiones activas.
 import { useRef, useState } from 'react';
 import { FLAG_MAX } from '../../../utils/labRules.js';
 
+// Esta función se encarga de formatear una fecha ISO a texto local chileno (vacío si no hay fecha).
 const formatDateTime = (iso) => (iso ? new Date(iso).toLocaleString('es-CL') : '');
 
+// Este componente se encarga de renderizar la pestaña de actualización de archivo y flag del laboratorio.
 // "Archivo y flag" tab. The new zip and the flag are one change: the flag has to be the one the
 // instructor hid inside the new zip. The change is queued and applied when the lab has no open session.
 function LabFileUpdateSection({ fileUpdate }) {
@@ -15,12 +19,14 @@ function LabFileUpdateSection({ fileUpdate }) {
   const fileInputRef = useRef(null);
   const [showFlag, setShowFlag] = useState(false);
 
+  // Esta función se encarga de tomar el archivo elegido desde el selector de archivos.
   const handlePick = (event) => {
     chooseFile(event.target.files[0]);
     // Clear the input so picking the same file again still fires onChange
     event.target.value = '';
   };
 
+  // Esta función se encarga de tomar el archivo soltado por arrastrar y soltar.
   const handleDrop = (event) => {
     event.preventDefault();
     chooseFile(event.dataTransfer.files[0]);

@@ -1,13 +1,18 @@
+// Este archivo se encarga del campo para agregar y mostrar los "beneficios" de un laboratorio como etiquetas.
 import { useState } from 'react';
 
+// Este componente se encarga de un input donde se escribe un beneficio y, al presionar Enter, se agrega
+// a una lista de etiquetas que se pueden quitar una a una.
 function BenefitsInput({ value, onValueChange, benefits, onAdd, onRemove, error, onBlur }) {
     // Only changes how the label looks, so it lives here instead of in the parent
     const [focused, setFocused] = useState(false);
 
+    // Esta función se encarga de agregar el beneficio cuando se presiona Enter, evitando enviar el formulario.
     const handleKeyDown = (e) => {
         if (e.key !== 'Enter') return;
         e.preventDefault();
 
+        // Ignora espacios en blanco: no se agregan beneficios vacíos
         const trimmed = value.trim();
         if (trimmed === '') return;
 
@@ -38,6 +43,7 @@ function BenefitsInput({ value, onValueChange, benefits, onAdd, onRemove, error,
             >
                 Beneficios (presiona Enter para agregar)
             </label>
+            {/* Lista de beneficios ya agregados, cada uno con su botón para eliminarlo */}
             <div className="benefit-tags">
                 {benefits.map((benefit, index) => (
                     <span key={index} className="benefit-tag">

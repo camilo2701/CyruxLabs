@@ -1,9 +1,11 @@
+// Este archivo se encarga del formulario para que el usuario cambie su contraseña, validando los requisitos.
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import '../../styles/ChangePassword.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
+// Este componente se encarga del formulario de cambio de contraseña: pide la actual, la nueva y su repetición.
 function ChangePassword({ onBack }) {
   const { token } = useAuth();
 
@@ -16,6 +18,7 @@ function ChangePassword({ onBack }) {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Esta constante se encarga de evaluar en vivo qué requisitos cumple la nueva contraseña (y si coinciden).
   const passwordRequirements = {
     length: formData.newPassword.length >= 7,
     uppercase: /[A-Z]/.test(formData.newPassword),
@@ -25,6 +28,7 @@ function ChangePassword({ onBack }) {
       formData.newPassword === formData.repeatPassword,
   };
 
+  // Esta función se encarga de actualizar el campo editado y limpiar el mensaje anterior.
   const handleChange = (event) => {
     const { name, value } = event.target;
 
@@ -36,9 +40,11 @@ function ChangePassword({ onBack }) {
     setMessage('');
   };
 
+  // Esta función se encarga de validar los campos y enviar el cambio de contraseña al backend.
   const handleSubmit = async (event) => {
     event.preventDefault();
 
+    // Valida en el cliente antes de llamar al servidor: contraseña actual, requisitos y coincidencia
     if (!formData.currentPassword) {
       setMessage('Debes ingresar tu contraseña actual.');
       return;
@@ -79,6 +85,7 @@ function ChangePassword({ onBack }) {
         return;
       }
 
+      // Éxito: avisa y limpia el formulario
       setMessage('Contraseña cambiada correctamente.');
       setFormData({
         currentPassword: '',
@@ -153,6 +160,7 @@ function ChangePassword({ onBack }) {
           />
         </label>
 
+        {/* Lista de requisitos que se marcan como cumplidos en tiempo real */}
         <div className="change-password__requirements">
 
           <p>La contraseña debe contener:</p>

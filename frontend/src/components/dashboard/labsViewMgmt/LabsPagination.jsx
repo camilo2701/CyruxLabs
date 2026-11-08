@@ -1,3 +1,6 @@
+// Este archivo se encarga de los botones de paginación (anterior/siguiente) de los resultados.
+
+// Este componente se encarga de mostrar los botones de paginación y la página actual.
 // Previous / next buttons of the search results
 function LabsPagination({ currentPage, totalPages, onPageChange }) {
   return (

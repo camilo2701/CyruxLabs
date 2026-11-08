@@ -1,11 +1,16 @@
+// Este archivo se encarga de la pestaña "Instrucciones": un editor Markdown con
+// modos escribir/vista previa e importación de archivos .md para las instrucciones
+// que verán los estudiantes del laboratorio.
 import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import MarkdownView from '../../MarkdownView.jsx';
 import { useConfirm } from '../../ConfirmContext.jsx';
 import { INSTRUCTIONS_MAX } from '../../../utils/labRules.js';
 
+// Esta constante se encarga de limitar el tamaño del .md que se puede importar.
 const MAX_IMPORT_BYTES = 100 * 1024;
 
+// Este componente se encarga de renderizar el editor de instrucciones del laboratorio.
 // "Instrucciones" tab. Same editor as when creating a lab. A saved change is live right away,
 // also for students who already have the lab open.
 function LabInstructionsSection({ editor }) {
@@ -16,6 +21,8 @@ function LabInstructionsSection({ editor }) {
   const [mode, setMode] = useState('write'); // 'write' | 'preview'
   const [importError, setImportError] = useState('');
 
+  // Esta función se encarga de validar y leer un .md en el navegador y volcar su
+  // texto en el editor (no se sube nada al servidor).
   // Reads an .md file in the browser and puts its text in the editor (nothing is uploaded)
   const importFile = async (file) => {
     setImportError('');
@@ -34,6 +41,7 @@ function LabInstructionsSection({ editor }) {
 
     let text;
     try {
+      // Lee el contenido y normaliza los saltos de línea de Windows (\r\n) a \n.
       text = (await file.text()).replace(/\r\n/g, '\n');
     } catch {
       setImportError('No se pudo leer el archivo');
@@ -50,6 +58,7 @@ function LabInstructionsSection({ editor }) {
       return;
     }
 
+    // Si ya hay texto escrito, pide confirmación antes de sobrescribirlo con el archivo.
     if (instructions.trim() !== '') {
       const ok = await confirm({
         title: '¿Reemplazar las instrucciones?',
@@ -65,12 +74,14 @@ function LabInstructionsSection({ editor }) {
     setMode('write');
   };
 
+  // Esta función se encarga de procesar el archivo elegido desde el selector de archivos.
   const handlePick = (event) => {
     importFile(event.target.files[0]);
     // Clear the input so picking the same file again still fires onChange
     event.target.value = '';
   };
 
+  // Esta función se encarga de procesar el archivo soltado sobre el editor (drag and drop).
   const handleDrop = (event) => {
     event.preventDefault();
     importFile(event.dataTransfer.files[0]);
@@ -118,6 +129,7 @@ function LabInstructionsSection({ editor }) {
         />
       </div>
 
+      {/* Según el modo activo, muestra el área de texto editable o la vista previa del Markdown */}
       {mode === 'write' ? (
         <textarea
           className={`lvm-instructions-box lvm-instructions-textarea${errors.instructions ? ' lvm-input--error' : ''}`}

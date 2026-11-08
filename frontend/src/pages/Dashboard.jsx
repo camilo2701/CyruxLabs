@@ -1,3 +1,5 @@
+// Este archivo se encarga del panel de control (dashboard) del usuario: protege la ruta según la sesión
+// y muestra la sección activa (perfil, historial, usuarios, labs, logs o cambio de contraseña).
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -13,9 +15,11 @@ import Footer from '../components/Footer';
 
 import '../styles/Dashboard.css';
 
+// Este componente se encarga de renderizar el dashboard, controlar la sección activa y proteger el acceso.
 function Dashboard() {
   const { user, isLoading } = useAuth();
 
+  // La sección inicial depende del hash de la URL: #historial abre el historial, si no el perfil.
   const [activeSection, setActiveSection] = useState(() => {
     return window.location.hash === '#historial'
       ? 'history'
@@ -39,11 +43,13 @@ function Dashboard() {
     return <Navigate to="/" replace />;
   }
 
+  // Esta función se encarga de cambiar la sección activa y cerrar la vista de cambio de contraseña.
   const handleSectionChange = (section) => {
     setActiveSection(section);
     setShowChangePassword(false);
   };
 
+  // Esta función se encarga de decidir qué componente de sección renderizar según el estado actual.
   const renderSection = () => {
     if (showChangePassword) {
       return (

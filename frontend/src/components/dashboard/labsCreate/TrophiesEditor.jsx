@@ -1,3 +1,6 @@
+// Este archivo se encarga del editor de trofeos al crear un laboratorio: permite
+// añadir trofeos personalizados (bronce/plata/oro) y configurar su criterio de
+// obtención (tiempo, intentos fallidos o fragmentos de comando/proceso).
 import { useState } from 'react';
 import {
     MAX_CUSTOM_TROPHIES,
@@ -14,17 +17,23 @@ import {
 } from '../../../utils/labRules.js';
 import { MAX_FRAGMENTS, FRAGMENT_MAX_LENGTH } from '../../../utils/trophyCriteria.js';
 
+// Esta constante se encarga de mapear el tipo numérico de trofeo a su clase CSS.
 const TYPE_CLASS = { 0: 'bronze', 1: 'silver', 2: 'gold' };
+// Esta constante se encarga de calcular el máximo de minutos a partir del tope en segundos.
 const MAX_MINUTES = TIME_MAX_SECONDS / 60;
 
+// Esta función se encarga de devolver el criterio por defecto según el tipo elegido,
+// creando un valor nuevo cada vez para que las tarjetas no compartan el mismo array.
 // A fresh value each time, so cards never share the same array
 function getDefaultCriteria(criteriatype) {
     if (FRAGMENT_CRITERIA.includes(criteriatype)) return [''];
     return criteriatype === 'failed_attempts' ? '0' : '300';
 }
 
+// Contador incremental que da un id único a cada tarjeta de trofeo creada.
 let nextTrophyId = 1;
 
+// Esta función se encarga de crear un trofeo nuevo con valores por defecto.
 // The id only identifies the card in the list; the backend ignores it
 function createTrophy() {
     return {
@@ -37,18 +46,23 @@ function createTrophy() {
     };
 }
 
+// Esta función se encarga de convertir un total de segundos en un texto legible "X min YY s".
 function describeTime(totalSeconds) {
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
     return `${minutes} min ${String(seconds).padStart(2, '0')} s`;
 }
 
+// Este componente se encarga del criterio por tiempo: dos campos (minutos y
+// segundos) cuyo valor se guarda internamente como total de segundos.
 /* Time criteria: two boxes (minutes, seconds). The value is stored as total seconds. */
 function TimeCriteria({ value, onChange, onBlur }) {
     const total = Number(value) || 0;
     const minutes = Math.floor(total / 60);
     const seconds = total % 60;
 
+    // Esta función se encarga de recomponer el total de segundos a partir de los dos
+    // campos, acotando minutos y segundos a sus rangos válidos.
     const update = (nextMinutes, nextSeconds) => {
         const m = Math.min(Math.max(nextMinutes, 0), MAX_MINUTES);
         const s = Math.min(Math.max(nextSeconds, 0), 59);
@@ -90,10 +104,13 @@ function TimeCriteria({ value, onChange, onBlur }) {
     );
 }
 
+// Este componente se encarga del criterio por intentos fallidos: un único número
+// (0 significa resolver sin ningún error).
 /* Failed attempts criteria: one number (0 = no mistakes at all) */
 function AttemptsCriteria({ value, onChange, onBlur }) {
     const attempts = Number(value) || 0;
 
+    // Esta función se encarga de acotar el número de intentos al rango permitido.
     const handleChange = (e) => {
         const next = Math.min(Math.max(parseInt(e.target.value, 10) || 0, 0), FAILED_ATTEMPTS_MAX);
         onChange(String(next));
@@ -124,6 +141,8 @@ function AttemptsCriteria({ value, onChange, onBlur }) {
     );
 }
 
+// Esta constante se encarga de guardar los textos de ayuda y placeholders para
+// cada tipo de criterio por fragmentos (comando o proceso).
 const FRAGMENT_COPY = {
     command: {
         placeholders: ['p. ej. nmap', 'p. ej. -sV'],
@@ -135,17 +154,22 @@ const FRAGMENT_COPY = {
     },
 };
 
+// Este componente se encarga del criterio por fragmentos (comando/proceso): de 1 a
+// 4 fragmentos de texto; el valor es la lista de fragmentos.
 /* Command / process criteria: 1 to 4 text fragments. The value is the list of fragments. */
 function FragmentsCriteria({ kind, value, onChange, onBlur }) {
     const fragments = Array.isArray(value) && value.length > 0 ? value : [''];
     const copy = FRAGMENT_COPY[kind];
 
+    // Esta función se encarga de reemplazar el texto del fragmento en la posición dada.
     const updateFragment = (index, text) => {
         onChange(fragments.map((fragment, i) => (i === index ? text : fragment)));
     };
+    // Esta función se encarga de añadir un fragmento vacío si no se alcanzó el máximo.
     const addFragment = () => {
         if (fragments.length < MAX_FRAGMENTS) onChange([...fragments, '']);
     };
+    // Esta función se encarga de quitar el fragmento de la posición indicada.
     const removeFragment = (index) => onChange(fragments.filter((_, i) => i !== index));
 
     return (
@@ -199,27 +223,40 @@ function FragmentsCriteria({ kind, value, onChange, onBlur }) {
     );
 }
 
+// Este componente se encarga de orquestar todo el editor de trofeos: la lista de
+// tarjetas, el resumen de cupos por tipo y la gestión de errores de validación.
 function TrophiesEditor({ trophies, onChange, showAllErrors, error }) {
+    // Registra qué campos ha tocado el usuario para decidir cuándo mostrar errores.
     const [touched, setTouched] = useState({});
 
+    // Lista de errores por trofeo, calculada según las reglas de validación.
     const errorList = getTrophyErrorList(trophies);
 
+    // Esta función se encarga de marcar un campo como "tocado" (clave id:campo).
     const touch = (id, field) => setTouched((prev) => ({ ...prev, [`${id}:${field}`]: true }));
+    // Esta función se encarga de decidir si se muestra el error de un campo: al forzar todos o si fue tocado.
     const isShown = (id, field) => showAllErrors || touched[`${id}:${field}`];
 
+    // Esta función se encarga de aplicar cambios parciales al trofeo con el id dado.
     const updateTrophy = (id, changes) => {
         onChange(trophies.map((t) => (t.id === id ? { ...t, ...changes } : t)));
     };
 
+    // Esta función se encarga de eliminar el trofeo con el id dado.
     const removeTrophy = (id) => onChange(trophies.filter((t) => t.id !== id));
 
+    // Esta función se encarga de añadir un trofeo nuevo si no se superó el máximo permitido.
     const addTrophy = () => {
         if (trophies.length < MAX_CUSTOM_TROPHIES) onChange([...trophies, createTrophy()]);
     };
 
+    // Esta función se encarga de contar cuántos trofeos hay de un tipo (opcionalmente
+    // excluyendo uno), para controlar los cupos por bronce/plata/oro.
     const countOfType = (type, exceptId) =>
         trophies.filter((t) => t.type === type && t.id !== exceptId).length;
 
+    // Esta función se encarga de cambiar el tipo de criterio y reiniciar su valor al
+    // criterio por defecto correspondiente.
     const handleCriteriaTypeChange = (trophy, criteriatype) => {
         updateTrophy(trophy.id, { criteriatype, criteria: getDefaultCriteria(criteriatype) });
     };
@@ -261,6 +298,7 @@ function TrophiesEditor({ trophies, onChange, showAllErrors, error }) {
                     </p>
                 </div>
 
+                {/* Una tarjeta editable por cada trofeo personalizado definido */}
                 {trophies.map((trophy, index) => {
                     const errors = errorList[index];
 
@@ -279,6 +317,7 @@ function TrophiesEditor({ trophies, onChange, showAllErrors, error }) {
                             </div>
 
                             <div className="trophy-editor__chips" role="group" aria-label="Tipo de trofeo">
+                                {/* Botones de tipo (bronce/plata/oro): se deshabilitan si el cupo de ese tipo está lleno */}
                                 {[0, 1, 2].map((type) => {
                                     const isActive = trophy.type === type;
                                     const isFull = countOfType(type, trophy.id) >= MAX_TROPHIES_BY_TYPE[type];
@@ -354,6 +393,7 @@ function TrophiesEditor({ trophies, onChange, showAllErrors, error }) {
                                 </select>
                             </label>
 
+                            {/* Según el tipo de criterio elegido, muestra el editor correspondiente */}
                             {trophy.criteriatype === 'time' && (
                                 <TimeCriteria
                                     value={trophy.criteria}

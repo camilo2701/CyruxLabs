@@ -1,3 +1,6 @@
+// Este archivo se encarga de mostrar la página pública de laboratorios: lista los labs,
+// permite buscarlos y seleccionarlos, y gestiona el arranque de una sesión (con diálogo de carga,
+// sondeo del estado y manejo de errores/cancelación).
 import { useState } from 'react';
 import { useEffect } from 'react';
 import { useRef } from 'react';
@@ -11,6 +14,7 @@ import ScoreMeter from '../components/ScoreMeter.jsx'
 import { useAuth } from '../context/AuthContext';
 import { getScoreTier } from '../utils/labRules.js';
 
+// Esta constante se encarga de formatear una fecha ISO al formato chileno, o mostrar "—" si no hay.
 const formatDate = (iso) =>
     iso ? new Date(iso).toLocaleDateString('es-CL', { timeZone: 'America/Santiago' }) : '—';
 
@@ -18,6 +22,8 @@ const formatDate = (iso) =>
 const POLL_MS = 2000;
 const MAX_POLL_ERRORS = 5;
 
+// Este componente se encarga de renderizar la página de laboratorios y coordinar todo el flujo
+// de selección e inicio de una sesión.
 // onLoginClick: opens the login window (the same one the header's "Iniciar Sesión" button opens)
 function LabsPage({ onLoginClick }){
     const [query, setQuery] = useState("");
@@ -41,6 +47,7 @@ function LabsPage({ onLoginClick }){
     // Tier (name + points) of the selected lab; null if the lab has no score
     const selectedTier = getScoreTier(selectedLab?.score);
 
+    // Esta función se encarga de seleccionar un lab y, en pantallas pequeñas, desplazar la vista a su detalle.
     const selectLab = (lab) => {
         setSelectedLab(lab);
 
@@ -50,12 +57,14 @@ function LabsPage({ onLoginClick }){
         }
     };
 
+    // Esta función se encarga de cerrar el diálogo de carga y mostrar un diálogo de error al iniciar.
     const showStartError = (title, message) => {
         setLaunch(null);
         setCancelling(false);
         setStartError({ title, message });
     };
 
+    // Esta función se encarga de pedir al backend que detenga/cancele una sesión que aún se está iniciando.
     // Ends a session that is still starting (the backend turns this into a real cancel)
     const stopSession = async (sessionid) => {
         try {
@@ -84,6 +93,8 @@ function LabsPage({ onLoginClick }){
         }
     };
 
+    // Esta función se encarga de iniciar el laboratorio seleccionado: abre el diálogo de carga,
+    // pide al backend que arranque la sesión y decide si entrar, cancelar o seguir esperando.
     const handleComenzar = async () => {
         if (!selectedLab || !isAuthenticated || launch) return;
 
@@ -153,6 +164,8 @@ function LabsPage({ onLoginClick }){
         }
     };
 
+    // Esta función se encarga de cancelar el inicio en curso, marcando la intención y deteniendo la sesión
+    // en cuanto exista un sessionid.
     const handleCancelLaunch = async () => {
         if (!launch || cancelling) return;
 
@@ -169,6 +182,8 @@ function LabsPage({ onLoginClick }){
     // It depends on the sessionid only, so changing the phase does not restart the polling.
     const launchSessionId = launch?.sessionid;
 
+    // Este hook se encarga de sondear periódicamente el estado de la sesión que se está iniciando
+    // y navegar al lab, mostrar error o detenerse según la respuesta.
     useEffect(() => {
         if (!launchSessionId) return;
 
@@ -176,6 +191,7 @@ function LabsPage({ onLoginClick }){
         let timer = null;
         let errorsInARow = 0;
 
+        // Esta función se encarga de consultar el estado una vez y reprogramar la siguiente consulta.
         const poll = async () => {
             try {
                 const response = await fetch(`http://localhost:4000/api/sessions/${launchSessionId}`, {
@@ -236,6 +252,7 @@ function LabsPage({ onLoginClick }){
         };
     }, [launchSessionId, token, navigate]);
 
+    // Este hook se encarga de cargar la lista de laboratorios al montar la página y seleccionar el primero.
     useEffect(() => {
         fetch('http://localhost:4000/api/labs?all=true')
             .then((res) => res.json())
@@ -257,6 +274,7 @@ function LabsPage({ onLoginClick }){
             .finally(() => setLabsLoading(false));
     }, []);
 
+    // Filtra los labs cuyo título contiene el texto buscado (sin distinguir mayúsculas).
     const visibleLabs = labs.filter((lab) => lab.title.toLowerCase().includes(query.toLowerCase()));
 
     return(

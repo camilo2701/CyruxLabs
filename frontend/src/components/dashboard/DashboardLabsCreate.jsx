@@ -1,3 +1,5 @@
+// Este archivo se encarga del formulario de creación de laboratorios: valida cada
+// campo, gestiona el archivo .zip y envía todo al backend mediante FormData.
 import { useState } from "react";
 import { Link } from 'react-router-dom';
 import '../../styles/DashboardLabsCreate.css'
@@ -24,10 +26,15 @@ import {
     getTrophiesError,
 } from '../../utils/labRules.js';
 
+// Esta constante se encarga de guardar el mensaje de error por falta de beneficios mínimos.
 const BENEFITS_COUNT_ERROR = `Debes indicar al menos ${MIN_BENEFITS} beneficios que obtienes por desarrollar este laboratorio`;
+// Esta constante se encarga de definir el tamaño máximo permitido del .zip (50 MB en bytes).
 const MAX_ZIP_BYTES = 50 * 1024 * 1024;
+// Esta función se encarga de comprobar que un archivo tenga extensión .zip.
 const isZipFile = (file) => file.name.toLowerCase().endsWith('.zip');
 
+// Este componente se encarga de renderizar y manejar todo el formulario de creación
+// de un laboratorio, con su estado, validaciones y envío.
 function DashboardLabsCreate(){
     const [labTitle, setLabTitle] = useState('');
     const [labDesc, setLabDesc] = useState('');
@@ -57,11 +64,14 @@ function DashboardLabsCreate(){
 
     const trophiesError = getTrophiesError(trophies);
 
+    // Estas funciones se encargan de validar cada campo al perder el foco y
+    // guardar su mensaje de error correspondiente.
     const validateTitle = (value) => setTitleError(getTitleError(value));
     const validateDesc = (value) => setDescError(getDescriptionError(value));
     const validateFlag = (value) => setFlagError(getFlagError(value));
     const validateInstructions = (value) => setInstructionsError(getInstructionsError(value));
 
+    // Esta función se encarga de validar que se haya ingresado la cantidad mínima de beneficios.
     const validateBenefitCount = () => {
         if (benefitList.length < MIN_BENEFITS) {
             setBenefitError(BENEFITS_COUNT_ERROR);
@@ -71,6 +81,7 @@ function DashboardLabsCreate(){
     };
 
     /*** SCORE ***/
+    // Esta función se encarga de actualizar el puntaje elegido y revalidarlo.
     // Picking a tier is the only way to change it, so the error clears as soon as one is chosen
     const handleScoreChange = (value) => {
         setScore(value);
@@ -78,6 +89,8 @@ function DashboardLabsCreate(){
     };
 
     /*** BENEFITS ***/
+    // Esta función se encarga de agregar un beneficio a la lista si pasa las
+    // validaciones (no exceder el máximo y no estar mal escrito).
     // Returns true if the benefit was accepted, so BenefitsInput knows to clear its text box
     const handleAddBenefit = (text) => {
         if (benefitList.length >= MAX_BENEFITS) {
@@ -96,11 +109,14 @@ function DashboardLabsCreate(){
         return true;
     };
 
+    // Esta función se encarga de quitar de la lista el beneficio en la posición indicada.
     const handleRemoveBenefit = (indexToRemove) => {
         setBenefitList((prevList) => prevList.filter((_, i) => i !== indexToRemove));
     };
 
     /*** FILE MANAGEMENT ***/
+    // Esta función se encarga de validar el archivo subido (que sea uno solo, .zip
+    // y dentro del límite de tamaño) antes de aceptarlo.
     // Receives the files from both the drop and the file picker
     const handleFilesPicked = (pickedFiles) => {
         if (pickedFiles.length !== 1) {
@@ -123,6 +139,7 @@ function DashboardLabsCreate(){
         setFileError(false);
     };
 
+    // Esta función se encarga de quitar el archivo cargado y volver a marcar el campo como requerido.
     const handleRemoveFile = () => {
         setFiles([]);
         setFileError(true);
@@ -130,6 +147,8 @@ function DashboardLabsCreate(){
     };
 
     /*** HANDLE FORM SUBMISSION ***/
+    // Esta función se encarga de validar todo el formulario, verificar el título
+    // duplicado y enviar el laboratorio al backend.
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -157,6 +176,7 @@ function DashboardLabsCreate(){
             setBenefitError(BENEFITS_COUNT_ERROR);
         }
 
+        // Si hay cualquier problema de validación, se corta el envío
         if (
             titleProblem || descProblem || flagProblem || scoreProblem || instructionsProblem ||
             trophiesError || missingFile || missingBenefits
@@ -169,6 +189,7 @@ function DashboardLabsCreate(){
 
         const cleanTitle = labTitle.trim();
 
+        // Arma el cuerpo de la petición con todos los campos del laboratorio
         const formData = new FormData();
         const url = 'http://localhost:4000/api/labs'
         formData.append('title', cleanTitle);
@@ -182,6 +203,7 @@ function DashboardLabsCreate(){
         formData.append('zipfile', files[0]);
 
         try {
+            // Antes de crear, consulta al backend si ya existe un lab con ese título
             const duplicateCheck = await fetch(
                 `${url}/check-title?title=${encodeURIComponent(cleanTitle)}`
             );
@@ -206,6 +228,7 @@ function DashboardLabsCreate(){
             if (!response.ok) {
                 console.error('Server error:', result);
 
+                // Según el campo que devuelva el backend, se muestra el error en ese campo
                 // The backend says which field a conflict belongs to
                 if (result.field === 'flag') {
                     setFlagError(result.message);
@@ -232,6 +255,8 @@ function DashboardLabsCreate(){
         }
     };
 
+    // Esta función se encarga de limpiar todos los campos y errores del formulario,
+    // dejándolo listo para crear otro laboratorio.
     const resetForm = () => {
         setLabTitle('');
         setLabDesc('');

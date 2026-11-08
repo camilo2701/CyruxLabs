@@ -1,12 +1,15 @@
+// Este archivo se encarga de dibujar el ícono SVG de trofeo, coloreado según su tipo (bronce, plata u oro).
 // Trophy icon colored by trophy type: 0 = bronze, 1 = silver, 2 = gold.
 // Usage: <TrophyIcon type={trophy.type} size={24} title="Laboratorio completado" />
 // Pass a title when the icon stands alone; leave it out when the name is already written next to it.
+// Esta constante se encarga de mapear el tipo de trofeo a su color.
 const TROPHY_COLORS = {
     0: '#cd7f32', // bronze
     1: '#c0c0c0', // silver
     2: '#ffd24d', // gold
 };
 
+// Este componente se encarga de renderizar el ícono de trofeo con el color y accesibilidad adecuados.
 function TrophyIcon({ type = 0, size = 24, title, className }) {
     return (
         <svg

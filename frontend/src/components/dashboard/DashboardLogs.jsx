@@ -1,3 +1,5 @@
+// Este archivo se encarga de mostrar el registro del sistema (logs): una tabla paginada por cursor,
+// con filtros por módulo/operación/severidad y una fila expandible con el detalle de cada log.
 import { Fragment, useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import styles from '../../styles/DashboardLogs.module.css';
@@ -51,17 +53,22 @@ const FILTERS = [
 
 const COLUMN_COUNT = 7;
 
+// Esta función se encarga de formatear una fecha ISO a formato corto para la tabla.
 const formatDate = (iso) =>
     new Date(iso).toLocaleString('es', { dateStyle: 'short', timeStyle: 'medium' });
 
+// Esta función se encarga de formatear una fecha ISO a formato completo para el detalle.
 const formatFullDate = (iso) =>
     new Date(iso).toLocaleString('es', { dateStyle: 'full', timeStyle: 'medium' });
 
+// Esta función se encarga de resolver el nombre de usuario a mostrar (o su id, o "Anónimo").
 const displayUser = (log) => log.username ?? (log.userid ? `#${log.userid}` : 'Anónimo');
 
+// Esta función se encarga de mostrar el usuario con su id en el detalle (nombre más #id).
 const displayUserDetail = (log) =>
     log.username && log.userid ? `${log.username} (#${log.userid})` : displayUser(log);
 
+// Este componente se encarga de renderizar el detalle expandido de un log.
 function LogDetail({ log }) {
     return (
         <dl className={styles.detail}>
@@ -101,6 +108,7 @@ function LogDetail({ log }) {
     );
 }
 
+// Este componente se encarga de renderizar la vista completa del registro del sistema.
 function DashboardLogs() {
     const { token } = useAuth();
 
@@ -117,6 +125,7 @@ function DashboardLogs() {
     const currentCursor = cursors[cursors.length - 1];
     const pageNumber = cursors.length;
 
+    // Este useEffect se encarga de pedir al backend la página de logs actual según cursor y filtros.
     // Only the page on screen is requested; moving to another page fetches that one
     useEffect(() => {
         const controller = new AbortController();
@@ -126,6 +135,7 @@ function DashboardLogs() {
             setError('');
 
             try {
+                // Arma los parámetros: el cursor "before" pagina hacia logs más antiguos y se añaden los filtros activos.
                 const params = new URLSearchParams();
                 if (currentCursor) params.set('before', currentCursor);
                 Object.entries(filters).forEach(([name, value]) => {
@@ -156,24 +166,29 @@ function DashboardLogs() {
         return () => controller.abort();
     }, [token, filters, currentCursor, refreshKey]);
 
+    // Esta función se encarga de abrir o cerrar la fila de detalle de un log.
     const toggleRow = (logid) => setExpandedId((current) => (current === logid ? null : logid));
 
+    // Esta función se encarga de cambiar un filtro y volver a la primera página.
     const handleFilterChange = (name, value) => {
         setFilters((prev) => ({ ...prev, [name]: value }));
         setCursors([null]);
         setExpandedId(null);
     };
 
+    // Esta función se encarga de avanzar de página guardando como cursor el id del último log mostrado.
     const goNext = () => {
         setCursors((prev) => [...prev, logs[logs.length - 1].logid]);
         setExpandedId(null);
     };
 
+    // Esta función se encarga de retroceder de página quitando el último cursor de la pila.
     const goPrevious = () => {
         setCursors((prev) => prev.slice(0, -1));
         setExpandedId(null);
     };
 
+    // Esta función se encarga de refrescar los logs volviendo a la primera página.
     // New logs are added at the top, so refreshing goes back to the first page
     const refresh = () => {
         setCursors([null]);

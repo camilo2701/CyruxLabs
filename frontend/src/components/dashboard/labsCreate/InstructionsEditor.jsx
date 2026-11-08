@@ -1,11 +1,15 @@
+// Este archivo se encarga del editor de instrucciones (en Markdown) al crear un laboratorio:
+// permite escribir, previsualizar e importar un archivo .md con validaciones de formato y tamaño.
 import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import MarkdownView from '../../MarkdownView.jsx';
 import { useConfirm } from '../../ConfirmContext.jsx';
 import { INSTRUCTIONS_MAX } from '../../../utils/labRules.js';
 
+// Esta constante se encarga de fijar el tamaño máximo (en bytes) permitido para el archivo .md importado.
 const MAX_IMPORT_BYTES = 100 * 1024;
 
+// Esta constante se encarga de definir el texto de ejemplo (placeholder) mostrado en el área de escritura.
 const PLACEHOLDER = `Escribe los pasos que seguirá el estudiante, por ejemplo:
 
 1. **Abre una terminal:** ve a *Applications → Terminal*.
@@ -13,12 +17,16 @@ const PLACEHOLDER = `Escribe los pasos que seguirá el estudiante, por ejemplo:
 
 Puedes usar títulos (##), listas, negritas y bloques de código.`;
 
+// Este componente se encarga de renderizar el editor de instrucciones con pestañas de escritura
+// y vista previa, además del botón e importación de archivos .md.
 function InstructionsEditor({ value, onChange, onBlur, error }) {
     const confirm = useConfirm();
     const fileInputRef = useRef(null);
     const [tab, setTab] = useState('write'); // 'write' | 'preview'
     const [importError, setImportError] = useState('');
 
+    // Esta función se encarga de leer y validar un archivo .md en el navegador y volcar su texto al editor
+    // (comprueba extensión, tamaño, que no esté vacío y el límite de caracteres, pidiendo confirmación si hay texto previo).
     // Reads an .md file in the browser and puts its text in the editor (nothing is uploaded)
     const importFile = async (file) => {
         setImportError('');
@@ -68,17 +76,20 @@ function InstructionsEditor({ value, onChange, onBlur, error }) {
         setTab('write');
     };
 
+    // Esta función se encarga de procesar el archivo elegido desde el selector de archivos.
     const handlePick = (e) => {
         importFile(e.target.files[0]);
         // Clear the input so picking the same file again still fires onChange
         e.target.value = '';
     };
 
+    // Esta función se encarga de procesar el archivo soltado (drag & drop) sobre el editor.
     const handleDrop = (e) => {
         e.preventDefault();
         importFile(e.dataTransfer.files[0]);
     };
 
+    // Esta función se encarga de permitir el arrastre evitando el comportamiento por defecto del navegador.
     const handleDragOver = (e) => {
         e.preventDefault();
     };

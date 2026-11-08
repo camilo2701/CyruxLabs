@@ -1,3 +1,5 @@
+// Este archivo se encarga de la lógica de edición de un laboratorio: carga sus datos,
+// controla título, descripción, beneficios y trofeos, detecta qué cambió, valida y guarda.
 import { useCallback, useEffect, useState } from 'react';
 import { useConfirm } from '../../ConfirmContext.jsx';
 import {
@@ -14,6 +16,7 @@ import {
 import { getFragments } from '../../../utils/trophyCriteria.js';
 import { getLabDetail, saveLab, removeLab } from './labsApi.js';
 
+// Esta constante se encarga de definir las pestañas del editor y su orden.
 export const TABS = [
     { id: 'general', label: 'General' },
     { id: 'instructions', label: 'Instrucciones' },
@@ -34,6 +37,7 @@ const FIELD_TAB = {
 
 // A trophy as the editor holds it. criteria is a list of fragments for command / process trophies
 // and a string of digits for the others. key only identifies the card; trophyid is null until saved.
+// Esta función se encarga de transformar un trofeo del backend al formato que usa el editor.
 function toEditorTrophy(trophy) {
     return {
         key: `trophy-${trophy.trophyid}`,
@@ -50,6 +54,7 @@ function toEditorTrophy(trophy) {
 }
 
 // What the backend and the validation rules receive of a trophy
+// Esta función se encarga de dejar un trofeo listo para enviarlo al backend y validarlo.
 const toPayloadTrophy = (trophy) => ({
     type: trophy.type,
     name: trophy.name.trim(),
@@ -59,11 +64,14 @@ const toPayloadTrophy = (trophy) => ({
 });
 
 // Two lists with the same signature are the same trophies, so "has anything changed?" is a comparison of strings
+// Esta función se encarga de generar una "firma" de la lista de trofeos para comparar si cambió.
 const trophiesSignature = (list) =>
     JSON.stringify(list.map((trophy) => [
         trophy.trophyid, trophy.type, trophy.name.trim(), trophy.description.trim(), trophy.criteriatype, trophy.criteria,
     ]));
 
+// Este hook se encarga de orquestar toda la edición de un laboratorio: estado, carga,
+// validación, guardado y eliminación, exponiendo todo lo que necesita la interfaz.
 export function useLabEditor({ lab, token, onSaved, onDeleted }) {
     const confirm = useConfirm();
     const labid = lab.labid;
@@ -91,6 +99,7 @@ export function useLabEditor({ lab, token, onSaved, onDeleted }) {
 
     /*** LOADING ***/
 
+    // Esta función se encarga de leer el detalle del laboratorio y rellenar todos los campos.
     // silent = keep showing the form while the data is read again (after saving)
     const loadDetail = useCallback(async ({ silent = false } = {}) => {
         if (!silent) {
@@ -138,10 +147,12 @@ export function useLabEditor({ lab, token, onSaved, onDeleted }) {
         }
     }, [token, labid]);
 
+    // Este useEffect se encarga de cargar el detalle del laboratorio al montar el editor.
     useEffect(() => {
         loadDetail();
     }, [loadDetail]);
 
+    // Esta función se encarga de refrescar solo la info de la pestaña archivo + flag sin pisar lo editado.
     // Reads the lab again but touches nothing the person is editing: only the data of the zip + flag
     // tab (current flag, pending update) is refreshed
     const refreshMeta = useCallback(async () => {
@@ -159,6 +170,7 @@ export function useLabEditor({ lab, token, onSaved, onDeleted }) {
 
     /*** WHAT CHANGED ***/
 
+    // Estas banderas se encargan de comparar el estado actual contra el baseline para saber qué cambió.
     const titleChanged = !!baseline && title.trim() !== baseline.title;
     const descriptionChanged = !!baseline && description.trim() !== baseline.description;
     const instructionsChanged = !!baseline && instructions.trim() !== baseline.instructions.trim();
@@ -175,6 +187,7 @@ export function useLabEditor({ lab, token, onSaved, onDeleted }) {
 
     /*** VALIDATION (same rules as creating a lab: they come from labRules.js) ***/
 
+    // Estas funciones se encargan de validar cada campo con las reglas compartidas de labRules.js.
     const validateTitle = (value = title) => setErrors((prev) => ({ ...prev, title: getTitleError(value) }));
     const validateDescription = (value = description) =>
         setErrors((prev) => ({ ...prev, description: getDescriptionError(value) }));
@@ -183,6 +196,7 @@ export function useLabEditor({ lab, token, onSaved, onDeleted }) {
 
     // The lab has to keep the allowed amount of benefits. Only checked when they were touched, so a
     // lab created with other rules can still have its title edited.
+    // Esta función se encarga de comprobar que la cantidad de beneficios esté dentro del rango permitido.
     const getBenefitsCountError = () => {
         if (!benefitsChanged) return '';
 
@@ -196,6 +210,7 @@ export function useLabEditor({ lab, token, onSaved, onDeleted }) {
 
     /*** BENEFITS ***/
 
+    // Esta función se encarga de agregar un beneficio nuevo validando límite y formato.
     // Returns true if the benefit was accepted, so the input knows to clear its text box
     const addBenefit = (text) => {
         if (existingBenefits.length + newBenefits.length >= MAX_BENEFITS) {
@@ -214,17 +229,20 @@ export function useLabEditor({ lab, token, onSaved, onDeleted }) {
         return true;
     };
 
+    // Esta función se encarga de quitar un beneficio ya guardado y recordar su id para borrarlo al guardar.
     const removeExistingBenefit = (benefitid) => {
         setExistingBenefits((prev) => prev.filter((benefit) => benefit.benefitid !== benefitid));
         setRemovedBenefitIds((prev) => [...prev, benefitid]);
     };
 
+    // Esta función se encarga de quitar un beneficio que aún no se ha guardado.
     const removeNewBenefit = (indexToRemove) => {
         setNewBenefits((prev) => prev.filter((_, index) => index !== indexToRemove));
     };
 
     /*** SAVE ***/
 
+    // Esta función se encarga de calcular los cambios de trofeos (agregar, editar y eliminar).
     // The trophy part of the request: what to add, what to edit and what to remove
     const buildTrophyChanges = () => {
         const originals = new Map(detail.trophies.map((trophy) => [trophy.trophyid, trophiesSignature([toEditorTrophy(trophy)])]));
@@ -241,6 +259,7 @@ export function useLabEditor({ lab, token, onSaved, onDeleted }) {
         };
     };
 
+    // Esta función se encarga de validar solo lo que cambió y enviar esos cambios al backend.
     const save = async () => {
         if (!baseline || isSaving || isDeleting) return;
 
@@ -278,6 +297,7 @@ export function useLabEditor({ lab, token, onSaved, onDeleted }) {
 
         setErrors(nextErrors);
 
+        // Si hay algún error, salta a la pestaña del primer campo con problema.
         const firstProblem = Object.keys(nextErrors).find((field) => nextErrors[field]);
         if (firstProblem) {
             setActiveTab(FIELD_TAB[firstProblem]);
@@ -316,6 +336,7 @@ export function useLabEditor({ lab, token, onSaved, onDeleted }) {
 
     /*** DELETE ***/
 
+    // Esta función se encarga de eliminar el laboratorio tras pedir confirmación al usuario.
     const deleteLab = async () => {
         const confirmed = await confirm({
             title: '¿Eliminar el laboratorio?',

@@ -1,11 +1,15 @@
+// Este archivo se encarga de la página de registro de usuarios: valida los campos del formulario
+// y envía la solicitud de registro al backend, iniciando sesión automáticamente si tiene éxito.
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import styles from '../styles/RegisterPage.module.css'
 import { useAuth } from '../context/AuthContext';
 import Footer from '../components/Footer';
 
+// Esta constante se encarga de resolver la URL base de la API (variable de entorno o valor por defecto local).
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
+// Este componente se encarga de renderizar el formulario de registro y gestionar su estado y envío.
 function RegisterPage({ onLoginClick }) {
     const navigate = useNavigate();
     const { login } = useAuth();
@@ -26,7 +30,10 @@ function RegisterPage({ onLoginClick }) {
     const [loading, setLoading] = useState(false);
     
 
+    // Esta función se encarga de validar un campo concreto según el código recibido (valueType)
+    // y colocar su mensaje de error correspondiente; devuelve true si el campo es válido.
     function formatCheck(valueType){
+        // Expresiones regulares para cada campo: usuario, nombre/apellido, email, email de ejemplo y contraseña.
         const usernameRegex = /^[a-zA-Z0-9.-]{1,12}$/;
         const singleNameRegex = /^\p{L}+$/u;
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -94,10 +101,13 @@ function RegisterPage({ onLoginClick }) {
         }
     }
 
+    // Esta función se encarga de procesar el envío del formulario: valida todos los campos y,
+    // si todos son correctos, registra al usuario en el backend e inicia su sesión.
     async function handleSubmit(event) {
         event.preventDefault();
         setServerError('');
 
+        // Se validan todos los campos; solo si TODOS son válidos se continúa con el envío.
         const isUsernameValid = formatCheck(0);
         const isNameValid = formatCheck(1) && formatCheck(5);
         const isEmailValid = formatCheck(2);

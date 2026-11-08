@@ -1,9 +1,12 @@
+// Este archivo se encarga del diálogo de carga que se muestra mientras se inicia un laboratorio:
+// indica la fase actual, una barra de progreso y el tiempo transcurrido, con opción de cancelar.
 import { useState, useEffect } from 'react';
 import confirmStyles from '../styles/ConfirmDialog.module.css';
 import styles from '../styles/LoadingDialog.module.css';
 
 // What the runner is doing, in the order it happens. The bar only moves between phases;
 // inside the long "building" phase the shimmer shows that it is still working.
+// Esta constante se encarga de describir cada fase del arranque con su progreso y texto asociado.
 const PHASES = {
     preparing: { progress: 12, label: 'Preparando los archivos del laboratorio...' },
     building: { progress: 40, label: 'Descargando y construyendo las imágenes. La primera vez puede tardar varios minutos.' },
@@ -11,15 +14,18 @@ const PHASES = {
     finalizing: { progress: 95, label: 'Últimos ajustes...' },
 };
 
+// Esta función se encarga de convertir segundos a formato minutos:segundos (m:ss).
 function formatSeconds(totalSeconds) {
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
     return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
+// Este componente se encarga de renderizar el diálogo de carga del laboratorio.
 function LoadingDialog({ title, phase, startedAt, cancelling, onCancel }) {
     const [now, setNow] = useState(Date.now());
 
+    // Este useEffect se encarga de refrescar cada segundo para que avance el tiempo transcurrido.
     // Re-renders once a second so the elapsed time keeps moving
     useEffect(() => {
         const timer = setInterval(() => setNow(Date.now()), 1000);

@@ -1,3 +1,5 @@
+// Este archivo se encarga de renderizar la página de Política de Privacidad,
+// con un índice navegable y las secciones del texto legal de CyruxLabs.
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Footer from '../components/Footer';
@@ -5,6 +7,8 @@ import styles from '../styles/PrivacyPolicy.module.css';
 
 const LAST_UPDATED = '7 de octubre de 2026';
 
+// Esta constante se encarga de listar las secciones de la política, usadas para
+// construir el índice y enlazar a cada bloque por su id.
 const SECTIONS = [
   { id: 'introduccion', title: 'Introducción' },
   { id: 'informacion-recopilada', title: 'Información que recopilamos' },
@@ -18,11 +22,15 @@ const SECTIONS = [
   { id: 'contacto', title: 'Contacto' },
 ];
 
+// Este componente se encarga de mostrar la página completa de la política de privacidad.
 function LegalPolicy() {
+  // Este useEffect se encarga de llevar el scroll al inicio al entrar a la página.
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
+  // Esta función se encarga de hacer scroll suave hasta la sección del índice clickeada,
+  // evitando el salto brusco del enlace ancla por defecto.
   const handleIndexClick = (event, id) => {
     event.preventDefault();
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });

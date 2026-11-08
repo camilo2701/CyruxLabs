@@ -1,18 +1,22 @@
+// Este archivo se encarga del selector de dificultad/puntaje del laboratorio, mostrado como tarjetas de radio.
 import styles from '../../../styles/ScoreField.module.css';
 import ScoreMeter from '../../ScoreMeter.jsx';
 import { SCORE_TIERS, getScoreTier } from '../../../utils/labRules.js';
 
+// Esta constante se encarga del texto de ayuda por defecto cuando aún no se eligió una dificultad.
 const DEFAULT_HINT = 'El puntaje indica qué tan difícil es el laboratorio y cuántos puntos vale.';
 
-// Five cards, one per difficulty tier. They are real radio buttons underneath, so the
-// keyboard (Tab + arrow keys) and screen readers work without extra code.
+
+// Este componente se encarga de mostrar las cinco tarjetas de dificultad (radios reales) y avisar el cambio al padre.
 function ScoreField({ value, onChange, error }) {
+    // Nivel actualmente seleccionado según el puntaje; sirve para mostrar su descripción
     const selectedTier = getScoreTier(value);
 
     return (
         <fieldset className={styles.field}>
             <legend className={styles.legend}>Dificultad y puntaje</legend>
 
+            {/* Una tarjeta por cada nivel de dificultad disponible */}
             <div className={styles.tiers}>
                 {SCORE_TIERS.map((tier) => (
                     <label key={tier.value} className={styles.tier}>

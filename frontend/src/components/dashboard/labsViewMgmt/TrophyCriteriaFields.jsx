@@ -1,3 +1,4 @@
+// Este archivo se encarga de los campos de entrada para cada tipo de criterio de un trofeo (tiempo, intentos, fragmentos).
 import { TIME_MAX_SECONDS, FAILED_ATTEMPTS_MAX } from '../../../utils/labRules.js';
 import { MAX_FRAGMENTS, FRAGMENT_MAX_LENGTH } from '../../../utils/trophyCriteria.js';
 
@@ -6,19 +7,23 @@ import { MAX_FRAGMENTS, FRAGMENT_MAX_LENGTH } from '../../../utils/trophyCriteri
 
 const MAX_MINUTES = TIME_MAX_SECONDS / 60;
 
+// Esta función se encarga de describir un total de segundos como texto "X min YY s".
 function describeTime(totalSeconds) {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${minutes} min ${String(seconds).padStart(2, '0')} s`;
 }
 
+// Este componente se encarga del criterio de tiempo: dos casillas (minutos y segundos) guardadas como total de segundos.
 /* Time criteria: two boxes (minutes, seconds). The value is stored as total seconds. */
 export function TimeCriteria({ value, onChange, onBlur, disabled }) {
   const total = Number(value) || 0;
   const minutes = Math.floor(total / 60);
   const seconds = total % 60;
 
+  // Esta función se encarga de acotar minutos y segundos a sus límites y devolver el total en segundos.
   const update = (nextMinutes, nextSeconds) => {
+    // Limita cada casilla a su rango válido antes de combinarlas
     const m = Math.min(Math.max(nextMinutes, 0), MAX_MINUTES);
     const s = Math.min(Math.max(nextSeconds, 0), 59);
     onChange(String(Math.min(m * 60 + s, TIME_MAX_SECONDS)));
@@ -61,10 +66,12 @@ export function TimeCriteria({ value, onChange, onBlur, disabled }) {
   );
 }
 
+// Este componente se encarga del criterio de intentos fallidos: un número (0 = sin ningún fallo).
 /* Failed attempts criteria: one number (0 = no mistakes at all) */
 export function AttemptsCriteria({ value, onChange, onBlur, disabled }) {
   const attempts = Number(value) || 0;
 
+  // Esta función se encarga de acotar el número de intentos fallidos entre 0 y su máximo permitido.
   const handleChange = (event) => {
     const next = Math.min(Math.max(parseInt(event.target.value, 10) || 0, 0), FAILED_ATTEMPTS_MAX);
     onChange(String(next));
@@ -96,6 +103,7 @@ export function AttemptsCriteria({ value, onChange, onBlur, disabled }) {
   );
 }
 
+// Esta constante se encarga de los textos (placeholders y ayuda) para los criterios de comando y proceso.
 const FRAGMENT_COPY = {
   command: {
     placeholders: ['p. ej. nmap', 'p. ej. -sV'],
@@ -107,17 +115,22 @@ const FRAGMENT_COPY = {
   },
 };
 
+// Este componente se encarga del criterio de comando/proceso: de 1 a 4 fragmentos de texto que deben aparecer.
 /* Command / process criteria: 1 to 4 text fragments. The value is the list of fragments. */
 export function FragmentsCriteria({ kind, value, onChange, onBlur, disabled }) {
+  // Garantiza siempre al menos un fragmento vacío para que haya una casilla visible
   const fragments = Array.isArray(value) && value.length > 0 ? value : [''];
   const copy = FRAGMENT_COPY[kind];
 
+  // Esta función se encarga de actualizar el texto de un fragmento concreto por su índice.
   const updateFragment = (index, text) => {
     onChange(fragments.map((fragment, i) => (i === index ? text : fragment)));
   };
+  // Esta función se encarga de agregar un fragmento vacío mientras no se supere el máximo.
   const addFragment = () => {
     if (fragments.length < MAX_FRAGMENTS) onChange([...fragments, '']);
   };
+  // Esta función se encarga de quitar el fragmento del índice indicado.
   const removeFragment = (index) => onChange(fragments.filter((_, i) => i !== index));
 
   return (

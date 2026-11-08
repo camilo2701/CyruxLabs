@@ -1,8 +1,11 @@
+// Este archivo se encarga de la página de inicio: bienvenida, descripción de CyruxLabs,
+// la grilla de características y los accesos rápidos que varían según el rol del usuario.
 import { Link } from 'react-router-dom';
 import Footer from '../components/Footer';
 import { useAuth } from '../context/AuthContext';
 import '../styles/Home.css';
 
+// Esta constante se encarga de listar las características destacadas que se muestran en la portada.
 const features = [
   {
     title: 'Simulaciones guiadas',
@@ -21,6 +24,7 @@ const features = [
   },
 ];
 
+// Esta constante se encarga de traducir el número de rol a su nombre en texto.
 // Misma traducción número -> string que ya usa DashboardSidebar,
 // para decidir qué accesos rápidos mostrar según el rol.
 const ROLE_NAMES = {
@@ -29,6 +33,7 @@ const ROLE_NAMES = {
   2: 'admin',
 };
 
+// Este componente se encarga de renderizar la página de inicio de CyruxLabs.
 function Home() {
   const { user, isAuthenticated } = useAuth();
   const roleName = user ? ROLE_NAMES[user.role] : null;
@@ -38,6 +43,7 @@ function Home() {
     historial solo para estudiantes
     dashboard solo para instructor o admin
     perfil solo si hay sesión. */}
+  // Esta constante se encarga de armar los accesos rápidos y filtrar solo los visibles según el rol.
   const quickAccessItems = [
     {
       label: 'Laboratorios',

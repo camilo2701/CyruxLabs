@@ -1,3 +1,5 @@
+// Este archivo se encarga de la sección "Gestionar laboratorios": muestra la lista con búsqueda y
+// paginación, y coordina las ventanas de edición de un laboratorio y de sus reportes de bugs.
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import LabBugReportsModal from './LabBugReportsModal';
@@ -12,6 +14,7 @@ import '../../styles/DashboardUsers.css';
 import '../../styles/DashboardLabsCreate.css';
 import '../../styles/LabEditModal.css';
 
+// Este componente se encarga de renderizar la gestión de laboratorios y abrir/cerrar sus ventanas.
 // Gestionar laboratorios: the list, the search and the two windows (edit and bug reports).
 // Everything else lives in ./labsViewMgmt (the list pieces, the edit window and its tabs).
 function DashboardLabsViewMgmt() {
@@ -23,6 +26,7 @@ function DashboardLabsViewMgmt() {
   const [selectedLab, setSelectedLab] = useState(null);
   const [reportsLab, setReportsLab] = useState(null);
 
+  // Esta función se encarga de cerrar la ventana de edición del laboratorio.
   const closeLabModal = () => setSelectedLab(null);
 
   return (

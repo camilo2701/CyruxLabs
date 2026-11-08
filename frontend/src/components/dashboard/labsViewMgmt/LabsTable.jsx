@@ -1,6 +1,12 @@
+// Este archivo se encarga de renderizar la tabla de laboratorios en la gestión:
+// muestra datos de cada laboratorio, la insignia de bugs pendientes y el botón para administrarlo.
+
+// Esta función se encarga de formatear una fecha ISO al formato local (es-CL) o
+// mostrar un guion si no hay fecha.
 const formatDate = (iso) =>
   iso ? new Date(iso).toLocaleDateString('es-CL', { timeZone: 'America/Santiago' }) : '—';
 
+// Este componente se encarga de dibujar la tabla de laboratorios con sus filas.
 // The table of labs, with the pending-bugs badge and the "Administrar" button of each row
 function LabsTable({ labs, bugCounts, onManage }) {
   return (
@@ -23,6 +29,7 @@ function LabsTable({ labs, bugCounts, onManage }) {
 
           <span className="lab-title-cell">
             {lab.title}
+            {/* Insignia que aparece solo si el laboratorio tiene bugs pendientes; tope visual en 99+ */}
             {bugCounts[lab.labid] > 0 && (
               <span
                 className="lab-bug-badge"

@@ -1,16 +1,21 @@
+// Este archivo se encarga de la zona de arrastrar y soltar (drag & drop) para subir un archivo .zip,
+// validando que se suba exactamente un archivo y que tenga el formato correcto.
 import { useState } from "react";
 import { useRef } from "react";
 import '../../styles/SessionDragNDrop.css'
 
+// Este componente se encarga de renderizar el área de subida de archivos y gestionar su selección/validación.
 function SessionDragNDrop(){
 
     const [showFilesModal, setShowFilesModal] = useState(false);
 
     /*** FILE MANAGEMENT ***/
+    // Esta función se encarga de comprobar si un archivo tiene extensión .zip.
     const isZipFile = (file) => file.name.toLowerCase().endsWith('.zip');
     const [files, setFiles] = useState([]);
     const fileInputRef = useRef(null);
 
+    // Esta función se encarga de gestionar el archivo soltado: valida que sea un único .zip y lo guarda.
     const handleDrop = (e) => {
         e.preventDefault();
         const droppedFiles = Array.from(e.dataTransfer.files);
@@ -30,10 +35,12 @@ function SessionDragNDrop(){
         setFileError(false);
     };
 
+    // Esta función se encarga de permitir el arrastre evitando el comportamiento por defecto del navegador.
     const handleDragOver = (e) => {
         e.preventDefault();
-    };    
+    };
 
+    // Esta función se encarga de gestionar el archivo elegido desde el selector: valida que sea un único .zip.
     const handleFileInputChange = (e) => {
         const selectedFiles = Array.from(e.target.files);
 
@@ -52,6 +59,7 @@ function SessionDragNDrop(){
         setFileError(false);
     };
 
+    // Esta función se encarga de quitar el archivo subido y volver a marcar el error de "falta archivo".
     const handleRemoveFile = () => {
         setFiles([]);
         setFileError(true);

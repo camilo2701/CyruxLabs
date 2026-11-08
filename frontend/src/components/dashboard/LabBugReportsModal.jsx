@@ -1,13 +1,17 @@
+// Este archivo se encarga del modal para revisar los reportes de bugs de un laboratorio:
+// los lista por estado (pendientes/resueltos), muestra su detalle y permite cambiar su estado.
 import { useEffect, useState } from 'react';
 import '../../styles/LabBugReportsModal.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
+// Esta constante se encarga de nombrar los estados posibles de un reporte.
 const STATUS = {
   PENDING: 0,
   RESOLVED: 1,
 };
 
+// Esta función se encarga de formatear la fecha a texto legible en español evitando el desfase horario.
 function formatDate(dateString) {
   if (!dateString) return '—';
   // dateofcreation viene como "YYYY-MM-DD": se arma como fecha local
@@ -24,6 +28,7 @@ function formatDate(dateString) {
 // - onBack: vuelve al modal de "Administrar" del mismo lab.
 // - onClose: cierra todo.
 // - onPendingCountChange(labid, cantidad): para actualizar el globo rojo de la tabla.
+// Este componente se encarga de mostrar y gestionar el modal de reportes de bugs del laboratorio.
 function LabBugReportsModal({ lab, token, onBack, onClose, onPendingCountChange }) {
   const [reports, setReports] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -34,6 +39,8 @@ function LabBugReportsModal({ lab, token, onBack, onClose, onPendingCountChange 
   const [isUpdating, setIsUpdating] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
+  // Este useEffect se encarga de cargar los reportes del laboratorio al abrir el modal.
+  // Usa AbortController para cancelar la petición si el modal se cierra antes de responder.
   useEffect(() => {
     const controller = new AbortController();
 
@@ -59,22 +66,26 @@ function LabBugReportsModal({ lab, token, onBack, onClose, onPendingCountChange 
     return () => controller.abort();
   }, [lab.labid, token]);
 
+  // Estas variables se encargan de separar los reportes por estado y resolver cuál está seleccionado.
   const pendingReports = reports.filter((r) => r.status === STATUS.PENDING);
   const resolvedReports = reports.filter((r) => r.status === STATUS.RESOLVED);
   const visibleReports = activeTab === STATUS.PENDING ? pendingReports : resolvedReports;
   const selectedReport = reports.find((r) => r.bugreportid === selectedId) || null;
 
+  // Esta función se encarga de cambiar de pestaña y limpiar selección y mensaje.
   const changeTab = (tab) => {
     setActiveTab(tab);
     setSelectedId(null);
     setMessage({ type: '', text: '' });
   };
 
+  // Esta función se encarga de seleccionar un reporte para ver su detalle.
   const selectReport = (id) => {
     setSelectedId(id);
     setMessage({ type: '', text: '' });
   };
 
+  // Esta función se encarga de alternar el estado del reporte (pendiente/resuelto) y avisar al padre.
   const handleToggleStatus = async () => {
     if (!selectedReport) return;
 
@@ -99,6 +110,7 @@ function LabBugReportsModal({ lab, token, onBack, onClose, onPendingCountChange 
         return;
       }
 
+      // Actualiza el estado localmente y recalcula el conteo de pendientes para el globo de la tabla.
       const updatedReports = reports.map((r) =>
         r.bugreportid === selectedReport.bugreportid ? { ...r, status: newStatus } : r
       );

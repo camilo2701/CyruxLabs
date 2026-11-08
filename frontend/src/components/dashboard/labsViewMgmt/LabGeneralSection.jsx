@@ -1,8 +1,11 @@
+// Este archivo se encarga de la pestaña "General" del editor de laboratorio: campos de título,
+// descripción y beneficios editables, más el puntaje mostrado solo como lectura.
 import ScoreMeter from '../../ScoreMeter.jsx';
 import { TITLE_MAX, DESC_MAX, BENEFIT_MAX, MIN_BENEFITS, MAX_BENEFITS, getScoreTier } from '../../../utils/labRules.js';
 
 // "General" tab: title, description and benefits can be edited. The score is only shown:
 // the XP students earn comes from it, so changing it later would make everybody's XP inconsistent.
+// Este componente se encarga de renderizar la pestaña General usando el estado y acciones del editor.
 function LabGeneralSection({ editor }) {
   const {
     title, setTitle, validateTitle,
@@ -15,6 +18,7 @@ function LabGeneralSection({ editor }) {
   const tier = getScoreTier(detail?.score);
   const benefitCount = existingBenefits.length + newBenefits.length;
 
+  // Esta función se encarga de agregar un beneficio al presionar Enter y limpiar el input si se aceptó.
   const handleBenefitKeyDown = (event) => {
     if (event.key !== 'Enter') return;
 

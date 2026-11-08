@@ -1,10 +1,15 @@
+// Este archivo se encarga de mostrar la página de Términos y Condiciones de
+// CyruxLabs: un índice navegable y todas las secciones legales con su contenido.
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Footer from '../components/Footer';
 import styles from '../styles/PrivacyPolicy.module.css';
 
+// Esta constante se encarga de guardar la fecha de la última actualización mostrada.
 const LAST_UPDATED = '7 de octubre de 2026';
 
+// Esta constante se encarga de definir las secciones del documento (id y título),
+// usadas tanto para armar el índice como para el salto a cada sección.
 const SECTIONS = [
   { id: 'aceptacion', title: 'Aceptación de los términos' },
   { id: 'cuentas', title: 'Cuentas de usuario' },
@@ -18,11 +23,15 @@ const SECTIONS = [
   { id: 'contacto', title: 'Contacto' },
 ];
 
+// Este componente se encarga de renderizar la página completa de términos y condiciones.
 function TermsPage() {
+  // Al montar la página, lleva el scroll al inicio para no entrar a mitad del documento.
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
+  // Esta función se encarga de manejar el clic en el índice: evita el salto brusco
+  // del ancla y desplaza suavemente hasta la sección correspondiente.
   const handleIndexClick = (event, id) => {
     event.preventDefault();
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -42,6 +51,7 @@ function TermsPage() {
             <span className={styles.updated}>Última actualización: {LAST_UPDATED}</span>
           </header>
 
+          {/* Índice navegable: genera un enlace por cada sección definida en SECTIONS */}
           <div className={styles.index} role="navigation" aria-label="Contenido de los términos">
             <span className={styles.indexTitle}>Contenido</span>
             <ol style={{ '--index-rows': Math.ceil(SECTIONS.length / 2) }}>

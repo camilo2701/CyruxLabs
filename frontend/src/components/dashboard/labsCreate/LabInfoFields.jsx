@@ -1,3 +1,7 @@
+// Este archivo se encarga de los campos de información básica del laboratorio (título y descripción)
+// dentro del formulario de creación, mostrando sus errores de validación.
+
+// Este componente se encarga de renderizar los campos de título y descripción con sus mensajes de error.
 function LabInfoFields({
     title,
     onTitleChange,

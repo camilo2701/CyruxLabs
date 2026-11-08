@@ -1,7 +1,14 @@
+// Este archivo se encarga de mostrar un modal con la lista de archivos agregados
+// al laboratorio, permitiendo eliminarlos antes de enviar el formulario.
 import '../../styles/DashboardLabsFileModal.css';
 
+// Este componente se encarga de listar los archivos subidos y ofrecer un botón
+// para eliminar cada uno o cerrar el modal.
 function DashboardLabsFileModal({ files, onRemove, onClose }) {
+  // Esta función se encarga de separar el nombre del archivo de su extensión
+  // para poder mostrarlos con estilos distintos.
   const splitFileName = (fileName) => {
+    // Si no hay punto, no hay extensión: se devuelve el nombre completo como base
     const lastDot = fileName.lastIndexOf('.');
     if (lastDot === -1) return { base: fileName, ext: '' };
     return {

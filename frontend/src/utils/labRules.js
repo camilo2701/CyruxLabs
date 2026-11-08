@@ -1,3 +1,5 @@
+// Este archivo se encarga de centralizar las reglas de validación de los formularios de laboratorios
+// (título, descripción, beneficios, flag, instrucciones, puntaje y trofeos), compartidas con el backend.
 // Rules shared by the lab forms. Keep in sync with the backend copy (backend/src/utils/labValidation.js).
 import { getFragmentsError, normalizeFragments } from './trophyCriteria.js';
 
@@ -18,6 +20,7 @@ const TEXT_RULE_MESSAGE = 'Solo se permiten letras, números, espacios y . , : (
 const FLAG_REGEX = /^\S+$/;
 
 // Every helper returns '' when the value is fine, or the error message to show
+// Esta función se encarga de validar el título del laboratorio (obligatorio, largo y caracteres permitidos).
 export function getTitleError(value) {
     const title = value.trim();
     if (title === '') return 'El título es obligatorio';
@@ -27,6 +30,7 @@ export function getTitleError(value) {
     return '';
 }
 
+// Esta función se encarga de validar la descripción del laboratorio (obligatoria y con largo máximo).
 export function getDescriptionError(value) {
     const description = value.trim();
     if (description === '') return 'La descripción es un campo obligatorio';
@@ -34,6 +38,7 @@ export function getDescriptionError(value) {
     return '';
 }
 
+// Esta función se encarga de validar un beneficio individual del laboratorio.
 export function getBenefitError(value) {
     const benefit = value.trim();
     if (benefit === '') return 'El beneficio no puede estar vacío';
@@ -42,6 +47,7 @@ export function getBenefitError(value) {
     return '';
 }
 
+// Esta función se encarga de validar la flag (obligatoria, largo y sin espacios).
 export function getFlagError(value) {
     const flag = value.trim();
     if (flag === '') return 'La flag es obligatoria';
@@ -51,6 +57,7 @@ export function getFlagError(value) {
     return '';
 }
 
+// Esta función se encarga de generar una flag aleatoria con formato FLAG{...} usando bytes seguros.
 export function generateFlag() {
     const bytes = new Uint8Array(8);
     crypto.getRandomValues(bytes);
@@ -58,6 +65,7 @@ export function generateFlag() {
     return `FLAG{${hex}}`;
 }
 
+// Esta función se encarga de validar las instrucciones del laboratorio (obligatorias y con largo máximo).
 export function getInstructionsError(value) {
     const instructions = value.trim();
     if (instructions === '') return 'Las instrucciones son obligatorias';
@@ -67,6 +75,7 @@ export function getInstructionsError(value) {
 
 // ---------- Score ----------
 
+// Esta constante se encarga de definir los niveles de dificultad y su puntaje asociado.
 // Difficulty tiers. The value is what gets stored in lab.score (and what the lab is worth in
 // points); the label and description are only for the screen. The tier order matters: the
 // ScoreMeter lights up one more bar for each step.
@@ -80,11 +89,13 @@ export const SCORE_TIERS = [
 
 export const SCORE_VALUES = SCORE_TIERS.map((tier) => tier.value);
 
+// Esta función se encarga de obtener el nivel de dificultad que corresponde a un puntaje dado.
 // Returns the tier for a score, or null when there is none (no choice yet, or an old response without score)
 export function getScoreTier(value) {
     return SCORE_TIERS.find((tier) => tier.value === Number(value)) ?? null;
 }
 
+// Esta función se encarga de validar que el puntaje elegido sea uno de los valores permitidos.
 export function getScoreError(value) {
     const text = String(value ?? '').trim();
     if (text === '') return 'Elige el nivel de dificultad del laboratorio';
@@ -101,6 +112,7 @@ export const TROPHY_DESC_MAX = 100;
 export const MAX_CUSTOM_TROPHIES = 3;
 export const TROPHY_TYPE_LABELS = { 0: 'Bronce', 1: 'Plata', 2: 'Oro' };
 
+// Esta constante se encarga de limitar cuántos trofeos propios puede haber por tipo.
 // Caps per type among the lab's own trophies (the automatic one is not counted)
 export const MAX_TROPHIES_BY_TYPE = { 0: 3, 1: 2, 2: 1 };
 
@@ -108,6 +120,7 @@ export const TIME_MIN_SECONDS = 30;
 export const TIME_MAX_SECONDS = 3 * 60 * 60;
 export const FAILED_ATTEMPTS_MAX = 20;
 
+// Esta constante se encarga de listar los tipos de criterio que un instructor puede elegir para un trofeo.
 // Criteria an instructor can pick. available: false would show an option but keep it unselectable.
 export const CRITERIA_TYPES = {
     time: { label: 'Tiempo', available: true },
@@ -120,6 +133,7 @@ const NUMERIC_CRITERIA = ['time', 'failed_attempts'];
 export const FRAGMENT_CRITERIA = ['command', 'process']; // stored as a list of text fragments
 export const COMPLETION_CRITERIA = 'completion';
 
+// Esta constante se encarga de definir el trofeo automático de "laboratorio completado".
 // Created by the platform for every lab. Instructors never send or edit this one.
 export const COMPLETION_TROPHY = {
     type: 0,
@@ -129,6 +143,7 @@ export const COMPLETION_TROPHY = {
     criteria: '',
 };
 
+// Esta función se encarga de normalizar el criterio a su forma canónica según el tipo (número o fragmentos).
 // Canonical form that gets stored: numbers as plain digit strings ("060" becomes "60"),
 // fragments as a cleaned, sorted JSON list
 export function normalizeCriteria(criteriatype, criteria) {
@@ -138,6 +153,7 @@ export function normalizeCriteria(criteriatype, criteria) {
     return NUMERIC_CRITERIA.includes(criteriatype) ? String(Number(value)) : value;
 }
 
+// Esta función se encarga de validar el criterio de un trofeo según su tipo (tiempo, intentos, fragmentos).
 function getCriteriaError(criteriatype, criteria) {
     if (criteriatype === COMPLETION_CRITERIA) return 'El trofeo de completitud se crea automáticamente';
 
@@ -165,9 +181,11 @@ function getCriteriaError(criteriatype, criteria) {
     return 'Criterio inválido';
 }
 
+// Esta función se encarga de validar cada trofeo de la lista y devolver sus errores por campo.
 // One entry per trophy: { type, name, description, criteria } with '' where the field is fine.
 // Includes the "same criteria twice" check, which is why it needs the whole list.
 export function getTrophyErrorList(trophies) {
+    // Guarda los criterios ya vistos para detectar trofeos con el mismo criterio repetido.
     const seen = new Set();
 
     return trophies.map((trophy) => {
@@ -204,6 +222,7 @@ export function getTrophyErrorList(trophies) {
     });
 }
 
+// Esta función se encarga de validar el conjunto de trofeos (cantidad, topes por tipo y el primer error encontrado).
 // '' when everything is fine, otherwise the first problem found
 export function getTrophiesError(trophies) {
     if (!Array.isArray(trophies)) return 'Formato de trofeos inválido';

@@ -1,17 +1,23 @@
+// Este archivo se encarga de la zona para subir el archivo comprimido del
+// laboratorio al crearlo: admite arrastrar y soltar o hacer clic para elegirlo.
 import { useRef } from 'react';
 
+// Este componente se encarga de renderizar el área de carga del zip del laboratorio.
 function LabFileDrop({ files, onFilesPicked, onViewFiles }) {
     const fileInputRef = useRef(null);
 
+    // Esta función se encarga de recibir el archivo soltado (drag and drop) y entregarlo al padre.
     const handleDrop = (e) => {
         e.preventDefault();
         onFilesPicked(Array.from(e.dataTransfer.files));
     };
 
+    // Esta función se encarga de permitir soltar archivos evitando el comportamiento por defecto.
     const handleDragOver = (e) => {
         e.preventDefault();
     };
 
+    // Esta función se encarga de procesar el archivo elegido desde el selector de archivos.
     const handleInputChange = (e) => {
         onFilesPicked(Array.from(e.target.files));
         // Clear the input so picking the same file again (after removing it) still fires onChange
@@ -46,6 +52,7 @@ function LabFileDrop({ files, onFilesPicked, onViewFiles }) {
                 onChange={handleInputChange}
             />
 
+            {/* Solo si ya hay archivos cargados, muestra el conteo y el botón para verlos */}
             {files.length > 0 && (
                 <span className="files-count-row">
                     <p>Archivos subidos: {files.length}</p>
