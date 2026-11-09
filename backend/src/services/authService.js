@@ -1,3 +1,5 @@
+// Este archivo se encarga de la autenticación de usuarios: registro, inicio de sesión, generación
+// de tokens JWT, validación de datos y el bloqueo de cuenta tras varios intentos fallidos.
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { supabase } from '../config/supabaseClient.js';
@@ -15,8 +17,10 @@ const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<
 // Los correos se normalizan a minúsculas (y sin espacios) en todo el sistema: así el
 // inicio de sesión funciona sin importar cómo se escriba y no hay cuentas duplicadas
 // que solo se diferencien por mayúsculas.
+// Esta constante se encarga de normalizar un correo a minúsculas y sin espacios.
 export const normalizeEmail = (value) => String(value ?? '').trim().toLowerCase();
 
+// Esta clase se encarga de representar errores de autenticación con un código de estado HTTP y datos extra.
 export class AuthError extends Error {
     constructor(status, message, extra = {}) {
         super(message);
@@ -29,6 +33,7 @@ export class AuthError extends Error {
 const MAX_LOGIN_ATTEMPTS = 3;
 const LOCK_MINUTES = 15;
 
+// Esta función se encarga de construir el error 423 de cuenta bloqueada, calculando los segundos restantes.
 function lockedError(lockedUntil) {
     const retryAfterSeconds = Math.max(1, Math.ceil((lockedUntil.getTime() - Date.now()) / 1000));
     return new AuthError(
@@ -38,6 +43,7 @@ function lockedError(lockedUntil) {
     );
 }
 
+// Esta función se encarga de firmar un token JWT con el id, usuario y rol del usuario.
 export function signToken(user) {
     return jwt.sign(
         { userid: user.userid, username: user.username, role: user.role },
@@ -46,12 +52,14 @@ export function signToken(user) {
     );
 }
 
+// Esta función se encarga de devolver una versión pública del usuario, quitando datos sensibles.
 export function toPublicUser(user) {
     // NO devolver el hash de la contraseña al cliente
     const { password, failedattempts, lockeduntil, ...publicUser } = user;
     return publicUser;
 }
 
+// Esta función se encarga de validar los datos del registro (usuario, nombre, correo y contraseña).
 function validateRegisterInput({ username, email, firstName, lastName, password }) {
     if (!username || !email || !firstName || !lastName || !password) {
         throw new AuthError(400, 'Todos los campos son obligatorios');
@@ -71,6 +79,8 @@ function validateRegisterInput({ username, email, firstName, lastName, password 
 }
 
 // ip: para el registro de actividad (la pasa el controller)
+// Esta función se encarga de registrar un nuevo usuario: valida, comprueba duplicados, guarda el
+// hash de la contraseña, otorga la insignia de bienvenida y devuelve el token con el usuario público.
 export async function registerUser({ username, email, firstName, lastName, password, ip }) {
     email = normalizeEmail(email);
     validateRegisterInput({ username, email, firstName, lastName, password });
@@ -101,8 +111,10 @@ export async function registerUser({ username, email, firstName, lastName, passw
         throw new AuthError(409, 'Ese correo ya está registrado');
     }
 
+    // Nunca se guarda la contraseña en claro: se almacena su hash con bcrypt
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
+    // Inserta el nuevo usuario con sus valores por defecto (rol, nivel, puntaje...)
     const { data: created, error: insertError } = await supabase
         .from('users')
         .insert({
@@ -140,6 +152,8 @@ export async function registerUser({ username, email, firstName, lastName, passw
 }
 
 // ip: para el registro de actividad (la pasa el controller)
+// Esta función se encarga de iniciar sesión: verifica credenciales, aplica el bloqueo por intentos
+// fallidos, registra el evento y devuelve el token junto con el usuario público si todo es correcto.
 export async function loginUser({ email, password, ip }) {
     if (!email || !password) {
         throw new AuthError(400, 'Email y contraseña son obligatorios');

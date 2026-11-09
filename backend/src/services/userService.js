@@ -1,3 +1,6 @@
+// Este archivo se encarga de la lógica de negocio de los usuarios: edición de perfil,
+// avatar, contraseña, eliminación de cuenta (en cascada), búsquedas y la gestión de
+// usuarios por parte de instructores y administradores, apoyándose en Supabase.
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { supabase } from '../config/supabaseClient.js';
@@ -7,11 +10,16 @@ import { checkBadgesSafely, getLockedBadgesSafely } from './badgeService.js';
 import { logEvent } from './logService.js';
 import { removeLabFolder } from '../controllers/labsController.js';
 
+// Esta constante se encarga de validar el formato del nombre de usuario (letras, números, puntos y guiones, máx 12).
 const usernameRegex = /^[a-zA-Z0-9.-]{1,12}$/;
+// Esta constante se encarga de validar que nombre y apellido contengan solo letras.
 const nameRegex = /^\p{L}+$/u;
+// Esta constante se encarga de validar el formato básico del correo electrónico.
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Esta constante se encarga de exigir a la nueva contraseña al menos 7 caracteres, 1 mayúscula y 1 carácter especial.
 const newPasswordRegex = /^(?=.*[A-Z])(?=.*[^A-Za-z0-9]).{7,}$/;
 
+// Esta constante se encarga de listar los avatares permitidos que el usuario puede elegir.
 const ALLOWED_AVATARS = [
     'avatar-01.svg',
     'avatar-02.svg',
@@ -20,8 +28,10 @@ const ALLOWED_AVATARS = [
     'avatar-05.svg',
 ];
 
+// Esta constante se encarga de traducir el número de rol a su nombre legible para los registros.
 const ROLE_NAMES = { 0: 'estudiante', 1: 'instructor', 2: 'administrador' };
 
+// Esta función se encarga de firmar un token JWT con los datos básicos del usuario.
 function signToken(user) {
     return jwt.sign(
         { userid: user.userid, username: user.username, role: user.role },
@@ -30,11 +40,13 @@ function signToken(user) {
     );
 }
 
+// Esta función se encarga de devolver el usuario sin los campos sensibles (contraseña, intentos y bloqueo).
 function toPublicUser(user) {
     const { password, failedattempts, lockeduntil, ...publicUser } = user;
     return publicUser;
 }
 
+// Esta función se encarga de registrar en el log un intento fallido de verificar la contraseña actual.
 // Una "contraseña actual" incorrecta en un endpoint que la pide: puede ser alguien adivinándola
 function logPasswordCheckFailed(actor, ip, doing) {
     logEvent({
@@ -49,12 +61,16 @@ function logPasswordCheckFailed(actor, ip, doing) {
     });
 }
 
+// Esta función se encarga de redactar un texto para el log que describe los labs arrastrados al eliminar un usuario.
 function describeCascade({ labCount }) {
     if (labCount === 0) return '';
     return ` junto con ${labCount} laboratorio(s) marcado(s) como eliminado(s)`;
 }
 
+// Esta función se encarga de actualizar el perfil del usuario (nombre, apellido, correo y usuario),
+// validando los datos y la contraseña actual, y devuelve un nuevo token.
 export async function updateProfile(userid, { username, firstName, lastName, email, currentPassword, ip }) {
+    // Validaciones de formato de los campos recibidos.
     email = normalizeEmail(email);
     if (!username || !firstName || !lastName || !email || !currentPassword) {
         throw new AuthError(400, 'Todos los campos son obligatorios');
@@ -69,6 +85,7 @@ export async function updateProfile(userid, { username, firstName, lastName, ema
         throw new AuthError(400, 'Formato de correo inválido');
     }
 
+    // Consulta a Supabase: trae el usuario actual para comparar su contraseña y detectar cambios.
     const { data: current, error: fetchError } = await supabase
         .from('users')
         .select('*')
@@ -80,12 +97,14 @@ export async function updateProfile(userid, { username, firstName, lastName, ema
 
     const actor = { userid, username: current.username };
 
+    // Verifica que la contraseña actual sea correcta antes de permitir el cambio.
     const passwordMatches = await bcrypt.compare(currentPassword, current.password);
     if (!passwordMatches) {
         logPasswordCheckFailed(actor, ip, 'editar el perfil');
         throw new AuthError(401, 'Contraseña actual incorrecta');
     }
 
+    // Consulta a Supabase: comprueba que otro usuario no tenga ya ese nombre de usuario o ese correo.
     // Dos consultas separadas: armar un solo ".or(...)" con el correo permitiría que un correo
     // manipulado agregue condiciones propias (el formato de correo acepta "," y "()")
     const { data: sameUsername, error: usernameError } = await supabase
@@ -106,6 +125,7 @@ export async function updateProfile(userid, { username, firstName, lastName, ema
     if (emailError) throw emailError;
     if (sameEmail.length > 0) throw new AuthError(409, 'Ese correo ya está registrado');
 
+    // Consulta a Supabase: guarda los nuevos datos del perfil.
     const { data: updated, error: updateError } = await supabase
         .from('users')
         .update({ username, firstname: firstName, lastname: lastName, email })
@@ -115,6 +135,7 @@ export async function updateProfile(userid, { username, firstName, lastName, ema
 
     if (updateError) throw updateError;
 
+    // Arma la lista de qué campos cambiaron para dejar constancia en el log.
     // Solo se guardan los nombres de los campos (los correos y nombres son datos personales)
     const changes = [];
     if (current.username !== username) changes.push(`nombre de usuario («${current.username}» → «${username}»)`);
@@ -137,11 +158,13 @@ export async function updateProfile(userid, { username, firstName, lastName, ema
     return { token, user: toPublicUser(updated) };
 }
 
+// Esta función se encarga de cambiar el avatar del usuario, aceptando solo los de la lista permitida.
 export async function updateAvatar(userid, avatar, ip) {
     if (!ALLOWED_AVATARS.includes(avatar)) {
         throw new AuthError(400, 'Avatar inválido');
     }
 
+    // Consulta a Supabase: actualiza el avatar del usuario.
     const { data: updated, error } = await supabase
         .from('users')
         .update({ avatar })
@@ -164,6 +187,7 @@ export async function updateAvatar(userid, avatar, ip) {
     return { user: toPublicUser(updated) };
 }
 
+// Esta función se encarga de cambiar la contraseña del usuario tras validar la actual y la nueva.
 export async function changePassword(userid, { currentPassword, newPassword, ip }) {
     if (!currentPassword || !newPassword) {
         throw new AuthError(400, 'Debes ingresar la contraseña actual y la nueva');
@@ -172,6 +196,7 @@ export async function changePassword(userid, { currentPassword, newPassword, ip 
         throw new AuthError(400, 'La nueva contraseña debe tener al menos 7 caracteres, 1 mayúscula y 1 carácter especial');
     }
 
+    // Consulta a Supabase: trae la contraseña actual para verificarla.
     const { data: current, error: fetchError } = await supabase
         .from('users')
         .select('password, username')
@@ -183,12 +208,14 @@ export async function changePassword(userid, { currentPassword, newPassword, ip 
 
     const actor = { userid, username: current.username };
 
+    // Verifica que la contraseña actual coincida antes de cambiarla.
     const passwordMatches = await bcrypt.compare(currentPassword, current.password);
     if (!passwordMatches) {
         logPasswordCheckFailed(actor, ip, 'cambiar la contraseña');
         throw new AuthError(401, 'Contraseña actual incorrecta');
     }
 
+    // Genera el hash de la nueva contraseña y lo guarda.
     const newHash = await bcrypt.hash(newPassword, 10);
 
     const { error: updateError } = await supabase
@@ -209,11 +236,14 @@ export async function changePassword(userid, { currentPassword, newPassword, ip 
     });
 }
 
+// Esta función se encarga de eliminar la propia cuenta del usuario tras confirmar su contraseña,
+// borrando también en cascada sus datos asociados.
 export async function deleteAccount(userid, { currentPassword, ip }) {
     if (!currentPassword) {
         throw new AuthError(400, 'Debes ingresar tu contraseña actual');
     }
 
+    // Consulta a Supabase: trae la contraseña actual para verificarla.
     const { data: current, error: fetchError } = await supabase
         .from('users')
         .select('password, username')
@@ -225,12 +255,14 @@ export async function deleteAccount(userid, { currentPassword, ip }) {
 
     const actor = { userid, username: current.username };
 
+    // Verifica la contraseña antes de borrar la cuenta.
     const passwordMatches = await bcrypt.compare(currentPassword, current.password);
     if (!passwordMatches) {
         logPasswordCheckFailed(actor, ip, 'eliminar la cuenta');
         throw new AuthError(401, 'Contraseña actual incorrecta');
     }
 
+    // Ejecuta el borrado en cascada de todo lo asociado al usuario.
     const cascade = await deleteUserCascade(userid);
 
     logEvent({
@@ -244,9 +276,11 @@ export async function deleteAccount(userid, { currentPassword, ip }) {
     });
 }
 
+// Esta función se encarga de borrar al usuario y todos sus datos relacionados en el orden correcto.
 // borra al usuario en cascada (la usan deleteAccount y adminDeleteUser)
 // devuelve cuántos labs y sesiones se fueron con él, para el registro de actividad
 async function deleteUserCascade(userid) {
+    // Consulta a Supabase: labs creados por el usuario
     // labs creados por el usuario
     const { data: labs, error: labsLookupError } = await supabase
         .from('lab')
@@ -263,6 +297,7 @@ async function deleteUserCascade(userid) {
     if (sessionsLookupError) throw sessionsLookupError;
     const sessionIds = (sessions || []).map((s) => s.sessionid);
 
+    // Borra primero los reportes y luego las sesiones (report depende de session).
     // report depende de session
     if (sessionIds.length > 0) {
         const { error: reportError } = await supabase
@@ -286,6 +321,7 @@ async function deleteUserCascade(userid) {
     if (bugByUserError) throw bugByUserError;
 
     if (labIds.length > 0) {
+        // Marca sus labs como eliminados y los deja sin creador para conservar los datos de otros usuarios.
         // sus labs pasan a eliminados (como al eliminar un lab) y quedan sin creador,
         // así se conservan las sesiones, trofeos y reportes de otros usuarios
         const { error: labError } = await supabase
@@ -321,14 +357,18 @@ async function deleteUserCascade(userid) {
     return { labCount: labIds.length, sessionCount: sessionIds.length };
 }
 
+// Esta función se encarga de buscar usuarios para asignarlos: el instructor solo ve estudiantes
+// y el administrador ve cualquier rol.
 // instructor solo estudiantes, admin cualquier rol
 export async function searchStudents(query, viewerRole = 1) {
     if (typeof query !== 'string' || !query.trim()) return [];
 
+    // Limpia la búsqueda quitando caracteres que podrían alterar el filtro de Supabase.
     // misma limpieza que searchUsers: sin comas, paréntesis ni comodines dentro del filtro
     const safeQuery = query.trim().slice(0, 50).replace(/[,()*%\\]/g, '');
     if (!safeQuery) return [];
 
+    // Consulta a Supabase: filtra por rol permitido y coincidencia en usuario, nombre o apellido.
     const { data, error } = await supabase
         .from('users')
         .select('userid, username, firstname, lastname, role')
@@ -340,11 +380,13 @@ export async function searchStudents(query, viewerRole = 1) {
     return data;
 }
 
+// Esta función se encarga de armar el perfil público de un usuario: nivel, badges, trofeos y datos básicos.
 export async function getPublicProfile(username) {
     if (!username || !usernameRegex.test(username)) {
         throw new AuthError(404, 'Usuario no encontrado');
     }
 
+    // Consulta a Supabase: trae los datos públicos del usuario por su nombre de usuario.
     const { data: user, error } = await supabase
         .from('users')
         .select('userid, username, avatar, role, level, score, dateofcreation')
@@ -357,6 +399,7 @@ export async function getPublicProfile(username) {
     // revisa si hay que asignas badges
     await checkBadgesSafely(user.userid);
 
+    // Consulta a Supabase: trae las badges desbloqueadas por el usuario con sus datos.
     const { data: badgeRows, error: badgeError } = await supabase
         .from('userbadge')
         .select('dateofunlock, badges(badgeid, name, description, category, type)')
@@ -364,6 +407,7 @@ export async function getPublicProfile(username) {
 
     if (badgeError) throw badgeError;
 
+    // Aplana y ordena las badges: primero las más recientes, y a igual fecha por id descendente.
     const badges = (badgeRows || [])
         .filter((row) => row.badges)
         .map((row) => ({ ...row.badges, dateofunlock: row.dateofunlock }))
@@ -395,8 +439,10 @@ export async function getPublicProfile(username) {
     };
 }
 
+// Esta función se encarga de agrupar los trofeos del usuario por laboratorio y contarlos.
 // trophies del usuario agrupados por lab
 async function getTrophyGroups(userid) {
+    // Consulta a Supabase: trae los trofeos del usuario junto con el lab al que pertenecen.
     const { data, error } = await supabase
         .from('trophyuser')
         .select('dateofunlock, trophy(trophyid, type, name, description, labid, lab(title))')
@@ -404,6 +450,7 @@ async function getTrophyGroups(userid) {
 
     if (error) throw error;
 
+    // Recorre los trofeos y los va agrupando por lab, guardando la última fecha de desbloqueo de cada grupo.
     const groupsByLab = new Map();
 
     (data || []).forEach(({ dateofunlock, trophy }) => {
@@ -430,6 +477,7 @@ async function getTrophyGroups(userid) {
         });
     });
 
+    // Ordena los trofeos dentro de cada grupo y los grupos por lab según el último desbloqueo.
     const trophyGroups = [...groupsByLab.values()]
         .map((group) => ({
             ...group,
@@ -442,12 +490,15 @@ async function getTrophyGroups(userid) {
     return { trophyGroups, trophyCount };
 }
 
+// Esta función se encarga de buscar usuarios por nombre de usuario (hasta 10 resultados) para uso general.
 export async function searchUsers(query) {
     if (typeof query !== 'string' || !query.trim()) return [];
 
+    // Limpia la búsqueda quitando caracteres que podrían alterar el filtro de Supabase.
     const safeQuery = query.trim().slice(0, 50).replace(/[,()*%]/g, '');
     if (!safeQuery) return [];
 
+    // Consulta a Supabase: busca coincidencias en el nombre de usuario, ordenadas y limitadas a 10.
     const { data, error } = await supabase
         .from('users')
         .select('userid, username, avatar, level, role')
@@ -460,11 +511,16 @@ export async function searchUsers(query) {
 }
 
 // gestion de usuarios
+// Esta constante se encarga de enumerar los roles válidos del sistema.
 const VALID_ROLES = [0, 1, 2];
+// Esta constante se encarga de definir qué campos se exponen al gestionar usuarios.
 const MANAGE_FIELDS = 'userid, username, firstname, lastname, email, role, avatar, level, dateofcreation';
+// Esta constante se encarga de fijar cuántos usuarios recientes se muestran sin búsqueda.
 const RECENT_LIMIT = 5;
+// Esta constante se encarga de fijar el tamaño de página en los resultados de búsqueda.
 const PAGE_SIZE = 10;
 
+// Esta función se encarga de comprobar si quien gestiona tiene permiso sobre el usuario objetivo.
 // denial: { ip, action, verb } solo sirve para el registro de actividad
 function assertCanManage(reqUser, target, denial) {
     if (target.userid === reqUser.userid) {
@@ -488,10 +544,12 @@ function assertCanManage(reqUser, target, denial) {
     }
 }
 
+// Esta función se encarga de validar el id recibido y traer el usuario objetivo a gestionar.
 async function getTargetUser(targetId) {
     const id = Number(targetId);
     if (!Number.isInteger(id) || id <= 0) throw new AuthError(400, 'ID de usuario inválido');
 
+    // Consulta a Supabase: trae el usuario objetivo por su id.
     const { data, error } = await supabase
         .from('users')
         .select(MANAGE_FIELDS)
@@ -503,19 +561,25 @@ async function getTargetUser(targetId) {
     return data;
 }
 
+// Esta función se encarga de listar los usuarios gestionables: sin búsqueda los últimos registrados,
+// con búsqueda los resultados paginados por usuario, nombre o apellido.
 // sin busqueda los ultimos 5 usuarios registrados
 // con busqueda resultados paginados por usuario, nombre o apellido.
 export async function listManagedUsers(reqUser, { search = '', page = 1 } = {}) {
+    // Limpia el texto de búsqueda y decide si hay o no búsqueda activa.
     const safeQuery = String(search).trim().slice(0, 100).replace(/[,()*%\\]/g, '');
     const isSearch = safeQuery.length > 0;
 
+    // Consulta a Supabase: se arma por pasos (filtros, orden y paginación) según el rol y la búsqueda.
     let query = supabase
         .from('users')
         .select(MANAGE_FIELDS, { count: 'exact' })
         .neq('userid', reqUser.userid);
 
+    // El instructor solo puede ver estudiantes.
     if (reqUser.role === 1) query = query.eq('role', 0);
 
+    // Con búsqueda, filtra por coincidencia en usuario, nombre o apellido.
     if (isSearch) {
         query = query.or(
             `username.ilike.%${safeQuery}%,firstname.ilike.%${safeQuery}%,lastname.ilike.%${safeQuery}%`
@@ -526,6 +590,7 @@ export async function listManagedUsers(reqUser, { search = '', page = 1 } = {}) 
         .order('dateofcreation', { ascending: false })
         .order('userid', { ascending: false });
 
+    // Con búsqueda aplica paginación por rangos; sin búsqueda solo trae los más recientes.
     const currentPage = Math.max(1, parseInt(page, 10) || 1);
     query = isSearch
         ? query.range((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE - 1)
@@ -543,10 +608,13 @@ export async function listManagedUsers(reqUser, { search = '', page = 1 } = {}) 
     };
 }
 
+// Esta función se encarga de que un instructor o administrador modifique los datos de otro usuario,
+// incluyendo el cambio de rol que solo el administrador puede hacer.
 export async function adminUpdateUser(reqUser, targetId, { username, firstName, lastName, email, role, ip }) {
     const target = await getTargetUser(targetId);
     assertCanManage(reqUser, target, { ip, action: 'UPDATE', verb: 'modificar' });
 
+    // Validaciones de formato de los campos recibidos.
     if (!username || !firstName || !lastName || !email) {
         throw new AuthError(400, 'Todos los campos son obligatorios');
     }
@@ -564,6 +632,7 @@ export async function adminUpdateUser(reqUser, targetId, { username, firstName, 
     const changes = { username, firstname: firstName, lastname: lastName, email };
     let newRole = null;
 
+    // Si se pide cambiar el rol, solo el administrador puede hacerlo y el rol debe ser válido.
     // solo el admin puede cambiar roles.
     if (role !== undefined && role !== null && Number(role) !== target.role) {
         if (reqUser.role !== 2) {
@@ -586,6 +655,7 @@ export async function adminUpdateUser(reqUser, targetId, { username, firstName, 
         newRole = Number(role);
     }
 
+    // Consulta a Supabase: evita que el nuevo usuario o correo choque con el de otra cuenta.
     const { data: sameUsername, error: usernameError } = await supabase
         .from('users')
         .select('userid')
@@ -602,6 +672,7 @@ export async function adminUpdateUser(reqUser, targetId, { username, firstName, 
     if (emailError) throw emailError;
     if (sameEmail.length > 0) throw new AuthError(409, 'Ese correo ya está registrado');
 
+    // Consulta a Supabase: aplica los cambios al usuario objetivo.
     const { data: updated, error: updateError } = await supabase
         .from('users')
         .update(changes)
@@ -611,6 +682,7 @@ export async function adminUpdateUser(reqUser, targetId, { username, firstName, 
 
     if (updateError) throw updateError;
 
+    // Arma la lista de qué campos cambiaron para dejar constancia en el log.
     // Solo se guardan los nombres de los campos (los correos y nombres son datos personales)
     const edited = [];
     if (target.username !== username) edited.push(`nombre de usuario («${target.username}» → «${username}»)`);
@@ -645,10 +717,12 @@ export async function adminUpdateUser(reqUser, targetId, { username, firstName, 
     return { user: updated };
 }
 
+// Esta función se encarga de que un instructor o administrador elimine la cuenta de otro usuario en cascada.
 export async function adminDeleteUser(reqUser, targetId, ip) {
     const target = await getTargetUser(targetId);
     assertCanManage(reqUser, target, { ip, action: 'DELETE', verb: 'eliminar' });
 
+    // Ejecuta el borrado en cascada del usuario objetivo.
     const cascade = await deleteUserCascade(target.userid);
 
     logEvent({

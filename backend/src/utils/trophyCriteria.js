@@ -1,17 +1,20 @@
-// Fragment criteria for the "command" and "process" trophies.
-// A trophy stores 1 to 4 fragments; a line of evidence matches when it contains ALL of them,
-// in any order, ignoring extra spaces (case-sensitive, plain text, never a regex).
+// Este archivo se encarga de definir y validar los criterios de los trofeos de tipo
+// "comando" y "proceso": cada trofeo guarda de 1 a 4 fragmentos de texto, y una línea
+// de evidencia se considera acertada cuando contiene TODOS esos fragmentos, en cualquier
+// orden, ignorando los espacios de más (se compara texto plano, sensible a mayúsculas, nunca como expresión regular).
 
 export const FRAGMENT_MIN_LENGTH = 2;
 export const FRAGMENT_MAX_LENGTH = 50;
 export const MAX_FRAGMENTS = 4;
 
-// Collapses runs of spaces/tabs and trims the ends
+// Esta función se encarga de normalizar un fragmento: junta las secuencias de espacios/tabs
+// en uno solo y recorta los extremos, para que las comparaciones no fallen por espacios de más.
 export function normalizeFragment(text) {
     return String(text ?? '').replace(/\s+/g, ' ').trim();
 }
 
-// Accepts either an array or the JSON string stored in the database. null = not a list.
+// Esta función se encarga de obtener la lista de fragmentos: acepta tanto un arreglo ya armado
+// como el texto JSON que se guarda en la base de datos. Devuelve null cuando no es una lista válida.
 export function getFragments(criteria) {
     if (Array.isArray(criteria)) return criteria;
 
@@ -19,17 +22,21 @@ export function getFragments(criteria) {
         const parsed = JSON.parse(criteria);
         return Array.isArray(parsed) ? parsed : null;
     } catch {
+        // Si el texto no es un JSON válido, lo tratamos como "no es una lista"
         return null;
     }
 }
 
-// '' when fine, otherwise the error message
+// Esta función se encarga de validar los fragmentos y devolver el mensaje de error
+// correspondiente, o '' (cadena vacía) cuando todo está correcto.
 export function getFragmentsError(criteria) {
     const fragments = getFragments(criteria);
 
     if (!fragments || fragments.length === 0) return 'Indica al menos un fragmento';
     if (fragments.length > MAX_FRAGMENTS) return `Máximo ${MAX_FRAGMENTS} fragmentos`;
 
+    // Revisa fragmento por fragmento que sea texto, que respete el largo mínimo/máximo
+    // y que no traiga caracteres de control raros
     for (const raw of fragments) {
         if (typeof raw !== 'string') return 'Fragmento inválido';
 
@@ -48,22 +55,26 @@ export function getFragmentsError(criteria) {
     return '';
 }
 
-// Canonical form that gets stored: cleaned, no duplicates, sorted, as a JSON string
+// Esta función se encarga de dejar los fragmentos en su forma canónica antes de guardarlos:
+// limpios, sin duplicados, ordenados y convertidos a texto JSON.
 export function normalizeFragments(criteria) {
     const fragments = getFragments(criteria) ?? [];
     return JSON.stringify([...new Set(fragments.map(normalizeFragment))].sort());
 }
 
+// Esta función se encarga de comprobar si una sola línea contiene todos los fragmentos pedidos.
 export function lineMatchesFragments(line, fragments) {
     const normalizedLine = normalizeFragment(line);
     return fragments.every((fragment) => normalizedLine.includes(fragment));
 }
 
-// True when at least one line of the evidence contains every fragment
+// Esta función se encarga de decidir si la evidencia acierta el criterio: devuelve true cuando
+// al menos una de sus líneas contiene todos los fragmentos.
 export function evidenceMatches(evidenceText, criteria) {
     const fragments = (getFragments(criteria) ?? []).map(normalizeFragment);
     if (fragments.length === 0) return false;
 
+    // Separa la evidencia en líneas y basta con que una de ellas cumpla con todos los fragmentos
     return String(evidenceText ?? '')
         .split('\n')
         .some((line) => lineMatchesFragments(line, fragments));

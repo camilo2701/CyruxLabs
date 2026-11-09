@@ -1,3 +1,6 @@
+// Este archivo se encarga de validar el compose.yaml que suben los instructores para un laboratorio:
+// aplica una lista blanca de secciones, imágenes, volúmenes y redes permitidos, y rechaza rutas
+// inseguras, variables interpoladas y opciones peligrosas antes de construir el laboratorio.
 import path from 'path';
 import { isAllowedImage } from './imagePolicy.js';
 
@@ -21,10 +24,13 @@ const ALLOWED_VOLUME_OBJECT_KEYS = new Set(['type', 'source', 'target', 'read_on
 const SERVICE_NAME = /^[a-z0-9][a-z0-9_-]*$/i;
 const NAMED_VOLUME = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/;
 
+// Esta constante se encarga de comprobar si un valor es un objeto plano (ni null ni array).
 const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
 // "./x" or "." that stays inside the lab folder after resolving any "..".
 // Requiring the "./" prefix also rules out remote contexts like "github.com/user/repo".
+// Esta función se encarga de validar que una ruta relativa ("./x" o ".") se quede dentro de la
+// carpeta del laboratorio tras resolver los "..", y exige el prefijo "./" para evitar contextos remotos.
 function isSafeRelativePath(p) {
     if (typeof p !== 'string' || p.includes('\0') || p.includes('\\')) return false;
     if (p !== '.' && !p.startsWith('./')) return false;
@@ -33,6 +39,8 @@ function isSafeRelativePath(p) {
 }
 
 // For "dockerfile:", which is relative to the build context (no "./" prefix required)
+// Esta función se encarga de validar que una ruta (p. ej. el "dockerfile:") quede dentro del
+// contexto de build, sin exigir el prefijo "./" pero rechazando rutas absolutas o que escapen.
 function isInsidePath(p) {
     if (typeof p !== 'string' || p === '' || p.includes('\0') || p.includes('\\')) return false;
     if (p.startsWith('/') || p.includes('://')) return false;
@@ -41,6 +49,8 @@ function isInsidePath(p) {
 }
 
 // Any "$" left after removing the escaped "$$" is a variable interpolation
+// Esta función se encarga de detectar interpolación de variables ($VAR): cualquier "$" que quede
+// tras quitar los "$$" escapados cuenta como una variable y no se permite.
 function containsInterpolation(value) {
     if (typeof value === 'string') return value.replace(/\$\$/g, '').includes('$');
     if (Array.isArray(value)) return value.some(containsInterpolation);
@@ -48,6 +58,7 @@ function containsInterpolation(value) {
     return false;
 }
 
+// Esta función se encarga de convertir un tamaño con unidad (b, k, m, g...) a bytes.
 function parseSizeToBytes(value) {
     if (typeof value === 'number') return value;
     const match = /^(\d+)\s*(b|k|kb|m|mb|g|gb)?$/i.exec(String(value).trim());
@@ -56,6 +67,8 @@ function parseSizeToBytes(value) {
     return Number(match[1]) * units[(match[2] || 'b').toLowerCase()];
 }
 
+// Esta función se encarga de validar la sección "build" de un servicio (ruta corta u objeto con
+// context/dockerfile), devolviendo '' si es válida o un mensaje de error en caso contrario.
 function getBuildError(build) {
     if (typeof build === 'string') {
         return isSafeRelativePath(build) ? '' : '"build" debe ser una ruta relativa que empiece con ./';
@@ -72,6 +85,8 @@ function getBuildError(build) {
     return '';
 }
 
+// Esta función se encarga de validar un volumen (cadena o objeto), asegurando que las rutas bind
+// queden dentro del laboratorio y que los volúmenes con nombre tengan un nombre válido.
 function getVolumeError(volume) {
     if (typeof volume === 'string') {
         const parts = volume.split(':');
@@ -104,6 +119,8 @@ function getVolumeError(volume) {
     return 'formato de volumen no válido';
 }
 
+// Esta función se encarga de validar que un servicio esté conectado únicamente a la red requerida
+// "labnet" y que sus alias no estén reservados.
 function getNetworksError(networks) {
     const names = Array.isArray(networks)
         ? networks
@@ -129,6 +146,8 @@ function getNetworksError(networks) {
     return '';
 }
 
+// Esta función se encarga de validar un servicio completo: sus claves permitidas, imagen o build,
+// red, volúmenes y límite de shm_size, devolviendo el primer problema encontrado.
 function getServiceError(service) {
     if (!isPlainObject(service)) return 'definición no válida';
 
@@ -170,6 +189,8 @@ function getServiceError(service) {
 }
 
 // Receives the parsed compose.yaml (a JS object). Returns '' when it is fine, otherwise a message.
+// Esta función se encarga de validar el compose.yaml completo (ya parseado a objeto JS): rechaza
+// variables, secciones no permitidas y valida cada servicio; devuelve '' si todo está correcto.
 export function getComposeError(compose) {
     if (!isPlainObject(compose)) return 'compose.yaml debe contener servicios';
     if (containsInterpolation(compose)) return 'compose.yaml: no se permiten variables ($VAR o ${VAR})';
@@ -188,6 +209,7 @@ export function getComposeError(compose) {
 
     if (!isPlainObject(compose.services)) return 'compose.yaml debe definir "services"';
 
+    // Valida el número de servicios y, uno a uno, el nombre y la definición de cada servicio
     const names = Object.keys(compose.services);
     if (names.length === 0 || names.length > MAX_SERVICES) {
         return `compose.yaml debe tener entre 1 y ${MAX_SERVICES} servicios`;
@@ -206,6 +228,8 @@ export function getComposeError(compose) {
 
 // Where each build's Dockerfile lives, relative to the lab folder (e.g. "webtop/Dockerfile").
 // Only call this after getComposeError returned ''.
+// Esta función se encarga de devolver las rutas de los Dockerfile de cada build, relativas a la
+// carpeta del laboratorio. Solo debe llamarse después de que getComposeError haya devuelto ''.
 export function getDockerfilePaths(compose) {
     const paths = new Set();
 

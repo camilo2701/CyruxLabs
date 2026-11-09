@@ -1,10 +1,13 @@
+// Este archivo se encarga de la autenticación y autorización mediante JWT: valida el token y comprueba los roles.
 import jwt from 'jsonwebtoken';
 import { supabase } from '../config/supabaseClient.js';
 
+// Esta función se encarga de responder con un error 401 estándar cuando la sesión no es válida.
 function sessionInvalid(res, message) {
     return res.status(401).json({ error: message, code: 'SESSION_INVALID' });
 }
 
+// Este middleware se encarga de exigir un token JWT válido y cargar el usuario actual en req.user.
 export async function requireAuth(req, res, next) {
     const authHeader = req.headers.authorization;
 
@@ -14,6 +17,7 @@ export async function requireAuth(req, res, next) {
 
     const token = authHeader.split(' ')[1];
 
+    // Verifica la firma del token; si está vencido o es inválido, rechaza la petición.
     let payload;
     try {
         payload = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
@@ -21,6 +25,7 @@ export async function requireAuth(req, res, next) {
         return sessionInvalid(res, 'Token inválido o expirado');
     }
 
+    // Consulta a Supabase el usuario del token para reflejar cambios de rol o eliminación al instante.
     try {
         // si cambia el rol o se elimina la cuenta aplica de inmediato
         const { data: user, error } = await supabase
@@ -41,6 +46,7 @@ export async function requireAuth(req, res, next) {
     }
 }
 
+// Este middleware se encarga de permitir el paso solo a los usuarios cuyo rol esté entre los permitidos.
 export function requireRole(...allowedRoles) {
     return (req, res, next) => {
         if (!req.user || !allowedRoles.includes(req.user.role)) {

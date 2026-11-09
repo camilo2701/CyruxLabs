@@ -1,3 +1,5 @@
+// Este archivo se encarga de toda la lógica de experiencia (XP) y niveles: la curva de
+// niveles, el cálculo del XP de los trofeos y el reparto del XP cuando termina una sesión.
 import { supabase } from '../config/supabaseClient.js';
 
 // ---------- Level curve ----------
@@ -7,10 +9,12 @@ import { supabase } from '../config/supabaseClient.js';
 const XP_STEP = 250;
 
 // Total XP needed to REACH a level (level 1 needs 0)
+// Esta función se encarga de calcular el XP total necesario para alcanzar un nivel dado.
 export function xpForLevel(level) {
     return XP_STEP * level * (level - 1);
 }
 
+// Esta función se encarga de determinar a qué nivel corresponde una cantidad de XP.
 export function levelForXp(xp) {
     let level = 1;
     while (xpForLevel(level + 1) <= xp) level += 1;
@@ -18,6 +22,8 @@ export function levelForXp(xp) {
 }
 
 // Datos para la barra de progreso del perfil (niveles sin tope, misma curva de arriba)
+// Esta función se encarga de armar los datos de la barra de progreso del perfil (nivel actual,
+// mínimos del nivel, cuánto falta para el siguiente y porcentaje de avance).
 export function getLevelInfo(score = 0) {
     const safeScore = Math.max(0, Number(score) || 0);
     const level = levelForXp(safeScore);
@@ -43,7 +49,10 @@ const MAX_UPDATE_ATTEMPTS = 5;
 // goes through if the score is still the one we just read. If another request changed it in
 // between, nothing is written and we read again, so two solves at the same moment can
 // never overwrite each other.
+// Esta función se encarga de sumar XP a un usuario y mantener su nivel al día, con una
+// escritura condicional reintentada para que dos solves simultáneos no se pisen.
 async function addXpToUser(userid, points) {
+    // Reintenta la lectura+escritura varias veces por si otro proceso cambió el score en medio.
     for (let attempt = 0; attempt < MAX_UPDATE_ATTEMPTS; attempt += 1) {
         const { data: user, error: readError } = await supabase
             .from('users')
@@ -99,6 +108,8 @@ const TROPHY_XP_PER_100 = { 0: 5, 1: 10, 2: 20 };
 
 // XP of one trophy of a given type (0 bronze, 1 silver, 2 gold) in a lab with a given score.
 // Math.floor only protects against a score that is not a multiple of 100 (it never is today).
+// Esta función se encarga de calcular el XP que da un trofeo según su tipo (bronce/plata/oro)
+// y la puntuación del laboratorio.
 export function trophyXp(type, labScore) {
     const perHundred = TROPHY_XP_PER_100[type] ?? 0;
     return perHundred * Math.floor(labScore / 100);
@@ -125,6 +136,8 @@ export function trophyXp(type, labScore) {
 //     { earned: 0, lab: 0, trophies: 0, reason }                  when it solved but nothing was given
 //     null                                                        when it did not solve and gave nothing
 // It THROWS on database errors; the caller catches them so closing a session never fails.
+// Esta función se encarga de repartir el XP de una sesión terminada: los puntos del lab (solo
+// la primera vez que se resuelve y nunca en el lab propio) más el XP de los trofeos nuevos.
 export async function awardSessionXp({ userid, labid, sessionid, solved, trophies = [] }) {
     if (!solved && trophies.length === 0) return { xp: null, trophies };
 
@@ -144,11 +157,13 @@ export async function awardSessionXp({ userid, labid, sessionid, solved, trophie
     let labPoints = 0;
     let reason;
 
+    // Solo se dan los puntos del lab si se resolvió, no es el lab propio y no se había resuelto antes.
     if (solved) {
         if (isOwnLab) {
             reason = 'own_lab';
         } else {
             // Any OTHER session of this user that already solved this lab?
+            // Consulta a Supabase: ¿hay otra sesión de este usuario que ya resolvió este lab?
             const { data: earlier, error: earlierError } = await supabase
                 .from('session')
                 .select('sessionid')
@@ -165,6 +180,7 @@ export async function awardSessionXp({ userid, labid, sessionid, solved, trophie
         }
     }
 
+    // Calcula el XP de cada trofeo (0 si es el lab propio) y la suma total de trofeos.
     const trophiesWithXp = trophies.map((trophy) => ({
         ...trophy,
         xp: isOwnLab ? 0 : trophyXp(trophy.type, labScore),

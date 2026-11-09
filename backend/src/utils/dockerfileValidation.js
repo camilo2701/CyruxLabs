@@ -1,17 +1,26 @@
+// Este archivo se encarga de validar el Dockerfile que viene dentro del zip de un
+// laboratorio: solo permite instrucciones e imágenes seguras y bloquea opciones
+// peligrosas (heredocs, RUN --security, --network=host, ADD desde URL, etc.).
+
 import { isAllowedImage } from './imagePolicy.js';
 
+// Esta constante se encarga de listar las instrucciones Dockerfile permitidas.
 const ALLOWED_INSTRUCTIONS = new Set([
     'FROM', 'RUN', 'COPY', 'ADD', 'ENV', 'ARG', 'WORKDIR', 'USER', 'CMD', 'ENTRYPOINT',
     'EXPOSE', 'LABEL', 'VOLUME', 'HEALTHCHECK', 'SHELL', 'STOPSIGNAL', 'MAINTAINER',
 ]);
+// Esta constante se encarga de detectar heredocs (p. ej. "<<EOF"), que no se soportan.
 const HEREDOC = /<<-?\s*["']?[A-Za-z_]/;
 
+// Esta función se encarga de revisar las directivas "# clave=valor" del inicio del
+// archivo (solo "# escape" y "# syntax"), rechazando las no permitidas.
 // "# syntax=..." style lines at the very top of the file. Docker only reads them there.
 function getDirectiveError(lines) {
     for (const line of lines) {
         const match = /^\s*#\s*([a-z][a-z0-9_-]*)\s*=\s*(.*)$/i.exec(line);
         if (!match) break; // first blank line, plain comment or instruction ends the directives
 
+        // Separa la clave y el valor de la directiva ya normalizados
         const key = match[1].toLowerCase();
         const value = match[2].trim();
         if (key === 'escape') return 'la directiva "# escape" no está permitida';
@@ -22,6 +31,8 @@ function getDirectiveError(lines) {
     return '';
 }
 
+// Esta función se encarga de convertir las líneas del archivo en instrucciones
+// completas: une las que terminan en "\" y descarta comentarios y líneas vacías.
 // Turns the file into a list of full instructions: joins lines ending in "\" and drops comments
 function toInstructions(lines) {
     const instructions = [];
@@ -31,6 +42,7 @@ function toInstructions(lines) {
         const line = raw.trim();
         if (line === '' || line.startsWith('#')) continue;
 
+        // Si la línea continúa con "\", acumula su contenido y sigue con la siguiente
         if (line.endsWith('\\')) {
             current += `${line.slice(0, -1)} `;
         } else {
@@ -42,6 +54,8 @@ function toInstructions(lines) {
     return instructions;
 }
 
+// Esta función se encarga de validar una imagen base: rechaza las que usan variables
+// y las que no están en la lista de permitidas (admite "scratch" y etapas previas).
 function getImageError(image, stages) {
     const lower = image.toLowerCase();
     if (image.includes('$')) return `la imagen "${image}" usa variables; escribe el nombre completo`;
@@ -49,6 +63,8 @@ function getImageError(image, stages) {
     return isAllowedImage(image) ? '' : `la imagen "${image}" no está en la lista de imágenes permitidas`;
 }
 
+// Esta función se encarga de validar una instrucción FROM: comprueba la imagen y
+// registra el alias de etapa cuando se usa "FROM imagen AS nombre".
 function getFromError(args, stages) {
     const tokens = args.split(/\s+/).filter((token) => !token.startsWith('--')); // skip --platform=...
     const [image, as, alias] = tokens;
@@ -57,10 +73,13 @@ function getFromError(args, stages) {
     const problem = getImageError(image, stages);
     if (problem) return problem;
 
+    // Guarda el nombre de la etapa para permitir referenciarla más adelante
     if (as && as.toUpperCase() === 'AS' && alias) stages.add(alias.toLowerCase());
     return '';
 }
 
+// Esta función se encarga de validar COPY y ADD: revisa la imagen/etapa de --from
+// y prohíbe que ADD descargue archivos desde una URL.
 function getCopyError(name, args, stages) {
     const from = /(?:^|\s)--from=(\S+)/.exec(args);
     if (from && !/^\d+$/.test(from[1])) {
@@ -73,6 +92,8 @@ function getCopyError(name, args, stages) {
     return '';
 }
 
+// Esta función se encarga de validar una instrucción RUN: solo revisa las flags que
+// van antes del comando y bloquea --security, --network=host y montajes inseguros.
 function getRunError(args, stages) {
     // Only the flags before the actual command ("RUN --mount=... apk add --no-cache x")
     const flags = [];
@@ -85,6 +106,7 @@ function getRunError(args, stages) {
         if (flag.startsWith('--security')) return 'RUN --security no está permitido';
         if (flag === '--network=host') return 'RUN --network=host no está permitido';
 
+        // Si el montaje trae un origen "from=", valida que sea una imagen/etapa permitida
         if (flag.startsWith('--mount')) {
             const from = /(?:^|[=,])from=([^,\s]+)/.exec(flag);
             if (from && !/^\d+$/.test(from[1])) {
@@ -96,6 +118,8 @@ function getRunError(args, stages) {
     return '';
 }
 
+// Esta función se encarga de validar el Dockerfile completo: recorre sus directivas
+// e instrucciones y devuelve '' si todo está bien o un mensaje con el primer problema.
 // Returns '' when the Dockerfile is fine, otherwise a message
 export function getDockerfileError(text) {
     const lines = text.replace(/\r\n/g, '\n').split('\n');
@@ -105,11 +129,13 @@ export function getDockerfileError(text) {
 
     const stages = new Set(); // names given with "FROM x AS name"
 
+    // Recorre cada instrucción completa y la valida según su tipo
     for (const instruction of toInstructions(lines)) {
         if (HEREDOC.test(instruction)) {
             return 'los heredocs (<<EOF) no están soportados; usa COPY o una línea RUN';
         }
 
+        // Separa el nombre de la instrucción (p. ej. RUN) de sus argumentos
         const [, rawName, args] = /^(\S+)\s*([\s\S]*)$/.exec(instruction);
         const name = rawName.toUpperCase();
 

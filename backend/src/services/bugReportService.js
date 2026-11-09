@@ -1,8 +1,13 @@
+// Este archivo se encarga de gestionar los reportes de errores (bugs) de los laboratorios:
+// crearlos con límite diario, contar los pendientes y permitir a los instructores revisarlos.
 import { supabase } from '../config/supabaseClient.js';
 
+// Esta función se encarga de crear un reporte de bug para un lab, limitando a uno por
+// usuario, laboratorio y día.
 export async function createBugReport({ title, description, userid, labid }) {
     const today = new Date().toISOString().split('T')[0];
 
+    // Validación del límite: cuenta cuántos reportes ya hizo este usuario en este lab hoy.
     // Limit: one report per user, per lab, per day
     const { count, error: countError } = await supabase
         .from('bugreport')
@@ -13,6 +18,7 @@ export async function createBugReport({ title, description, userid, labid }) {
 
     if (countError) throw countError;
 
+    // Si ya existe uno hoy, se rechaza con 429 (demasiadas peticiones).
     if (count > 0) {
         const err = new Error('Ya reportaste un problema en este laboratorio hoy');
         err.status = 429;
@@ -31,10 +37,13 @@ export async function createBugReport({ title, description, userid, labid }) {
 }
 
 // bugs pendientes (status 0) de cada lab
+// Esta función se encarga de contar los bugs pendientes de un conjunto de labs, devolviendo
+// un objeto { labid: cantidad }.
 export async function getPendingBugCounts(labIds, ownerId = null) {
     if (labIds.length === 0) return {};
 
     // Instructor: solo cuenta bugs de los labs que él creó.
+    // Si se pasa ownerId, se filtran los labs para quedarse solo con los que creó ese instructor.
     if (ownerId !== null) {
         const { data: ownLabs, error: ownError } = await supabase
             .from('lab')
@@ -55,6 +64,7 @@ export async function getPendingBugCounts(labIds, ownerId = null) {
 
     if (error) throw error;
 
+    // Agrupa las filas contando cuántos bugs pendientes tiene cada lab.
     const counts = {};
     data.forEach((row) => {
         counts[row.labid] = (counts[row.labid] || 0) + 1;
@@ -63,12 +73,15 @@ export async function getPendingBugCounts(labIds, ownerId = null) {
 }
 
 
+// Esta función se encarga de crear un objeto Error con un código de estado HTTP asociado.
 function httpError(status, message) {
     const err = new Error(message);
     err.status = status;
     return err;
 }
 
+// Esta función se encarga de verificar que el usuario puede revisar los reportes de un lab:
+// debe ser admin (rol 2) o el dueño del laboratorio.
 async function assertCanReviewLab(labid, reqUser) {
     const { data: lab, error } = await supabase
         .from('lab')
@@ -83,7 +96,10 @@ async function assertCanReviewLab(labid, reqUser) {
     }
 }
 
+// Esta función se encarga de listar los reportes de un lab (previa validación de permisos),
+// añadiendo el nombre de usuario de quien reportó cada uno.
 export async function getReportsForLab(labid, reqUser) {
+    // Validación: el id debe ser un entero positivo, y el usuario debe tener permiso.
     if (!Number.isInteger(labid) || labid <= 0) throw httpError(400, 'ID de laboratorio inválido');
     await assertCanReviewLab(labid, reqUser);
 
@@ -96,6 +112,7 @@ export async function getReportsForLab(labid, reqUser) {
 
     if (error) throw error;
 
+    // Aplana la relación con users dejando solo el username (o un marcador si fue eliminado).
     return data.map(({ users, ...report }) => ({
         ...report,
         username: users?.username ?? 'Usuario eliminado',
@@ -103,7 +120,10 @@ export async function getReportsForLab(labid, reqUser) {
 }
 
 // status: 0 = pendiente, 1 = resuelto/revisado
+// Esta función se encarga de cambiar el estado de un reporte (pendiente/resuelto) tras validar
+// permisos, y marca el lab como actualizado cuando un bug pasa a resuelto.
 export async function updateReportStatus(bugreportid, status, reqUser) {
+    // Validación de los parámetros de entrada.
     if (!Number.isInteger(bugreportid) || bugreportid <= 0) throw httpError(400, 'ID de reporte inválido');
     if (status !== 0 && status !== 1) throw httpError(400, 'Estado inválido');
 
@@ -126,6 +146,7 @@ export async function updateReportStatus(bugreportid, status, reqUser) {
     if (updateError) throw updateError;
 
     // un bug que pasa a Resuelto cuenta como actualizacion del lab
+    // Solo al pasar de pendiente (0) a resuelto (1) se actualiza la fecha de actualización del lab.
     if (report.status === 0 && status === 1) {
         const { error: dateError } = await supabase
             .from('lab')

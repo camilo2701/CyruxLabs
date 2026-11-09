@@ -1,3 +1,6 @@
+// Este archivo se encarga de gestionar el ciclo de vida completo de las sesiones de
+// laboratorio: iniciarlas, seguir su progreso contra el runner, reiniciarlas, cerrarlas,
+// validar las flags y repartir trofeos y XP cuando una sesión termina.
 import { supabase } from '../config/supabaseClient.js';
 import { awardTrophies } from './trophyService.js';
 import { awardSessionXp } from './xpService.js';
@@ -11,12 +14,15 @@ import { hasPendingUpdate, applyPendingUpdates } from './labUpdateService.js';
 // solo se deja una advertencia cuando la cuenta llega a este número
 const FLAG_WARNING_THRESHOLD = 10;
 
+// Esta constante se encarga de formatear una duración en segundos como "MM:SS" para los registros.
 const formatDuration = (totalSeconds) => {
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = Math.round(totalSeconds % 60);
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 };
 
+// Esta función se encarga de transformar una fila cruda de la tabla session en el objeto
+// resumido que espera el frontend (título del lab y estado legible).
 function mapSession(row) {
     return {
         id: row.sessionid,
@@ -27,7 +33,10 @@ function mapSession(row) {
     };
 }
 
+// Esta función se encarga de devolver todas las sesiones de un usuario, ya mapeadas y
+// ordenadas de la más reciente a la más antigua.
 export async function getSessionsForUser(userid) {
+    // Consulta a Supabase: trae las sesiones del usuario junto al título de su laboratorio.
     const { data, error } = await supabase
         .from('session')
         .select('sessionid, starttime, finishtime, iscompleted, lab(title)')
@@ -39,6 +48,8 @@ export async function getSessionsForUser(userid) {
     return data.map(mapSession);
 }
 
+// Esta función se encarga de buscar una sesión concreta con todo su detalle; lanza un
+// error 404 si no existe.
 export async function getSessionById(sessionid) {
     const { data, error } = await supabase
         .from('session')
@@ -58,6 +69,8 @@ export async function getSessionById(sessionid) {
 // The trophies a session unlocked (only NEW ones are linked to it). The session page asks for them
 // when it finds out the session ended on its own, for example when an admin applied a lab update.
 // A problem reading them must never break the page, so it answers an empty list.
+// Esta función se encarga de devolver los trofeos que desbloqueó una sesión; si falla la
+// lectura responde con una lista vacía para no romper la página.
 export async function getSessionTrophies(sessionid) {
     const { data, error } = await supabase
         .from('trophyuser')
@@ -76,6 +89,8 @@ export async function getSessionTrophies(sessionid) {
 // session finishes with the zip and flag it started with. The page recognises err.details.code.
 const LAB_UPDATING_MESSAGE = 'Este laboratorio se está actualizando. Podrás iniciarlo de nuevo en unos minutos.';
 
+// Esta función se encarga de construir el error 409 que indica que el laboratorio se está
+// actualizando y no admite nuevas sesiones.
 function labUpdatingError() {
     const err = new Error(LAB_UPDATING_MESSAGE);
     err.status = 409;
@@ -85,6 +100,8 @@ function labUpdatingError() {
 
 // The zip path is read again right before downloading, so a session never starts from a zip
 // that was replaced while the request was on its way
+// Esta función se encarga de leer la ruta actual del zip del laboratorio justo antes de
+// descargarlo, para que una sesión nunca arranque con un zip ya reemplazado.
 async function readCurrentZipPath(labid) {
     const { data, error } = await supabase
         .from('lab')
@@ -104,6 +121,8 @@ async function readCurrentZipPath(labid) {
 
 // un lab eliminadono se puede iniciar ni reiniciar, pero las sesiones que ya
 // estaban en curso pueden terminarse
+// Esta función se encarga de comprobar que el laboratorio existe y no está eliminado;
+// lanza un 404 cuando ya no está disponible.
 async function assertLabAvailable(labid) {
     const { data: lab, error } = await supabase
         .from('lab')
@@ -128,6 +147,8 @@ const START_TIMEOUT_MS = 15 * 60 * 1000;
 
 // Updates a session only if it still has the expected startstatus and is still open.
 // Returns true when a row changed, so two requests can never process the same change twice.
+// Esta función se encarga de actualizar una sesión solo si sigue con el startstatus esperado
+// y aún está abierta; devuelve true si cambió alguna fila (evita procesar dos veces lo mismo).
 async function updateIfStatus(sessionid, expectedStatus, fields) {
     const { data, error } = await supabase
         .from('session')
@@ -152,6 +173,8 @@ async function updateIfStatus(sessionid, expectedStatus, fields) {
 // Nothing runs in the background: this is called whenever somebody asks about the session,
 // so it also survives a restart of this backend.
 // logContext = { actor, ip }: solo para el registro de actividad
+// Esta función se encarga de sincronizar el estado de arranque de una sesión con lo que
+// reporta el runner (en progreso, lista, fallida o cancelada), sin procesos en segundo plano.
 export async function refreshStartStatus(session, logContext = {}, { verifyReady = false } = {}) {
     if (session.iscompleted) return session;
 
@@ -163,10 +186,12 @@ export async function refreshStartStatus(session, logContext = {}, { verifyReady
     const ip = logContext.ip;
     const title = session.lab?.title ?? 'laboratorio';
     const sessionid = session.sessionid;
+    // tooOld: un arranque que supera el tiempo límite se trata como fallido.
     const tooOld = isStarting
         && !!session.starttime
         && Date.now() - new Date(session.starttime).getTime() > START_TIMEOUT_MS;
 
+    // Llamada al runner: pregunta en qué fase va el arranque de esta sesión.
     let runnerState;
     try {
         const response = await fetch(`${RUNNER_URL}/status/${sessionid}`, { signal: AbortSignal.timeout(15_000) });
@@ -183,6 +208,7 @@ export async function refreshStartStatus(session, logContext = {}, { verifyReady
     const nowIso = new Date().toISOString();
 
     // A 'ready' session being verified
+    // Verificación de una sesión ya 'ready': si el runner la da por caída, se cierra.
     if (!isStarting) {
         if (phase === 'ready') return session;
 
@@ -211,6 +237,7 @@ export async function refreshStartStatus(session, logContext = {}, { verifyReady
     }
 
     // The lab is up. The clock starts NOW, so the build time never counts against the student.
+    // El lab ya está listo: se marca como 'ready' y se reinicia el reloj en este instante.
     if (phase === 'ready') {
         const fields = {
             startstatus: 'ready',
@@ -238,6 +265,7 @@ export async function refreshStartStatus(session, logContext = {}, { verifyReady
     }
 
     // Still working
+    // Sigue construyéndose: solo se guarda la fase nueva si cambió respecto a la anterior.
     if (IN_PROGRESS_PHASES.includes(phase) && !tooOld) {
         if (phase !== session.startphase) {
             await updateIfStatus(sessionid, 'starting', { startphase: phase });
@@ -246,6 +274,7 @@ export async function refreshStartStatus(session, logContext = {}, { verifyReady
     }
 
     // Cancelled on the runner
+    // Cancelado en el runner: se cierra la sesión como cancelada.
     if (phase === 'cancelled') {
         await updateIfStatus(sessionid, 'starting', {
             iscompleted: true,
@@ -271,6 +300,7 @@ export async function refreshStartStatus(session, logContext = {}, { verifyReady
 
     if (changed) {
         // Make sure nothing stays running on the VM (best effort)
+        // Llamada al runner para asegurarse de que no quede nada corriendo en la VM (sin esperar respuesta).
         fetch(`${RUNNER_URL}/stop`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -300,6 +330,8 @@ export async function refreshStartStatus(session, logContext = {}, { verifyReady
 
 // A user has at most ONE open session per lab. If there is one, starting again takes the
 // user back to it (still starting, or ready). One that turns out to be dead is closed here.
+// Esta función se encarga de buscar la sesión abierta que un usuario ya tiene en un lab para
+// reutilizarla; si resulta estar muerta la cierra y devuelve null.
 async function findReusableSession({ labid, userid }, logContext) {
     const { data, error } = await supabase
         .from('session')
@@ -313,6 +345,7 @@ async function findReusableSession({ labid, userid }, logContext) {
     if (error) throw error;
     if (!data || data.length === 0) return null;
 
+    // Antes de reutilizarla se refresca contra el runner para confirmar que sigue viva.
     const session = await refreshStartStatus(data[0], logContext, { verifyReady: true });
 
     if (session.iscompleted) return null; // it was dead, and is closed now
@@ -330,9 +363,12 @@ async function findReusableSession({ labid, userid }, logContext) {
 // A restart is a NEW attempt: the clock starts over, from the moment the new lab is ready.
 // Restarts are also counted (restartcount) for the report.
 // actor / ip: quién lo hace y desde dónde, solo para el registro de actividad
+// Esta función se encarga de reiniciar una sesión como un intento nuevo: pide al runner que
+// reconstruya el lab, guarda la evidencia del intento anterior y reinicia el reloj.
 export async function restartTrainingSession({ labid, sessionid, actor, ip }) {
     await assertLabAvailable(labid);
 
+    // Llamada al runner para reconstruir el laboratorio de esta sesión.
     let runnerResult;
 
     try {
@@ -364,6 +400,7 @@ export async function restartTrainingSession({ labid, sessionid, actor, ip }) {
     }
 
     // Keep what the student did in the attempt that was just closed
+    // Guarda la evidencia del intento que se acaba de cerrar, sin romper si falla.
     try {
         await saveEvidenceReport({ sessionid, evidence: runnerResult.evidence });
     } catch (err) {
@@ -371,6 +408,8 @@ export async function restartTrainingSession({ labid, sessionid, actor, ip }) {
     }
 
     const starttime = new Date().toISOString();
+
+    // Lee el número de reinicios previos para incrementarlo en uno.
 
     const { data: current, error: readError } = await supabase
         .from('session')
@@ -411,7 +450,10 @@ export async function restartTrainingSession({ labid, sessionid, actor, ip }) {
 // to the runner and answers right away. The runner builds in the background and the page
 // follows it with GET /api/sessions/:id (see refreshStartStatus).
 // actor / ip: quién lo hace y desde dónde, solo para el registro de actividad
+// Esta función se encarga de iniciar un laboratorio: crea la sesión, entrega el zip al runner
+// y responde enseguida; la construcción ocurre en segundo plano y la página la va siguiendo.
 export async function startTrainingSession({ labid, userid, actor, ip }) {
+    // Consulta a Supabase: obtiene la ruta del zip y el título del lab (si no está eliminado).
     const { data: labData, error: labError } = await supabase
         .from('lab')
         .select('zippath, title')
@@ -432,6 +474,7 @@ export async function startTrainingSession({ labid, userid, actor, ip }) {
     // A lab waiting for an update takes no new sessions (the ones already open keep working)
     if (await hasPendingUpdate(labid)) throw labUpdatingError();
 
+    // Crea la fila de la sesión en estado 'starting'/'preparing'.
     const now = new Date();
     const { data: sessionData, error: sessionError } = await supabase
         .from('session')
@@ -473,6 +516,7 @@ export async function startTrainingSession({ labid, userid, actor, ip }) {
 
         const zipBuffer = Buffer.from(await zipBlob.arrayBuffer());
 
+        // Arma el multipart con el zip del lab para enviarlo al runner.
         const formData = new FormData();
         formData.append('labid', String(labid));
         formData.append('sessionid', String(sessionid));
@@ -494,6 +538,7 @@ export async function startTrainingSession({ labid, userid, actor, ip }) {
         }
     } catch (err) {
         // The runner never took the start: close the session so it can't block the user
+        // El runner no aceptó el inicio: se cierra la sesión para que no bloquee al usuario.
         const { error: closeError } = await supabase
             .from('session')
             .update({
@@ -539,6 +584,8 @@ export async function startTrainingSession({ labid, userid, actor, ip }) {
 // A session that is still starting is a CANCEL: the runner kills the build, and there is
 // nothing to judge (no evidence, no trophies, no XP).
 // logContext = { actor, ip }: solo para el registro de actividad
+// Esta función se encarga de cerrar una sesión y, pase lo que pase, disparar al final la
+// revisión de actualizaciones pendientes del lab (sin esperarla y sin que pueda romper el cierre).
 export async function stopTrainingSession(sessionid, finishedAt = new Date().toISOString(), logContext = {}) {
     try {
         return await closeTrainingSession(sessionid, finishedAt, logContext);
@@ -549,10 +596,13 @@ export async function stopTrainingSession(sessionid, finishedAt = new Date().toI
     }
 }
 
+// Esta función se encarga de la lógica real de cierre de una sesión: avisa al runner, marca
+// la sesión como completada, guarda evidencia y reparte trofeos y XP en la primera finalización.
 async function closeTrainingSession(sessionid, finishedAt, logContext = {}) {
     const { actor, ip } = logContext;
 
     // What the trophies need. A failure here must not stop the lab from closing.
+    // Consulta a Supabase: trae los datos que necesitan los trofeos; si falla no se aborta el cierre.
     const { data: row, error: rowError } = await supabase
         .from('session')
         .select('userid, labid, starttime, failedflags, issolved, startstatus')
@@ -562,6 +612,7 @@ async function closeTrainingSession(sessionid, finishedAt, logContext = {}) {
     if (rowError) console.error('Session read error before stop:', rowError);
 
     // Cancelling a lab that is still being built
+    // Si el lab aún se estaba construyendo, cerrar es cancelar: se aborta el build en el runner.
     if (row && row.startstatus === 'starting') {
         try {
             const runnerResponse = await fetch(`${RUNNER_URL}/stop`, {
@@ -618,6 +669,7 @@ async function closeTrainingSession(sessionid, finishedAt, logContext = {}) {
         return { finishtime: cancelled?.[0]?.finishtime ?? null, trophies: [], xp: null };
     }
 
+    // Llamada al runner para detener los contenedores de la sesión y recibir la evidencia.
     let runnerResult;
 
     try {
@@ -668,6 +720,7 @@ async function closeTrainingSession(sessionid, finishedAt, logContext = {}) {
     }
 
     // A trophy problem must never break closing the session
+    // Reparto de trofeos (solo en la primera finalización); un error aquí no rompe el cierre.
     let trophies = [];
     if (firstCompletion && row) {
         try {
@@ -688,6 +741,7 @@ async function closeTrainingSession(sessionid, finishedAt, logContext = {}) {
     // XP: the lab's score (only if the session ended by solving it) plus the XP of the trophies
     // unlocked in this session. Trophies can be earned without solving, so this runs for every
     // session that ends. An XP problem must never break closing the session.
+    // Reparto de XP (puntos del lab si se resolvió + XP de los trofeos nuevos); un error no rompe el cierre.
     let xp = null;
     if (firstCompletion && row) {
         try {
@@ -706,6 +760,7 @@ async function closeTrainingSession(sessionid, finishedAt, logContext = {}) {
     }
 
     // Una sola fila por sesión terminada: resuelta (con el tiempo) o cerrada sin resolver
+    // Registro de actividad del cierre, con nota del dueño y del XP ganado cuando aplica.
     if (firstCompletion) {
         const elapsed = row ? (new Date(finishedAt) - new Date(row.starttime)) / 1000 : NaN;
         const ownerNote = row && actor && actor.userid !== row.userid
@@ -732,6 +787,8 @@ async function closeTrainingSession(sessionid, finishedAt, logContext = {}) {
 }
 
 // logContext = { actor, ip }: solo para el registro de actividad
+// Esta función se encarga de validar la flag que envía el estudiante: si acierta, marca la
+// sesión como resuelta y la cierra; si falla, cuenta el intento y avisa al llegar al umbral.
 export async function submitFlag(sessionid, submittedFlag, logContext = {}) {
     const { data: session, error: sessionError } = await supabase
         .from('session')
@@ -749,6 +806,7 @@ export async function submitFlag(sessionid, submittedFlag, logContext = {}) {
         return { matched: false, alreadyCompleted: true };
     }
 
+    // Compara la flag enviada con la correcta del lab (ambas recortadas de espacios).
     const correctFlag = session.lab?.flag;
     const matched = !!correctFlag && submittedFlag.trim() === correctFlag.trim();
 
@@ -783,6 +841,7 @@ export async function submitFlag(sessionid, submittedFlag, logContext = {}) {
     const finishedAt = new Date().toISOString();
 
     // Marked as solved BEFORE stopping: the stop flow reads this to judge the trophies and the XP
+    // Se marca como resuelta ANTES de cerrar, porque el cierre usa este dato para trofeos y XP.
     const { error: updateError } = await supabase
         .from('session')
         .update({ capturedflag: submittedFlag.trim(), issolved: true })

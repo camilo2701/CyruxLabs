@@ -1,7 +1,10 @@
+// Este archivo se encarga de los controladores HTTP de usuarios: perfil propio, avatar, contraseña,
+// baja de cuenta, búsqueda y perfiles públicos, además de la gestión de usuarios para admins e instructores.
 import { updateProfile, updateAvatar, changePassword, deleteAccount, searchStudents, getPublicProfile, searchUsers, listManagedUsers, adminUpdateUser, adminDeleteUser } from '../services/userService.js';
 import { AuthError } from '../services/authService.js';
 import { clientIp } from '../services/logService.js';
 
+// Este controlador se encarga de actualizar los datos del perfil del usuario autenticado.
 export async function putProfile(req, res) {
     try {
         const { username, firstName, lastName, email, currentPassword } = req.body;
@@ -21,6 +24,7 @@ export async function putProfile(req, res) {
     }
 }
 
+// Este controlador se encarga de actualizar el avatar del usuario autenticado.
 export async function putAvatar(req, res) {
     try {
         const { avatar } = req.body;
@@ -33,6 +37,7 @@ export async function putAvatar(req, res) {
     }
 }
 
+// Este controlador se encarga de cambiar la contraseña del usuario autenticado.
 export async function putPassword(req, res) {
     try {
         const { currentPassword, newPassword } = req.body;
@@ -45,6 +50,7 @@ export async function putPassword(req, res) {
     }
 }
 
+// Este controlador se encarga de eliminar la cuenta del propio usuario autenticado.
 export async function deleteMe(req, res) {
     try {
         const { currentPassword } = req.body;
@@ -57,6 +63,7 @@ export async function deleteMe(req, res) {
     }
 }
 
+// Este controlador se encarga de buscar estudiantes según un texto y el rol del solicitante.
 export async function getStudents(req, res) {
     try {
         const { search = '' } = req.query;
@@ -68,6 +75,7 @@ export async function getStudents(req, res) {
     }
 }
 
+// Este controlador se encarga de devolver el perfil público de un usuario por su nombre de usuario.
 export async function getProfile(req, res) {
     try {
         const result = await getPublicProfile(req.params.username);
@@ -79,6 +87,7 @@ export async function getProfile(req, res) {
     }
 }
 
+// Este controlador se encarga de buscar usuarios por un texto de búsqueda.
 export async function getUserSearch(req, res) {
     try {
         const { search = '' } = req.query;
@@ -93,6 +102,7 @@ export async function getUserSearch(req, res) {
 
 // gestion de usuarios (exclusiva admins e instructores)
 
+// Este controlador se encarga de listar, con paginación, los usuarios que puede gestionar el solicitante.
 export async function getManagedUsers(req, res) {
     try {
         const { search = '', page = 1 } = req.query;
@@ -105,6 +115,7 @@ export async function getManagedUsers(req, res) {
     }
 }
 
+// Este controlador se encarga de que un admin o instructor modifique los datos de otro usuario.
 export async function putManagedUser(req, res) {
     try {
         const { username, firstName, lastName, email, role } = req.body;
@@ -124,6 +135,7 @@ export async function putManagedUser(req, res) {
     }
 }
 
+// Este controlador se encarga de que un admin o instructor elimine a otro usuario.
 export async function deleteManagedUser(req, res) {
     try {
         await adminDeleteUser(req.user, req.params.userid, clientIp(req));

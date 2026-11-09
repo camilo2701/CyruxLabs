@@ -1,3 +1,6 @@
+// Este archivo se encarga de gestionar las actualizaciones (zip + flag) de los laboratorios:
+// las deja en cola como actualizaciones pendientes y las aplica solo cuando el laboratorio
+// no tiene sesiones abiertas, incluyendo un temporizador que las aplica periódicamente.
 import { supabase } from '../config/supabaseClient.js';
 import { RUNNER_URL } from '../config/runner.js';
 import { logEvent } from './logService.js';
@@ -17,6 +20,7 @@ const SWEEP_INTERVAL_MS = 60 * 1000;
 const applying = new Set();
 
 // Best effort: a file that could not be removed is only logged
+// Esta función se encarga de borrar un archivo del bucket de almacenamiento, registrando el error si falla.
 async function removeFile(filePath) {
     if (!filePath) return;
 
@@ -24,6 +28,7 @@ async function removeFile(filePath) {
     if (error) console.error('Storage remove failed:', filePath, error);
 }
 
+// Esta función se encarga de guardar en la actualización pendiente el último mensaje de error ocurrido.
 async function setLastError(labid, message) {
     const { error } = await supabase.from('labupdate').update({ lasterror: message }).eq('labid', labid);
     if (error) console.error('Pending update lasterror write failed:', error);
@@ -31,6 +36,7 @@ async function setLastError(labid, message) {
 
 // ---------- Reading ----------
 
+// Esta función se encarga de devolver la actualización pendiente de un laboratorio, o null si no hay.
 export async function getPendingUpdate(labid) {
     const { data, error } = await supabase
         .from('labupdate')
@@ -42,6 +48,7 @@ export async function getPendingUpdate(labid) {
     return data;
 }
 
+// Esta función se encarga de indicar si un laboratorio tiene una actualización pendiente.
 export async function hasPendingUpdate(labid) {
     const { data, error } = await supabase
         .from('labupdate')
@@ -55,10 +62,13 @@ export async function hasPendingUpdate(labid) {
 
 // lab.flag is UNIQUE (deleted labs included) and a flag can only be queued by one lab, so a flag
 // is taken when ANOTHER lab has it or ANOTHER lab has it queued. exceptLabId = the lab being edited.
+// Esta función se encarga de comprobar si una flag ya está en uso por otro laboratorio o en cola.
 export async function isFlagTaken(flag, exceptLabId = null) {
+    // Consulta tanto las flags activas como las flags en cola de actualización
     let labQuery = supabase.from('lab').select('labid').eq('flag', flag).limit(1);
     let pendingQuery = supabase.from('labupdate').select('labid').eq('newflag', flag).limit(1);
 
+    // Si se edita un laboratorio, se excluye a sí mismo para no contar su propia flag como ocupada
     if (exceptLabId !== null) {
         labQuery = labQuery.neq('labid', exceptLabId);
         pendingQuery = pendingQuery.neq('labid', exceptLabId);
@@ -73,6 +83,8 @@ export async function isFlagTaken(flag, exceptLabId = null) {
 
 // The lab's sessions that are still open. A 'ready' session is checked against the runner first,
 // so a session whose containers are gone (VM reboot...) is closed instead of blocking the update forever.
+// Esta función se encarga de devolver las sesiones realmente abiertas del laboratorio, verificando
+// cada sesión 'ready' contra el runner para descartar las que ya no tienen contenedores vivos.
 export async function getOpenSessions(labid) {
     const { data, error } = await supabase
         .from('session')
@@ -102,9 +114,12 @@ export async function getOpenSessions(labid) {
 // Stores the new zip in the bucket under its own name (the old zip is never touched) and saves the
 // pending row, replacing any earlier pending update of the lab. The caller has already validated both.
 // Throws the database error as it is: code 23505 means another lab already queued that flag.
+// Esta función se encarga de dejar en cola una nueva actualización: sube el zip nuevo y guarda
+// la fila pendiente, reemplazando cualquier actualización anterior del mismo laboratorio.
 export async function queueUpdate({ labid, userid, flag, zipBuffer }) {
     const newzippath = `labs/${labid}/bundle-${Date.now()}.zip`;
 
+    // Sube el zip nuevo al bucket (el zip viejo nunca se toca aquí)
     const { error: uploadError } = await supabase
         .storage
         .from(BUCKET)
@@ -112,8 +127,10 @@ export async function queueUpdate({ labid, userid, flag, zipBuffer }) {
 
     if (uploadError) throw uploadError;
 
+    // Recuerda la actualización anterior para poder borrar su zip una vez guardada la nueva
     const previous = await getPendingUpdate(labid).catch(() => null);
 
+    // Inserta o reemplaza la fila pendiente de este laboratorio
     const { error: saveError } = await supabase
         .from('labupdate')
         .upsert(
@@ -139,6 +156,7 @@ export async function queueUpdate({ labid, userid, flag, zipBuffer }) {
     return { newzippath };
 }
 
+// Esta función se encarga de eliminar la fila pendiente y su zip asociado.
 async function discardPending(pending) {
     const { error } = await supabase.from('labupdate').delete().eq('labid', pending.labid);
     if (error) throw error;
@@ -147,6 +165,7 @@ async function discardPending(pending) {
 }
 
 // Removes the pending update and its zip. Returns false when there was none.
+// Esta función se encarga de cancelar la actualización pendiente de un laboratorio.
 export async function cancelUpdate(labid) {
     const pending = await getPendingUpdate(labid);
     if (!pending) return false;
@@ -158,6 +177,7 @@ export async function cancelUpdate(labid) {
 // ---------- Applying ----------
 
 // Tells the runner to forget its cached zip of the lab, so the next start takes the new one
+// Esta función se encarga de pedirle al runner que olvide el zip cacheado del laboratorio.
 async function invalidateRunnerCache(labid) {
     const response = await fetch(`${RUNNER_URL}/cache/${labid}`, {
         method: 'DELETE',
@@ -173,6 +193,8 @@ async function invalidateRunnerCache(labid) {
 // The session is first marked startstatus 'updated': the session page sees it, hides the lab and tells
 // the student why. If the runner cannot stop a session, the mark is undone and this throws, so the
 // update is NOT applied and the student keeps playing.
+// Esta función se encarga de cerrar (solo para el "aplicar ya" del admin) todas las sesiones abiertas
+// de un laboratorio como si el estudiante hubiera terminado, conservando lo que ya había ganado.
 async function closeSessionsForUpdate(openSessions, { actor, ip }) {
     // Loaded here (not at the top) because sessionService also imports this file
     const { stopTrainingSession } = await import('./sessionService.js');
@@ -191,6 +213,8 @@ async function closeSessionsForUpdate(openSessions, { actor, ip }) {
             if (markError) console.error('Session update mark error:', markError);
         }
 
+        // Si el runner no logra parar la sesión, se deshace la marca y se propaga el error
+        // (así la actualización NO se aplica y el estudiante sigue jugando)
         try {
             await stopTrainingSession(session.sessionid, undefined, { actor, ip });
         } catch (err) {
@@ -217,6 +241,8 @@ async function closeSessionsForUpdate(openSessions, { actor, ip }) {
     }
 }
 
+// Esta función se encarga de aplicar realmente la actualización pendiente: invalida la caché del
+// runner, apunta el laboratorio al zip y flag nuevos y borra el zip viejo y la fila pendiente.
 async function applyUpdate(labid, { force, actor, ip }) {
     const pending = await getPendingUpdate(labid);
     if (!pending) return { applied: false, reason: 'none' };
@@ -237,6 +263,7 @@ async function applyUpdate(labid, { force, actor, ip }) {
 
     const openSessions = await getOpenSessions(labid);
 
+    // Si hay sesiones abiertas y no es un "aplicar ya" forzado, se pospone la actualización
     if (openSessions.length > 0 && !force) {
         return { applied: false, reason: 'sessions', openSessions: openSessions.length };
     }
@@ -268,6 +295,7 @@ async function applyUpdate(labid, { force, actor, ip }) {
         return { applied: false, reason: 'runner' };
     }
 
+    // Cambia el laboratorio al zip y flag nuevos (si falla por 23505, la flag ya está en uso)
     const { error: flipError } = await supabase
         .from('lab')
         .update({ zippath: pending.newzippath, flag: pending.newflag, dateofupdate: new Date().toISOString() })
@@ -319,7 +347,10 @@ async function applyUpdate(labid, { force, actor, ip }) {
 // Applies the lab's pending update if the lab is free (or if force is true: admin only, closes the open sessions).
 // Never throws for "not now" reasons; the answer says what happened:
 //   { applied: true } | { applied: false, reason: 'none' | 'sessions' | 'runner' | 'database' | 'busy' | 'lab_deleted', openSessions? }
+// Esta función se encarga de aplicar la actualización evitando que dos disparadores se solapen,
+// nunca lanza por motivos de "ahora no" y responde con el resultado de lo ocurrido.
 export async function tryApplyUpdate(labid, { force = false, actor = null, ip = null } = {}) {
+    // Si ya se está aplicando en este proceso, se evita ejecutarlo en paralelo
     if (applying.has(labid)) return { applied: false, reason: 'busy' };
 
     applying.add(labid);
@@ -331,6 +362,7 @@ export async function tryApplyUpdate(labid, { force = false, actor = null, ip = 
 }
 
 // One pass over every pending update
+// Esta función se encarga de recorrer todas las actualizaciones pendientes e intentar aplicarlas.
 export async function applyPendingUpdates() {
     const { data, error } = await supabase.from('labupdate').select('labid');
     if (error) throw error;
@@ -347,6 +379,8 @@ export async function applyPendingUpdates() {
 // The backend has no scheduler, so this small timer is what guarantees a pending update is applied
 // even when nobody closes a session or opens the lab page. The pending rows live in the database,
 // so a backend restart loses nothing.
+// Esta función se encarga de arrancar un temporizador que aplica periódicamente las actualizaciones
+// pendientes, garantizando que se apliquen aunque nadie cierre una sesión ni abra el laboratorio.
 export function startPendingUpdateSweeper(intervalMs = SWEEP_INTERVAL_MS) {
     const timer = setInterval(() => {
         applyPendingUpdates().catch((err) => console.error('Pending update sweep failed:', err.message || err));

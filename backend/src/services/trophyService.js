@@ -1,6 +1,10 @@
+// Este archivo se encarga de los trofeos de los laboratorios: decide qué trofeos ganó una sesión
+// terminada según su criterio y guarda solo los desbloqueos nuevos del usuario.
 import { supabase } from '../config/supabaseClient.js';
 import { evidenceMatches } from '../utils/trophyCriteria.js';
 
+// Esta función se encarga de decidir si un trofeo se ganó, según su tipo de criterio (completar,
+// tiempo, intentos fallidos, comando ejecutado o proceso detectado).
 function isEarned(trophy, { solved, elapsedSeconds, failedFlags, evidence }) {
     switch (trophy.criteriatype) {
         case 'completion':
@@ -21,6 +25,8 @@ function isEarned(trophy, { solved, elapsedSeconds, failedFlags, evidence }) {
 
 // Works out which trophies a finished session earned, saves the new unlocks and returns them.
 // Only NEW unlocks come back, so a trophy the player already owns never shows up twice.
+// Esta función se encarga de calcular los trofeos que ganó una sesión terminada, guardar los
+// desbloqueos nuevos y devolver únicamente esos (nunca repite uno que el usuario ya tenía).
 export async function awardTrophies({ userid, labid, sessionid = null, solved, elapsedSeconds, failedFlags, evidence }) {
     const { data: trophies, error: trophyError } = await supabase
         .from('trophy')
@@ -29,6 +35,7 @@ export async function awardTrophies({ userid, labid, sessionid = null, solved, e
 
     if (trophyError) throw trophyError;
 
+    // Filtra, de todos los trofeos del laboratorio, los que esta sesión cumple
     const earned = trophies.filter((trophy) =>
         isEarned(trophy, { solved, elapsedSeconds, failedFlags, evidence })
     );
@@ -48,6 +55,7 @@ export async function awardTrophies({ userid, labid, sessionid = null, solved, e
 
     if (insertError) throw insertError;
 
+    // De los ganados, deja solo los que de verdad se insertaron ahora (desbloqueos nuevos)
     const newIds = new Set(inserted.map((row) => row.trophyid));
 
     return earned

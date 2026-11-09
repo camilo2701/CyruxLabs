@@ -1,3 +1,7 @@
+// Este archivo se encarga de la lógica (controladores) de los laboratorios: listar,
+// crear, editar, eliminar y gestionar las actualizaciones de archivo/flag, validando
+// los datos, hablando con Supabase (BD y almacenamiento) y registrando los eventos.
+
 import { supabase } from '../config/supabaseClient.js';
 import { getZipError } from '../utils/zipValidation.js';
 import { logEvent, fromReq } from '../services/logService.js';
@@ -24,12 +28,15 @@ import {
     COMPLETION_TROPHY,
 } from '../utils/labValidation.js';
 
+// Esta constante se encarga de fijar cuántos laboratorios se muestran por página.
 const PAGE_SIZE = 5;
 
+// Esta función se encarga de contar cuántos usuarios distintos completaron cada lab.
 // Cuenta usuarios DISTINTOS que completaron cada lab (iscompleted = true).
 async function getCompletedUserCounts(labIds) {
     if (labIds.length === 0) return {};
 
+    // Consulta a Supabase: trae las sesiones completadas de los labs indicados
     const { data, error } = await supabase
         .from('session')
         .select('labid, userid')
@@ -38,6 +45,7 @@ async function getCompletedUserCounts(labIds) {
 
     if (error) throw error;
 
+    // Usa un Set por lab para no contar dos veces al mismo usuario
     const sets = {};
     labIds.forEach((id) => { sets[id] = new Set(); });
     data.forEach((row) => sets[row.labid]?.add(row.userid));
@@ -47,6 +55,7 @@ async function getCompletedUserCounts(labIds) {
     return counts;
 }
 
+// Esta función se encarga del listado de laboratorios (con o sin búsqueda y paginación).
 // Lógica compartida de listado. ownerId = null → todos los labs;
 // ownerId = número → solo los labs creados por ese usuario.
 // Sin búsqueda: top 5 más recientes (o todos con fetchAll).
@@ -54,6 +63,7 @@ async function getCompletedUserCounts(labIds) {
 async function queryLabs({ search, pageNumber, fetchAll, ownerId = null }) {
     const LAB_FIELDS = 'labid, title, description, score, userid, dateofcreation, dateofupdate, benefit(benefitid, description), users(username)';
 
+    // Sin búsqueda: trae los labs activos más recientes (limitados salvo fetchAll)
     if (!search) {
         let query = supabase
             .from('lab')
@@ -77,6 +87,7 @@ async function queryLabs({ search, pageNumber, fetchAll, ownerId = null }) {
         return { labs, total: labs.length, page: 1, totalPages: 1 };
     }
 
+    // Consulta a Supabase: usuarios cuyo nombre coincide con la búsqueda
     // Autores cuyo username coincide, para poder buscar "por autor" también.
     const { data: matchingUsers, error: userError } = await supabase
         .from('users')
@@ -87,6 +98,7 @@ async function queryLabs({ search, pageNumber, fetchAll, ownerId = null }) {
 
     const matchingUserIds = matchingUsers.map((u) => u.userid);
 
+    // Arma los filtros OR: coincidencia por título, descripción y (si hay) por autor
     const filters = [
         `title.ilike.%${search}%`,
         `description.ilike.%${search}%`,
@@ -95,9 +107,11 @@ async function queryLabs({ search, pageNumber, fetchAll, ownerId = null }) {
         filters.push(`userid.in.(${matchingUserIds.join(',')})`);
     }
 
+    // Calcula el rango de filas de la página pedida
     const from = (pageNumber - 1) * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
 
+    // Consulta a Supabase: labs activos que cumplan los filtros, con total exacto
     let query = supabase
         .from('lab')
         .select(LAB_FIELDS, { count: 'exact' })
@@ -124,6 +138,8 @@ async function queryLabs({ search, pageNumber, fetchAll, ownerId = null }) {
     return { labs, total, page: pageNumber, totalPages: Math.ceil(total / PAGE_SIZE) };
 }
 
+// Esta función se encarga de limpiar el texto de búsqueda para que sea seguro usarlo
+// dentro de un filtro de PostgREST (evita que agregue condiciones no deseadas).
 // The search text ends up inside a PostgREST filter string, where "," and "()" start new
 // conditions. Keep only letters, numbers, spaces and . : - so the text can never add conditions.
 function cleanSearch(value) {
@@ -131,6 +147,8 @@ function cleanSearch(value) {
     return value.replace(/[^\p{L}\p{N} .:-]/gu, '').trim().slice(0, 100);
 }
 
+// Esta función se encarga de leer y normalizar los parámetros de listado de la petición
+// (texto de búsqueda ya limpio, número de página y la bandera "traer todos").
 function readListParams(req) {
     return {
         search: cleanSearch(req.query.search),
@@ -139,6 +157,7 @@ function readListParams(req) {
     };
 }
 
+// Este controlador se encarga del listado público de laboratorios (sin necesidad de login).
 // LIST PÚBLICO (LabsPage): todos los labs, sin login.
 export const getAllLabs = async (req, res) => {
     try {
@@ -150,11 +169,13 @@ export const getAllLabs = async (req, res) => {
     }
 };
 
+// Este controlador se encarga del listado de gestión: admin ve todos y el instructor solo los suyos.
 // LIST DE GESTIÓN (Dashboard → Gestionar laboratorios). Protegido en la ruta.
 // Admin (2): todos los labs. Instructor (1): solo los labs que él creó.
 export const getManagedLabs = async (req, res) => {
     try {
         const { search, pageNumber } = readListParams(req);
+        // Admin (rol 2) sin dueño fijo; instructor limitado a su propio userid
         const ownerId = req.user.role === 2 ? null : req.user.userid;
         const result = await queryLabs({ search, pageNumber, fetchAll: false, ownerId });
         res.json(result);
@@ -164,7 +185,10 @@ export const getManagedLabs = async (req, res) => {
     }
 };
 
+// Esta función se encarga de verificar que el lab existe y que el usuario tiene permiso
+// para gestionarlo (admin o autor); si no, responde el error y devuelve null.
 async function checkLabAccess(req, res, labid, action) {
+    // Valida que el id sea un entero positivo antes de consultar nada
     if (!Number.isInteger(labid) || labid <= 0) {
         res.status(400).json({ message: 'ID de laboratorio inválido' });
         return null;
@@ -185,6 +209,7 @@ async function checkLabAccess(req, res, labid, action) {
         return null;
     }
 
+    // Si no es admin y no es el autor, se niega el acceso y se registra el intento
     if (req.user.role !== 2 && lab.userid !== req.user.userid) {
         logEvent({
             ...fromReq(req),
@@ -202,6 +227,7 @@ async function checkLabAccess(req, res, labid, action) {
     return lab;
 }
 
+// Esta función se encarga de borrar del almacenamiento la carpeta completa del lab.
 // Borra la carpeta labs/{labid}/ completa del bucket (zip actual y cualquier sobrante).
 // Best effort: si falla, solo se registra en consola y no frena la eliminación.
 export async function removeLabFolder(labid) {
@@ -219,6 +245,8 @@ export async function removeLabFolder(labid) {
     if (error) console.error('Storage folder remove failed:', folder, error);
 }
 
+// Esta función se encarga de deshacer lo ya guardado cuando la creación de un lab
+// falla a medias (borra archivo, beneficios, trofeos y la fila del lab).
 // Best-effort cleanup when creating a lab fails halfway: undo whatever was already saved.
 // Failures are only logged so the original error is the one the client sees.
 async function rollbackLab(labId, filePath) {
@@ -235,12 +263,15 @@ async function rollbackLab(labId, filePath) {
     }
 }
 
+// Este controlador se encarga de crear un laboratorio: valida los datos y el zip,
+// inserta el lab, sube el archivo y crea sus beneficios y trofeos (con rollback si falla).
 // CREATE (protegido: requireAuth + requireRole en la ruta)
 export const createLab = async (req, res) => {
     let labId = null;
     let filePath = null;
 
     try {
+        // Los beneficios y trofeos llegan como texto JSON dentro del FormData
         let benefits;
         try {
             benefits = JSON.parse(req.body.benefits || '[]');
@@ -267,6 +298,7 @@ export const createLab = async (req, res) => {
             benefits = benefits.map((b) => (typeof b === 'string' ? b.trim() : b));
         }
 
+        // Validación: se revisa TODO antes de escribir nada en la BD o el storage
         // Validate everything BEFORE writing anything
         const validationError =
             getTitleError(title) ||
@@ -285,6 +317,7 @@ export const createLab = async (req, res) => {
             return res.status(400).json({ message: 'Falta el archivo zip del laboratorio' });
         }
 
+        // Valida el contenido del zip (incluye revisar el Dockerfile) y, si falla, lo registra
         const zipProblem = await getZipError(req.file.buffer);
         if (zipProblem) {
             logEvent({
@@ -298,6 +331,7 @@ export const createLab = async (req, res) => {
             return res.status(400).json({ message: zipProblem, field: 'zipfile' });
         }
 
+        // Consulta a Supabase: evita títulos duplicados entre labs activos
         // The frontend checks for duplicate titles too, but this check can't be skipped
         // Los labs eliminados no cuentan: su título queda libre
         const { data: sameTitle, error: titleCheckError } = await supabase
@@ -318,6 +352,7 @@ export const createLab = async (req, res) => {
             return res.status(409).json({ message: 'Esa flag ya está en uso en otro laboratorio', field: 'flag' });
         }
 
+        // Consulta a Supabase: inserta la fila del lab (la fecha la pone la BD)
         // dateofcreation is not sent: the database fills it in with its own clock (default now())
         const { data: labData, error: labError } = await supabase
             .from('lab')
@@ -335,6 +370,7 @@ export const createLab = async (req, res) => {
         labId = labData[0].labid;
         filePath = `labs/${labId}/bundle.zip`;
 
+        // Sube el zip al bucket de almacenamiento del lab recién creado
         const { error: uploadError } = await supabase
             .storage
             .from('labfiles')
@@ -349,11 +385,13 @@ export const createLab = async (req, res) => {
 
         if (updateError) throw updateError;
 
+        // Inserta los beneficios del lab
         const benefitRows = benefits.map((b) => ({ description: b, labid: labId }));
         const { error: benefitError } = await supabase.from('benefit').insert(benefitRows);
 
         if (benefitError) throw benefitError;
 
+        // Inserta los trofeos: el de "completado" automático más los definidos por el instructor
         // Every lab gets the automatic completion trophy, plus the ones the instructor defined
         const trophyRows = [COMPLETION_TROPHY, ...trophies].map((trophy) => ({
             type: trophy.type,
@@ -378,12 +416,14 @@ export const createLab = async (req, res) => {
         });
         res.json({ message: 'Lab created successfully', labId, filePath });
     } catch (error) {
+        // Si algo falló tras crear la fila, se deshace lo guardado para no dejar basura
         console.error('Create lab error:', error);
         if (labId !== null) await rollbackLab(labId, filePath);
         res.status(500).json({ message: 'Failed to create lab', error: error.message });
     }
 };
 
+// Este controlador se encarga de informar si ya existe un lab con el título consultado.
 // READ + CHECK
 export const checkTitleDuplicate = async (req, res) => {
     const title = typeof req.query.title === 'string' ? req.query.title.trim() : '';
@@ -398,6 +438,7 @@ export const checkTitleDuplicate = async (req, res) => {
         return res.json({ exists: false });
     }
 
+    // Consulta a Supabase: busca un lab activo con ese mismo título
     const { data, error } = await supabase
         .from('lab')
         .select('labid')
@@ -413,6 +454,8 @@ export const checkTitleDuplicate = async (req, res) => {
     res.json({ exists: data.length > 0 });
 };
 
+// Este controlador se encarga de entregar todo lo que necesita la pantalla de edición
+// de un lab (campos editables, trofeos con sus conteos y la actualización pendiente).
 // Everything the edit screen needs in one call: the fields that can be edited, the trophies (with how
 // many students earned each), and the pending zip + flag update if there is one.
 // The flag is only sent here because checkLabAccess already limited this to the author and admins.
@@ -422,6 +465,7 @@ export const getLabForEdit = async (req, res) => {
     try {
         if (!(await checkLabAccess(req, res, labid, 'UPDATE'))) return;
 
+        // Si hay una actualización pendiente, se intenta aplicarla ahora (quizá el lab ya está libre)
         // The lab may be free by now: this is one of the moments a pending update gets applied
         let pending = await getPendingUpdate(labid);
         let openSessions = 0;
@@ -444,6 +488,7 @@ export const getLabForEdit = async (req, res) => {
 
         if (labError) throw labError;
 
+        // Consulta a Supabase: trofeos editables del lab (se excluye el automático de completado)
         const { data: trophies, error: trophyError } = await supabase
             .from('trophy')
             .select('trophyid, type, name, description, criteriatype, criteria')
@@ -473,6 +518,7 @@ export const getLabForEdit = async (req, res) => {
     }
 };
 
+// Esta función se encarga de contar cuántos estudiantes obtuvieron cada trofeo.
 // How many students earned each trophy: { trophyid: count }
 async function getEarnedCounts(trophyIds) {
     if (trophyIds.length === 0) return {};
@@ -489,6 +535,7 @@ async function getEarnedCounts(trophyIds) {
     return counts;
 }
 
+// Esta constante se encarga de normalizar (recortando textos) los campos de un trofeo.
 const toTrophyFields = (trophy) => ({
     type: trophy.type,
     name: typeof trophy.name === 'string' ? trophy.name.trim() : trophy.name,
@@ -497,6 +544,8 @@ const toTrophyFields = (trophy) => ({
     criteria: trophy.criteria,
 });
 
+// Esta función se encarga de planificar y validar los cambios de trofeos de una edición
+// (qué borrar, editar y agregar) sin escribir nada todavía en la base de datos.
 // Works out what the trophy part of an edit would leave in the database, and checks it.
 // Returns { error } or { removeIds, updates: [{ trophyid, fields }], adds: [fields], finalList }.
 // Nothing is written here: the caller writes only after EVERYTHING in the request has been checked.
@@ -507,6 +556,7 @@ async function planTrophyChanges(labid, changes) {
         return { error: 'Formato de trofeos inválido' };
     }
 
+    // Consulta a Supabase: trofeos actuales del lab (sin el automático de completado)
     const { data: current, error: currentError } = await supabase
         .from('trophy')
         .select('trophyid, type, name, description, criteriatype, criteria')
@@ -518,6 +568,7 @@ async function planTrophyChanges(labid, changes) {
     const earnedCounts = await getEarnedCounts(current.map((trophy) => trophy.trophyid));
     const byId = new Map(current.map((trophy) => [trophy.trophyid, trophy]));
 
+    // Validación de los trofeos a eliminar: deben ser de este lab y no estar ya obtenidos
     const removeSet = new Set();
     for (const raw of removeIds) {
         const trophyid = Number(raw);
@@ -531,6 +582,7 @@ async function planTrophyChanges(labid, changes) {
         removeSet.add(trophyid);
     }
 
+    // Validación de los trofeos a editar
     const updates = [];
     for (const raw of update) {
         const trophyid = Number(raw?.trophyid);
@@ -559,6 +611,7 @@ async function planTrophyChanges(labid, changes) {
 
     // What the lab would have after the change: validated like a brand-new lab's trophies
     // (caps per type, duplicated criteria...)
+    // Construye cómo quedaría la lista final de trofeos tras aplicar borrados, ediciones y altas
     const updatesById = new Map(updates.map((item) => [item.trophyid, item.fields]));
     const finalList = [
         ...current
@@ -573,6 +626,8 @@ async function planTrophyChanges(labid, changes) {
     return { removeIds: [...removeSet], updates, adds, finalList };
 }
 
+// Este controlador se encarga de editar un lab: valida todo lo recibido y recién entonces
+// escribe los cambios de campos, beneficios y trofeos.
 // UPDATE (protegido: requireAuth + requireRole en la ruta)
 // Solo cambia lo que llega en la petición. Se valida TODO antes de escribir nada.
 // Editable aquí: título, descripción, instrucciones, beneficios y trofeos.
@@ -585,6 +640,7 @@ export const updateLab = async (req, res) => {
         const lab = await checkLabAccess(req, res, labid, 'UPDATE');
         if (!lab) return;
 
+        // Rechaza campos que no pueden editarse por esta vía (puntaje, flag y zip)
         if (body.score !== undefined) {
             return res.status(400).json({ message: 'El puntaje no se puede modificar después de crear el laboratorio' });
         }
@@ -607,11 +663,13 @@ export const updateLab = async (req, res) => {
 
         const updates = {};
 
+        // Si cambia el título, se valida y se comprueba que no choque con otro lab activo
         if (body.title !== undefined) {
             const title = String(body.title).trim();
             const titleProblem = getTitleError(title);
             if (titleProblem) return res.status(400).json({ message: titleProblem, field: 'title' });
 
+            // Consulta a Supabase: busca otro lab (distinto a este) con el mismo título
             const { data: sameTitle, error: titleCheckError } = await supabase
                 .from('lab')
                 .select('labid')
@@ -650,6 +708,7 @@ export const updateLab = async (req, res) => {
         let removableBenefitIds = [];
 
         if (benefitsChanged) {
+            // Consulta a Supabase: beneficios actuales, para calcular cómo quedaría el total
             const { data: currentBenefits, error: benefitsError } = await supabase
                 .from('benefit')
                 .select('benefitid')
@@ -662,6 +721,7 @@ export const updateLab = async (req, res) => {
                 .map((benefit) => benefit.benefitid)
                 .filter((benefitid) => wanted.has(benefitid)); // solo beneficios de ESTE lab
 
+            // Comprueba que, tras quitar y agregar, el lab quede dentro del rango permitido
             const finalCount = currentBenefits.length - removableBenefitIds.length + cleanBenefits.length;
 
             if (finalCount < MIN_BENEFITS) {
@@ -686,6 +746,7 @@ export const updateLab = async (req, res) => {
             }
         }
 
+        // ---- Todo es válido: a partir de aquí ya se escribe en la base de datos ----
         // ---- Everything is valid: now it is written ----
 
         if (Object.keys(updates).length > 0) {
@@ -713,6 +774,7 @@ export const updateLab = async (req, res) => {
             if (addError) throw addError;
         }
 
+        // Aplica el plan de trofeos calculado antes: primero borra, luego edita y por último agrega
         if (trophyPlan) {
             if (trophyPlan.removeIds.length > 0) {
                 const { error: removeError } = await supabase
@@ -751,6 +813,7 @@ export const updateLab = async (req, res) => {
             }
         }
 
+        // Arma un resumen legible de los cambios para el registro de eventos
         const fieldNames = { title: 'título', description: 'descripción', instructions: 'instrucciones' };
         const changes = [
             ...Object.keys(updates).map((field) => fieldNames[field]),
@@ -761,6 +824,7 @@ export const updateLab = async (req, res) => {
             trophyPlan && trophyPlan.removeIds.length > 0 && `-${trophyPlan.removeIds.length} trofeo(s)`,
         ].filter(Boolean);
 
+        // Si hubo algún cambio real, actualiza la fecha de última modificación del lab
         // fecha de actualizacion
         if (changes.length > 0) {
             const { error: dateError } = await supabase
@@ -787,6 +851,8 @@ export const updateLab = async (req, res) => {
     }
 };
 
+// Este controlador se encarga de programar un nuevo zip + flag para el lab: los valida,
+// los deja en cola y los aplica de inmediato si el lab no tiene sesiones abiertas.
 // REQUEST A NEW ZIP + FLAG (protegido: requireAuth + requireRole en la ruta)
 // They always travel together: the flag must be the one hidden inside the new zip.
 // The pair is validated like in a new lab and queued; it is applied when the lab has no open session.
@@ -824,6 +890,7 @@ export const requestFileUpdate = async (req, res) => {
             return res.status(409).json({ message: 'Esa flag ya está en uso en otro laboratorio', field: 'flag' });
         }
 
+        // Deja la actualización (zip + flag) en cola para aplicarse cuando el lab esté libre
         try {
             await queueUpdate({ labid, userid: req.user.userid, flag, zipBuffer: req.file.buffer });
         } catch (error) {
@@ -860,6 +927,7 @@ export const requestFileUpdate = async (req, res) => {
     }
 };
 
+// Este controlador se encarga de cancelar la actualización pendiente (zip + flag) de un lab.
 // CANCEL THE PENDING UPDATE (protegido: requireAuth + requireRole en la ruta)
 export const cancelFileUpdate = async (req, res) => {
     const labid = Number(req.params.labid);
@@ -889,6 +957,8 @@ export const cancelFileUpdate = async (req, res) => {
     }
 };
 
+// Este controlador se encarga de forzar (solo admin) la aplicación inmediata de la
+// actualización pendiente, cerrando las sesiones abiertas sin dar XP ni trofeos.
 // APPLY NOW (solo admin: se comprueba en la ruta). Cierra las sesiones abiertas del lab, sin XP ni trofeos.
 export const forceApplyFileUpdate = async (req, res) => {
     const labid = Number(req.params.labid);
@@ -918,6 +988,8 @@ export const forceApplyFileUpdate = async (req, res) => {
     }
 };
 
+// Este controlador se encarga de eliminar un lab: lo marca como borrado, cancela su
+// actualización pendiente y borra su carpeta de archivos del almacenamiento.
 // DELETE (protegido: requireAuth + requireRole en la ruta)
 export const deleteLab = async (req, res) => {
     const labid = Number(req.params.labid);

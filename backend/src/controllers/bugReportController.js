@@ -1,3 +1,5 @@
+// Este archivo se encarga de los controladores HTTP de reportes de bugs: crear un reporte desde una
+// sesión, contar los pendientes por laboratorio y, para instructores/admins, listarlos y cambiar su estado.
 import { getSessionById } from '../services/sessionService.js';
 import {
     createBugReport,
@@ -10,6 +12,8 @@ import { assertOwnsSession } from './sessionController.js';
 const TITLE_MAX = 100;
 const DESCRIPTION_MAX = 2000;
 
+// Este controlador se encarga de crear un reporte de bug: valida los datos, comprueba que la sesión
+// sea del usuario y guarda el reporte asociado a ese laboratorio.
 export async function postBugReport(req, res) {
     try {
         const { sessionid, title, description } = req.body;
@@ -25,6 +29,7 @@ export async function postBugReport(req, res) {
             return res.status(400).json({ message: 'El reporte excede el largo permitido' });
         }
 
+        // Verifica que la sesión exista y pertenezca al usuario antes de crear el reporte
         const session = await getSessionById(sessionid);
         assertOwnsSession(session, req.user);
 
@@ -42,14 +47,17 @@ export async function postBugReport(req, res) {
     }
 }
 
+// Este controlador se encarga de devolver el número de reportes pendientes por laboratorio.
 export async function getBugCounts(req, res) {
     try {
+        // Parsea la lista de labids del query, descartando valores no válidos y limitando a 50
         const labIds = String(req.query.labids || '')
             .split(',')
             .map((id) => Number(id))
             .filter((id) => Number.isInteger(id) && id > 0)
             .slice(0, 50);
 
+        // Un admin (rol 2) ve todos; un instructor solo los reportes de sus propios laboratorios
         const ownerId = req.user.role === 2 ? null : req.user.userid;
         const counts = await getPendingBugCounts(labIds, ownerId);
         res.json({ counts });
@@ -60,6 +68,7 @@ export async function getBugCounts(req, res) {
 }
 
 // GET /api/bugreports/lab/:labid  (instructor: solo sus labs / admin: todos)
+// Este controlador se encarga de listar los reportes de bugs de un laboratorio concreto.
 export async function getLabBugReports(req, res) {
     try {
         const reports = await getReportsForLab(Number(req.params.labid), req.user);
@@ -71,6 +80,7 @@ export async function getLabBugReports(req, res) {
 }
 
 // PATCH /api/bugreports/:bugreportid/status  body: { status: 0 | 1 }
+// Este controlador se encarga de cambiar el estado (pendiente/resuelto) de un reporte de bug.
 export async function patchBugReportStatus(req, res) {
     try {
         const result = await updateReportStatus(Number(req.params.bugreportid), req.body?.status, req.user);

@@ -1,7 +1,9 @@
+// Este archivo se encarga de reunir los datos de una sesión y dibujar, sección por sección, el PDF del reporte (resumen, historial de terminal e historial de procesos).
 import PDFDocument from 'pdfkit';
 import { supabase } from '../config/supabaseClient.js';
 
 
+// Estas constantes se encargan de definir la configuración de maquetado del PDF: zona horaria, tamaños, márgenes, fuentes y colores.
 const TIME_ZONE = 'America/Santiago';
 const DESCRIPTION_MAX = 300;
 
@@ -32,6 +34,7 @@ const COLORS = {
     headerBg: '#e9e9e9',
 };
 
+// Esta función se encarga de crear un Error con un código de estado HTTP asociado.
 function httpError(status, message) {
     const err = new Error(message);
     err.status = status;
@@ -39,21 +42,26 @@ function httpError(status, message) {
 }
 
 // se reune todo lo que necesita el reporte
+// Esta función se encarga de reunir desde Supabase todos los datos que necesita el reporte de una sesión (sesión, usuario, lab, trofeos, insignias e historiales).
 export async function getSessionReportData(sessionid) {
+    // Validación: el ID de sesión debe ser un entero positivo.
     const id = Number(sessionid);
     if (!Number.isInteger(id) || id <= 0) throw httpError(400, 'ID de sesión inválido');
 
+    // Consulta a Supabase la sesión con sus datos de usuario y laboratorio relacionados.
     const { data: session, error: sessionError } = await supabase
         .from('session')
         .select('sessionid, userid, labid, iscompleted, issolved, starttime, finishtime, failedflags, restartcount, capturedflag, users(username, firstname, lastname), lab(title, description, flag)')
         .eq('sessionid', id)
         .maybeSingle();
 
+    // Validación: la sesión debe existir y estar terminada para poder generar el reporte.
     if (sessionError) throw sessionError;
     if (!session) throw httpError(404, 'Sesión no encontrada');
     if (!session.iscompleted) throw httpError(409, 'El reporte estará disponible cuando la sesión termine');
 
     // trofeos e insignias ganados en la sesion
+    // Consultas a Supabase en paralelo: trofeos e insignias obtenidos en esta sesión.
     const [trophyResult, badgeResult] = await Promise.all([
         supabase
             .from('trophyuser')
@@ -70,6 +78,7 @@ export async function getSessionReportData(sessionid) {
     if (trophyResult.error) throw trophyResult.error;
     if (badgeResult.error) throw badgeResult.error;
 
+    // Consulta a Supabase el último reporte con los historiales de terminal y procesos de la sesión.
     const { data: report, error: reportError } = await supabase
         .from('report')
         .select('reportid, bashhistory, pidhistory')
@@ -80,11 +89,13 @@ export async function getSessionReportData(sessionid) {
 
     if (reportError) throw reportError;
 
+    // Aplana la relación, descarta nulos y ordena los trofeos por tipo (de mayor a menor) y luego por id.
     const trophies = trophyResult.data
         .map((row) => row.trophy)
         .filter(Boolean)
         .sort((a, b) => b.type - a.type || a.trophyid - b.trophyid);
 
+    // Igual que con los trofeos: aplana, limpia y ordena las insignias por rareza y luego por id.
     const badges = badgeResult.data
         .map((row) => row.badges)
         .filter(Boolean)
@@ -93,6 +104,7 @@ export async function getSessionReportData(sessionid) {
     return { session, user: session.users, lab: session.lab, trophies, badges, report };
 }
 
+// Esta función se encarga de formatear una fecha ISO como texto legible (día y hora) en la zona horaria de Chile.
 function formatDateTime(isoString) {
     if (!isoString) return '—';
     const date = new Date(isoString);
@@ -103,6 +115,7 @@ function formatDateTime(isoString) {
     return `${day}, ${time}`;
 }
 
+// Esta función se encarga de calcular y formatear la duración entre dos fechas como "h min s".
 function formatDuration(startIso, endIso) {
     const ms = new Date(endIso) - new Date(startIso);
     if (!Number.isFinite(ms) || ms < 0) return '—';
@@ -117,15 +130,18 @@ function formatDuration(startIso, endIso) {
         .join(' ');
 }
 
+// Esta función se encarga de normalizar espacios y recortar un texto al máximo de caracteres, añadiendo puntos suspensivos si lo supera.
 function truncate(text, max) {
     const clean = String(text ?? '').replace(/\s+/g, ' ').trim();
     return clean.length > max ? `${clean.slice(0, max - 1).trimEnd()}…` : clean;
 }
 
+// Esta función se encarga de devolver la coordenada Y a partir de la cual ya no cabe contenido en la página (sin invadir el pie).
 function bottomLimit() {
     return PAGE.height - MARGIN.bottom - FOOTER_HEIGHT;
 }
 
+// Esta función se encarga de saltar a una página nueva cuando el alto pedido no cabe en lo que queda de la actual.
 function ensureSpace(doc, height) {
     if (doc.y + height > bottomLimit()) {
         doc.addPage();
@@ -133,6 +149,7 @@ function ensureSpace(doc, height) {
     }
 }
 
+// Esta función se encarga de dibujar la cabecera de la portada: marca CyruxLabs, título y la caja de estado de la sesión.
 function drawHeader(doc, { statusLabel }) {
     const top = MARGIN.top;
     const left = MARGIN.left;
@@ -161,7 +178,9 @@ function drawHeader(doc, { statusLabel }) {
     doc.y = lineY + 14;
 }
 
+// Esta función se encarga de dibujar el pie de página con el nombre de usuario y la numeración "Página X de Y".
 function drawFooter(doc, { username, pageNumber, pageCount }) {
+    // Anula temporalmente el margen inferior para poder escribir el pie fuera del área de contenido.
     const previousBottom = doc.page.margins.bottom;
     doc.page.margins.bottom = 0;
 
@@ -177,6 +196,7 @@ function drawFooter(doc, { username, pageNumber, pageCount }) {
     doc.page.margins.bottom = previousBottom;
 }
 
+// Esta función se encarga de dibujar el título numerado de una sección (p. ej. "1. INFORMACIÓN DEL USUARIO").
 function drawSectionTitle(doc, number, title) {
     ensureSpace(doc, 40);
     doc.moveDown(0.6);
@@ -185,6 +205,7 @@ function drawSectionTitle(doc, number, title) {
     doc.y += 5;
 }
 
+// Esta función se encarga de dibujar un subtítulo en cursiva dentro de una sección.
 function drawSubTitle(doc, text) {
     ensureSpace(doc, 34);
     doc.y += 4;
@@ -192,6 +213,7 @@ function drawSubTitle(doc, text) {
     doc.y += 3;
 }
 
+// Esta función se encarga de dibujar una tabla de dos columnas (etiqueta y valor), ajustando el alto de cada fila a su contenido.
 function drawKeyValueTable(doc, rows) {
     const labelWidth = CONTENT_WIDTH * 0.34;
     const valueWidth = CONTENT_WIDTH - labelWidth;
@@ -202,6 +224,7 @@ function drawKeyValueTable(doc, rows) {
         const valueFont = mono ? FONTS.mono : FONTS.serif;
         const valueSize = mono ? 9 : 10.5;
 
+        // Mide etiqueta y valor para que la fila sea tan alta como el texto más largo de ambos.
         doc.font(valueFont).fontSize(valueSize);
         const valueHeight = doc.heightOfString(value, { width: valueWidth - padX * 2 });
         doc.font(FONTS.sans).fontSize(9);
@@ -224,11 +247,13 @@ function drawKeyValueTable(doc, rows) {
     });
 }
 
+// Esta función se encarga de dibujar una tabla de varias columnas con encabezado y filas, mostrando un texto alternativo cuando no hay datos.
 function drawListTable(doc, columns, rows, emptyText) {
     const padX = 7;
     const padY = 4;
     const widths = columns.map((c) => c.width * CONTENT_WIDTH);
 
+    // Esta constante se encarga de dibujar una fila (de encabezado o de datos) ajustando su alto al contenido.
     const drawRow = (cells, { header = false } = {}) => {
         const font = header ? FONTS.sansBold : FONTS.serif;
         const size = header ? 8 : 9.5;
@@ -256,8 +281,10 @@ function drawListTable(doc, columns, rows, emptyText) {
         doc.y = y + height;
     };
 
+    // Dibuja primero la fila de encabezado con los títulos en mayúsculas.
     drawRow(columns.map((c) => c.title.toUpperCase()), { header: true });
 
+    // Si no hay filas, muestra una única celda con el texto de "sin datos".
     if (rows.length === 0) {
         const height = 20;
         ensureSpace(doc, height);
@@ -274,6 +301,7 @@ function drawListTable(doc, columns, rows, emptyText) {
 
 // page1
 
+// Esta función se encarga de dibujar la primera página del reporte: cabecera, datos del usuario, del laboratorio, de la sesión y los trofeos e insignias obtenidos.
 function drawSummaryPage(doc, { session, user, lab, trophies, badges }, generatedAt) {
     const solved = !!session.issolved;
     const statusLabel = solved ? 'COMPLETADO' : 'NO COMPLETADO';
@@ -285,6 +313,7 @@ function drawSummaryPage(doc, { session, user, lab, trophies, badges }, generate
         .text(lab?.title ?? 'Laboratorio', MARGIN.left, doc.y, { width: CONTENT_WIDTH });
     doc.y += 6;
 
+    // Dibuja la franja superior con el ID de la sesión y la fecha de emisión del reporte.
     {
         const y = doc.y;
         const cells = [
@@ -336,6 +365,7 @@ function drawSummaryPage(doc, { session, user, lab, trophies, badges }, generate
     ]);
 
     // trofeos / insignias
+    // Sección 4: dos tablas, una con los trofeos y otra con las insignias ganadas en la sesión.
     drawSectionTitle(doc, 4, 'Trofeos e insignias obtenidos en esta sesión');
 
     drawSubTitle(doc, '4.1 Trofeos');
@@ -357,6 +387,7 @@ function drawSummaryPage(doc, { session, user, lab, trophies, badges }, generate
 
 // paginas de historial
 
+// Esta función se encarga de limpiar un texto para el PDF: quita códigos de color ANSI, convierte tabulaciones y reemplaza caracteres no imprimibles.
 function toPdfText(text) {
     return String(text ?? '')
         .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '') // colores ANSI
@@ -364,6 +395,7 @@ function toPdfText(text) {
         .replace(/[^\x20-\x7e\xa0-\xff]/g, '?');
 }
 
+// Esta función se encarga de partir un texto en líneas limpias, normalizando saltos y descartando las vacías.
 function toLines(text) {
     return String(text ?? '')
         .replace(/\r\n?/g, '\n')
@@ -372,6 +404,7 @@ function toLines(text) {
         .filter((line) => line.trim() !== '');
 }
 
+// Esta función se encarga de dibujar la cabecera simplificada (solo título) de las páginas de historial.
 function drawSimpleHeader(doc) {
     const top = MARGIN.top;
     const left = MARGIN.left;
@@ -387,6 +420,7 @@ function drawSimpleHeader(doc) {
     doc.y = lineY + 14;
 }
 
+// Esta función se encarga de dibujar una página (o varias) de historial dentro de un marco, repartiendo las líneas y paginando cuando se llena la hoja.
 function drawHistoryPage(doc, data, { title, registry, text, numbered, emptyText }) {
     const lines = toLines(text);
     const context = `${data.lab?.title ?? 'Laboratorio'} — ${data.user?.username ?? ''}`;
