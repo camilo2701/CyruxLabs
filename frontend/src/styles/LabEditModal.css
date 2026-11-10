@@ -55,7 +55,9 @@
   color: var(--lvm-accent);
 }
 
+/* Header, tabs and footer never shrink: only the body gives up space (and scrolls) */
 .lvm-header {
+  flex-shrink: 0;
   padding: 24px 32px 12px;
 }
 
@@ -80,10 +82,12 @@
 
 .lvm-tabs {
   display: flex;
+  flex-shrink: 0;
   gap: 4px;
   padding: 0 32px;
   border-bottom: 1px solid var(--lvm-border);
   overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .lvm-tab {
@@ -146,6 +150,7 @@
 
 .lvm-footer {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
