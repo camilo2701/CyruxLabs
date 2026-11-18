@@ -66,9 +66,6 @@ export async function getSessionById(sessionid) {
     return data;
 }
 
-// The trophies a session unlocked (only NEW ones are linked to it). The session page asks for them
-// when it finds out the session ended on its own, for example when an admin applied a lab update.
-// A problem reading them must never break the page, so it answers an empty list.
 // Esta función se encarga de devolver los trofeos que desbloqueó una sesión; si falla la
 // lectura responde con una lista vacía para no romper la página.
 export async function getSessionTrophies(sessionid) {
@@ -98,8 +95,6 @@ function labUpdatingError() {
     return err;
 }
 
-// The zip path is read again right before downloading, so a session never starts from a zip
-// that was replaced while the request was on its way
 // Esta función se encarga de leer la ruta actual del zip del laboratorio justo antes de
 // descargarlo, para que una sesión nunca arranque con un zip ya reemplazado.
 async function readCurrentZipPath(labid) {
@@ -119,8 +114,6 @@ async function readCurrentZipPath(labid) {
     return data.zippath;
 }
 
-// un lab eliminadono se puede iniciar ni reiniciar, pero las sesiones que ya
-// estaban en curso pueden terminarse
 // Esta función se encarga de comprobar que el laboratorio existe y no está eliminado;
 // lanza un 404 cuando ya no está disponible.
 async function assertLabAvailable(labid) {
@@ -299,7 +292,6 @@ export async function refreshStartStatus(session, logContext = {}, { verifyReady
     });
 
     if (changed) {
-        // Make sure nothing stays running on the VM (best effort)
         // Llamada al runner para asegurarse de que no quede nada corriendo en la VM (sin esperar respuesta).
         fetch(`${RUNNER_URL}/stop`, {
             method: 'POST',
@@ -328,8 +320,6 @@ export async function refreshStartStatus(session, logContext = {}, { verifyReady
     };
 }
 
-// A user has at most ONE open session per lab. If there is one, starting again takes the
-// user back to it (still starting, or ready). One that turns out to be dead is closed here.
 // Esta función se encarga de buscar la sesión abierta que un usuario ya tiene en un lab para
 // reutilizarla; si resulta estar muerta la cierra y devuelve null.
 async function findReusableSession({ labid, userid }, logContext) {
@@ -360,8 +350,6 @@ async function findReusableSession({ labid, userid }, logContext) {
     };
 }
 
-// A restart is a NEW attempt: the clock starts over, from the moment the new lab is ready.
-// Restarts are also counted (restartcount) for the report.
 // actor / ip: quién lo hace y desde dónde, solo para el registro de actividad
 // Esta función se encarga de reiniciar una sesión como un intento nuevo: pide al runner que
 // reconstruya el lab, guarda la evidencia del intento anterior y reinicia el reloj.
@@ -537,7 +525,6 @@ export async function startTrainingSession({ labid, userid, actor, ip }) {
             throw err;
         }
     } catch (err) {
-        // The runner never took the start: close the session so it can't block the user
         // El runner no aceptó el inicio: se cierra la sesión para que no bloquee al usuario.
         const { error: closeError } = await supabase
             .from('session')
@@ -577,13 +564,6 @@ export async function startTrainingSession({ labid, userid, actor, ip }) {
     };
 }
 
-// finishedAt defaults to "now", evaluated when this function is CALLED, so it is
-// taken before the runner starts tearing the containers down.
-// This is also where the trophies are judged and the XP is awarded, so it covers every way
-// a session can end.
-// A session that is still starting is a CANCEL: the runner kills the build, and there is
-// nothing to judge (no evidence, no trophies, no XP).
-// logContext = { actor, ip }: solo para el registro de actividad
 // Esta función se encarga de cerrar una sesión y, pase lo que pase, disparar al final la
 // revisión de actualizaciones pendientes del lab (sin esperarla y sin que pueda romper el cierre).
 export async function stopTrainingSession(sessionid, finishedAt = new Date().toISOString(), logContext = {}) {
